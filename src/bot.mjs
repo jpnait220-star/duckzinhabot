@@ -391,7 +391,7 @@ client.on(Events.MessageCreate,async message=>{
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,personality,channelContext]=await Promise.all([
+    const [member,facts,personality,channelContext,profileFacts,memorySaved]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
       getPersonality(),
