@@ -562,6 +562,9 @@ async function handleDuckButton(interaction){
     allowedMentions:{repliedUser:false,parse:[]}
   }).catch(err=>{console.warn('[Duckzinha] Falha ao enviar resultado pesquisado: '+err.message);return null});
   if(sent){
+    // Sem isso, a busca iniciada pelo botão não aparece nas próximas perguntas.
+    await addHistory(interaction.user.id,question,text,webFacts.results)
+      .catch(err=>console.warn('[Duckzinha] Histórico da pesquisa pelo botão: '+err.message));
     void schedule(sent).catch(()=>{});
     await interaction.editReply('Pesquisei e respondi no canal! 💛 Clique em **Ver fontes** para conferir os sites.');
   }else{
