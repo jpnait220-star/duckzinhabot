@@ -108,29 +108,41 @@ async function findReactionFile(type){
 }
 
 const lastImageByChannel=new Map();
-async function maybeSendImageReaction(message){
+async function maybeSendStickerReaction(message){
   const type=imageReactionKind(message.content);
   if(!type||replyingWithImage||!maySendImageReaction({
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,
     roll:type==='ola'?0:Math.random()
   }))return;
-  const file=await findReactionFile(type);
-  if(!file)return; // Sem artes personalizadas, não envia mensagens.
   replyingWithImage=true;
   try{
-    const member=message.guild.members.me||await message.guild.members.fetchMe();
-    if(!message.channel.permissionsFor(member)?.has([
-      PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,
-      PermissionFlagsBits.AttachFiles
-    ]))return;
-    const sent=await message.channel.send({
-      files:[file],allowedMentions:{parse:[]}
-    });
-    lastImageReactionAt=Date.now();
-    lastImageByChannel.set(message.channelId,lastImageReactionAt);
-    if(sent)void schedule(sent).catch(()=>{});
-  }catch(err){console.warn('[Duckzinha] Reação em imagem: '+err.message)}
+    const botMember=message.guild.members.me||await message.guild.members.fetchMe();
+    const permissions=message.channel.permissionsFor(botMember);
+    if(!permissions?.has(PermissionFlagsBits.ViewChannel))return;
+    // A sticker não pode ser usada como reação: o emoji reage à mensagem,
+    // a figurinha é enviada em resposta à mesma mensagem.
+    let completed=false;
+    if(permissions.has(PermissionFlagsBits.AddReactions)){
+      const emoji=emojiForReaction(type);
+      if(emoji)completed=Boolean(await message.react(emoji).catch(err=>{
+        console.warn('[Duckzinha] Reação emoji: '+err.message);return null;
+      }));
+    }
+    if(permissions.has(PermissionFlagsBits.SendMessages)){
+      const stickerId=await resolveDuckSticker(message.guild,type);
+      if(stickerId){
+        const sent=await message.reply({
+          stickers:[stickerId],allowedMentions:{repliedUser:false,parse:[]}
+        }).catch(err=>{console.warn('[Duckzinha] Figurinha: '+err.message);return null});
+        if(sent){completed=true;void schedule(sent).catch(()=>{});}
+      }
+    }
+    if(completed){
+      lastImageReactionAt=Date.now();
+      lastImageByChannel.set(message.channelId,lastImageReactionAt);
+    }
+  }catch(err){console.warn('[Duckzinha] Reação social: '+err.message)}
   finally{replyingWithImage=false;}
 }
 
@@ -419,7 +431,7 @@ client.on(Events.MessageCreate,async message=>{
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
   if(!mentioned&&!confirmation&&!explaining){
-    if(isPublic&&!candidate)void maybeSendImageReaction(message);
+    if(isPublic&&!candidate)void maybeSendStickerReaction(message);
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
