@@ -14,11 +14,14 @@ const choice=[
 
 export function commandPayloads(){
   const list=choice.map(([name,description])=>new SlashCommandBuilder().setName(name).setDescription(description).setDMPermission(false).toJSON());
-  list.push(new SlashCommandBuilder().setName('memoria').setDescription('Controle o que a Duckzinha lembra de você')
-    .addSubcommand(s=>s.setName('ativar').setDescription('Autorizar lembrar seu nome quando você se apresentar'))
-    .addSubcommand(s=>s.setName('ver').setDescription('Ver o nome que ela guardou sobre você'))
-    .addSubcommand(s=>s.setName('apagar').setDescription('Apagar seus dados da memória e desativar'))
-    .toJSON());
+  list.push(new SlashCommandBuilder().setName('duckzinha').setDescription('Memória da Duckzinha')
+    .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
+    .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
+    .setDMPermission(false).toJSON());
+  list.push(new SlashCommandBuilder().setName('configurar')
+    .setDescription('Enviar um TXT com a personalidade da Duckzinha (admin)')
+    .addAttachmentOption(x=>x.setName('arquivo').setDescription('Arquivo .txt com até 8 mil caracteres').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('ensinar').setDescription('Ensinar um assunto à Duckzinha (admin)')
     .addStringOption(o=>o.setName('assunto').setDescription('Palavra-chave, exemplo boxpvp').setRequired(true).setMaxLength(50))
     .addStringOption(o=>o.setName('texto').setDescription('Explicação que ela poderá usar').setRequired(true).setMaxLength(1000))
@@ -32,10 +35,10 @@ export function commandPayloads(){
 }
 
 export const embed=(title,description)=>new EmbedBuilder().setColor(gold).setTitle(title).setDescription(description).setFooter({text:'Duckzinha • DuckzinCommunity 🦆💛'});
-export async function runCommand(interaction,{store,site,panelId,schedule,localKnowledge,client}){
+export async function runCommand(interaction,{store,site,panelId,schedule,localKnowledge,client,clearSession,invalidatePersonality}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
-  const ephemeral=cmd==='memoria'||cmd==='ensinar'||cmd==='ensinamentos';
+  const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
   async function respond(payload,privateReply=ephemeral){
     const options=typeof payload==='string'?{content:payload}:payload;
     const sent=await interaction.reply({...options,allowedMentions:{parse:[]},...(privateReply?{flags:MessageFlags.Ephemeral}:{withResponse:true})});
@@ -44,19 +47,48 @@ export async function runCommand(interaction,{store,site,panelId,schedule,localK
       if(message)void schedule(message);
     }
   }
-  if(cmd==='memoria'){
+  if(cmd==='configurar'){
+    if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
+      return respond('Apenas administradores podem configurar minha personalidade.',true);
+    if(!store.persistent)return respond('Configure o Supabase para guardar a personalidade.',true);
+    const file=interaction.options.getAttachment('arquivo',true);
+    if(!file.name?.toLowerCase().endsWith('.txt'))
+      return respond('Envie um arquivo .txt de texto simples.',true);
+    if(!Number.isSafeInteger(file.size)||file.size<1||file.size>12000)
+      return respond('O arquivo precisa ter no máximo 12 KB.',true);
+    const url=new URL(file.url);
+    if(url.protocol!=='https:'||!['cdn.discordapp.com','media.discordapp.net'].includes(url.hostname))
+      return respond('Anexe o TXT diretamente pelo Discord.',true);
+    await interaction.deferReply({flags:MessageFlags.Ephemeral});
+    let prompt;
+    try{
+      const r=await fetch(url,{signal:AbortSignal.timeout(10000)});
+      if(!r.ok)throw Error('HTTP '+r.status);
+      const bytes=await r.arrayBuffer();
+      if(bytes.byteLength>12000)throw Error('Arquivo muito grande');
+      prompt=new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/^\uFEFF/,'').trim();
+    }catch(err){
+      return interaction.editReply('Não consegui ler o arquivo TXT em UTF-8. Envie novamente.');
+    }
+    if(!prompt||prompt.length>8000||/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(prompt))
+      return interaction.editReply('O prompt precisa ser texto simples e ter até 8 mil caracteres.');
+    await store.setPersonalityPrompt(prompt,interaction.user.id);
+    invalidatePersonality();
+    return interaction.editReply('Personalidade atualizada! O TXT foi salvo no Supabase e continuará ativo depois de reiniciar.');
+  }
+  if(cmd==='duckzinha'){
+    if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     const sub=interaction.options.getSubcommand();
-    if(!store.persistent)return respond('🔒 A memória ainda não foi ligada no Supabase. Os comandos de conversa continuam funcionando!');
-    if(sub==='ativar'){
-      await store.setMemoryEnabled(interaction.user.id,true);
-      return respond('💛 Prontinho! Agora, quando você **me mencionar e disser seu nome**, posso lembrar dele em outras conversas. Use `/memoria apagar` quando quiser remover tudo. Não guardo as conversas inteiras.');
+    if(sub==='apagar-me'){
+      await store.forgetSelf(interaction.user.id);
+      clearSession(interaction.user.id);
+      return respond('Seu nome e histórico de conversa foram apagados.',true);
     }
-    if(sub==='apagar'){
-      await store.forget(interaction.user.id);
-      return respond('🧹 Tudo que eu tinha guardado sobre você foi apagado! Prometidinho 💛');
-    }
-    const row=await store.getMember(interaction.user.id);
-    return respond(row?.enabled?`🦆 Sua memória está ativada. Nome guardado: **${row.preferred_name||'nenhum ainda'}**. Para apagar: \`/memoria apagar\`.`:'💛 Sua memória está desativada. Nada foi guardado.');
+    if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
+      return respond('Apenas administradores podem executar /duckzinha reset.',true);
+    await store.resetMemory();
+    clearSession();
+    return respond('Memória de nomes e conversas apagada. A personalidade e os ensinamentos permanecem salvos.',true);
   }
   if(cmd==='ensinar'||cmd==='ensinamentos'){
     if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))return respond('Esse comando é só da equipe, tá? 💛',true);
@@ -99,7 +131,7 @@ export async function runCommand(interaction,{store,site,panelId,schedule,localK
   if(cmd==='boxpvp')return respond({embeds:[embed('🎮 BoxPvP? W demais!',
     'BoxPvP é um PvP de Minecraft com mapas em caixas, minas de vários temas, kits muito fortes, elytras e até jaulas de vidro em alguns servidores!\n\n💛 Na comunidade, **W** pode ser uma reação de admiração e **GG** pode significar um bom jogo.\n\nExemplos de servidores conhecidos por essa comunidade: BawMC e RaizuMC. As regras podem mudar em cada servidor!') ]});
   if(cmd==='faq')return respond({embeds:[embed('❓ Perguntinhas frequentes',
-    `**Como baixar?** Entre em ${site}, abra um projeto e escolha a versão disponível.\n\n**Meu download não funciona!** Abra um ticket e aguarde um atendente humano.\n\n**Como falo com você?** Me mencione no servidor: \`@Duckzinha oi!\`.\n\n**Você lembra das pessoas?** Só guardo seu nome se você ativar em \`/memoria ativar\`, e você pode apagar quando quiser!`)]});
+    `**Como baixar?** Entre em ${site}, abra um projeto e escolha a versão disponível.\n\n**Meu download não funciona!** Abra um ticket e aguarde um atendente humano.\n\n**Como falo com você?** Me mencione no servidor: \`@Duckzinha oi!\`.\n\n**Você lembra das pessoas?** Guardo um histórico curto de conversa, e você pode apagar com \`/duckzinha apagar-me\`!`)]});
   if(cmd==='sobre')return respond({embeds:[embed('🦆 Oiee, eu sou a Duckzinha!',
     'Sou a ajudante virtual do DuckzinCommunity! 💛 Gosto de explicar as coisas com calma, usar uns emojis e conhecer os gostos de jogos do pessoal. KKKKK ✨\n\nNão sou parte da equipe humana de suporte, mas posso te encaminhar ao painel de tickets!') ]});
   if(cmd==='ping')return respond('🏓 Pong! Minha conexão com o Discord está em **'+Math.max(0,Math.round(client.ws.ping))+'ms**. Tô vivinha aqui! 🦆💛');
