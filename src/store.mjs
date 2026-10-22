@@ -11,6 +11,57 @@ export class DuckStore {
     if(error)throw new Error('Banco da Duckzinha indisponível: '+error.message);
     return data;
   }
+  async getConversation(discordId) {
+    if(!this.db)return [];
+    const row=await this.requireResult(this.db.from('duckzinha_conversations')
+      .select('history,expires_at').eq('guild_id',this.guildId)
+      .eq('discord_user_id',discordId).maybeSingle());
+    if(!row||Date.parse(row.expires_at)<=Date.now())return [];
+    return Array.isArray(row.history)?row.history.slice(-12)
+      .filter(item=>['user','assistant'].includes(item?.role)&&typeof item.content==='string')
+      .map(item=>({role:item.role,content:item.content.slice(0,850)})):[];
+  }
+  async saveConversation(discordId,items) {
+    if(!this.db)return;
+    const history=items.slice(-12).filter(item=>['user','assistant'].includes(item?.role)&&typeof item.content==='string')
+      .map(item=>({role:item.role,content:item.content.slice(0,850)}));
+    await this.requireResult(this.db.from('duckzinha_conversations').upsert({
+      guild_id:this.guildId,discord_user_id:discordId,history,
+      updated_at:new Date().toISOString(),
+      expires_at:new Date(Date.now()+14*86400000).toISOString()
+    },{onConflict:'guild_id,discord_user_id'}));
+  }
+  async forgetSelf(discordId) {
+    if(!this.db)throw Error('Supabase não configurado.');
+    await this.requireResult(this.db.from('duckzinha_conversations').delete()
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
+    await this.requireResult(this.db.from('duckzinha_memory').delete()
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
+  }
+  async resetMemory() {
+    if(!this.db)throw Error('Supabase não configurado.');
+    await this.requireResult(this.db.from('duckzinha_conversations').delete().eq('guild_id',this.guildId));
+    await this.requireResult(this.db.from('duckzinha_memory').delete().eq('guild_id',this.guildId));
+  }
+  async cleanupConversations() {
+    if(!this.db)return;
+    await this.requireResult(this.db.from('duckzinha_conversations').delete()
+      .eq('guild_id',this.guildId).lt('expires_at',new Date().toISOString()));
+  }
+  async getPersonalityPrompt() {
+    if(!this.db)return '';
+    const row=await this.requireResult(this.db.from('duckzinha_config')
+      .select('personality_prompt').eq('guild_id',this.guildId).maybeSingle());
+    return typeof row?.personality_prompt==='string'?row.personality_prompt:'';
+  }
+  async setPersonalityPrompt(prompt,adminId) {
+    if(!this.db)throw Error('Supabase não configurado.');
+    if(typeof prompt!=='string'||!prompt.trim()||prompt.length>8000)throw Error('O prompt deve conter até 8000 caracteres.');
+    await this.requireResult(this.db.from('duckzinha_config').upsert({
+      guild_id:this.guildId,personality_prompt:prompt.trim(),updated_by:adminId,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id'}));
+  }
   async getMember(discordId) {
     if(!this.db)return null;
     return await this.requireResult(this.db.from('duckzinha_memory').select('enabled,preferred_name')
@@ -22,8 +73,10 @@ export class DuckStore {
   }
   async rememberName(discordId,name) {
     if(!this.db)return;
-    await this.requireResult(this.db.from('duckzinha_memory').update({preferred_name:name,updated_at:new Date().toISOString()})
-      .eq('guild_id',this.guildId).eq('discord_user_id',discordId).eq('enabled',true));
+    await this.requireResult(this.db.from('duckzinha_memory').upsert({
+      guild_id:this.guildId,discord_user_id:discordId,enabled:true,preferred_name:name,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id,discord_user_id'}));
   }
   async forget(discordId) {
     if(!this.db)throw Error('Memória persistente ainda não configurada.');
