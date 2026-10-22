@@ -7,7 +7,8 @@ export function captureCandidate(input,{mentioned=false,isStaff=false}={}){
   const message=(directive?.[1]||raw).replace(/[.!?]+$/,'').trim();
   if(isStaff&&directive&&/^(?:o|a|no|na|nosso|nossa)\s+(?:servidor|server|sv|comunidade)\b/i.test(message))
     return {kind:'server',key:'servidor',value:message.slice(0,180)};
-  if(!mentioned&&!directive)return null;
+  // Preferências pessoais só são persistidas a pedido expresso do próprio autor.
+  if(!directive)return null;
   const allowed=/^(?:meu jogo favorito (?:[ée]|eh)|minha cor favorita (?:[ée]|eh)|meu hobby (?:[ée]|eh)|meu anime favorito (?:[ée]|eh)|eu gosto de (?:jogar|minecraft|anime|desenhar|programar)|eu curto (?:jogar|minecraft|anime|desenhar|programar))(?:\s|$)/i;
   if(!allowed.test(message))return null;
   const key=/^meu jogo/i.test(message)?'jogo':/^minha cor/i.test(message)?'cor':/^meu hobby/i.test(message)?'hobby':/^meu anime/i.test(message)?'anime':'interesse';
