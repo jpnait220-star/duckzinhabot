@@ -9,8 +9,8 @@ export function captureCandidate(input,{mentioned=false,isStaff=false}={}){
     return {kind:'server',key:'servidor',value:message.slice(0,180)};
   // Preferências pessoais só são persistidas a pedido expresso do próprio autor.
   if(!directive)return null;
-  const allowed=/^(?:meu jogo favorito (?:[ée]|eh)|minha cor favorita (?:[ée]|eh)|meu hobby (?:[ée]|eh)|meu anime favorito (?:[ée]|eh)|eu gosto de (?:jogar|minecraft|anime|desenhar|programar)|eu curto (?:jogar|minecraft|anime|desenhar|programar))(?:\s|$)/i;
+  const allowed=/^(?:meu jogo favorito (?:[ée]|eh)|minha cor favorita (?:[ée]|eh)|meu hobby (?:[ée]|eh)|meu anime favorito (?:[ée]|eh)|eu gosto de (?:jogar|minecraft|anime|desenhar|programar)|eu curto (?:jogar|minecraft|anime|desenhar|programar)|meu bord[aã]o (?:[ée]|eh)|minha piada favorita (?:[ée]|eh))(?:\s|$)/i;
   if(!allowed.test(message))return null;
-  const key=/^meu jogo/i.test(message)?'jogo':/^minha cor/i.test(message)?'cor':/^meu hobby/i.test(message)?'hobby':/^meu anime/i.test(message)?'anime':'interesse';
+  const key=/^meu jogo/i.test(message)?'jogo':/^minha cor/i.test(message)?'cor':/^meu hobby/i.test(message)?'hobby':/^meu anime/i.test(message)?'anime':/^meu bord[aã]o/i.test(message)?'bordao':/^minha piada/i.test(message)?'piada':'interesse';
   return {kind:'self',key,value:message.slice(0,140)};
 }
