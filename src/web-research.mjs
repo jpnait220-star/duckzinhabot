@@ -11,6 +11,12 @@ export function uncertainty(answer){
   return text.includes('[pesquisa_necessaria]') ||
     /\b(nao sei|nao conheco|nao tenho certeza|nao tenho informacoes|nao tenho dados|nao encontrei|nao consigo confirmar|nao posso afirmar|nao sei dizer)\b/i.test(text);
 }
+// Quando a busca teve resultados, nunca permitir que a IA alegue que ela não foi configurada.
+export function answerIgnoresWebResults(answer){
+  const text=simplify(answer);
+  if(!text||uncertainty(text))return true;
+  return /(?:nao (?:consigo|posso|tenho acesso)).{0,90}(?:pesquis|busca|internet|web)|(?:pesquis|busca|internet|web|tavily|serper).{0,90}(?:nao (?:esta|ta|foi) configurad|sem (?:acesso|configuracao)|indisponivel|nao (?:consigo|posso)|falhou)|(?:configure|configurar).{0,90}(?:tavily|serper|api_key)/i.test(text);
+}
 export function decision(text){
   const t=simplify(text).replace(/[!?.]+$/g,'').trim();
   if(/^(sim|s|pode|pode sim|claro|quero|vai|procura|pesquisa|pesquise|por favor|bora|faz isso|pode pesquisar)$/.test(t))return 'yes';
