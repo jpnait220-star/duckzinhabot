@@ -506,6 +506,8 @@ client.on(Events.MessageCreate,async message=>{
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
       if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
+      if(isPublic&&member?.enabled!==false)
+        void store.incrementFamiliarity(id).catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
       // Never wait for background database writes before releasing the user.
       if((modelReady&&aiAnswered)||(searching&&webFacts?.status==='ok'))
         void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
