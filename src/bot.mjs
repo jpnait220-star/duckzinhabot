@@ -82,7 +82,8 @@ async function maybeSendImageReaction(message){
   const type=imageReactionKind(message.content);
   if(!type||replyingWithImage||!maySendImageReaction({
     now:Date.now(),lastGlobal:lastImageReactionAt,
-    lastChannel:lastImageByChannel.get(message.channelId)||0,roll:Math.random()
+    lastChannel:lastImageByChannel.get(message.channelId)||0,
+    roll:type==='ola'?0:Math.random()
   }))return;
   const file=await findReactionFile(type);
   if(!file)return; // Sem artes personalizadas, não envia mensagens.
