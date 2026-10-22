@@ -10,6 +10,7 @@ export function imageReactionKind(message){
   const text=String(message||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   if(!text||text.length>180||/https?:\/\/|@everyone|@here/.test(text))return null;
   if(/\b(ajuda|urgente|erro|bug|problema|triste|socorro|medo|ansiedade|morreu|doente|chorei)\b/.test(text))return null;
+  if(/^(?:oi+e*|oie+|ola+|opa+|eai+|salve|bom dia|boa tarde|boa noite)(?:[!?. ,]|$)/.test(text))return 'ola';
   if(/(?:\b(?:kkkk+|rsrs+|hahaha+|hehehe+|mds kkk|morri de rir)\b|😂|🤣)/.test(text))return 'riso';
   if(/(?:\b(?:gg|ganhamos|vencemos|conseguimos|boa demais|w demais)\b|🎉|🏆)/.test(text))return 'gg';
   if(/(?:\b(?:que susto|nao acredito|eita|caraca|meu deus)\b|😱|😮)/.test(text))return 'surpresa';
