@@ -4,6 +4,7 @@ import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits} from '
 import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
+import {wikipediaResearch} from './research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -233,11 +234,15 @@ client.on(Events.MessageCreate,async message=>{
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,personality,channelContext]=await Promise.all([
+    const [member,facts,personality,channelContext,webFact]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
       getPersonality(),
-      getChannelConversation(message)
+      getChannelConversation(message),
+      wikipediaResearch(question).catch(err=>{
+        console.warn('[Duckzinha] Pesquisa na Wikipédia indisponível: '+err.message);
+        return null;
+      })
     ]);
     // Se o histórico coletivo não estiver disponível, usa o histórico pessoal
     // como alternativa, sem misturar os dois contextos.
@@ -253,14 +258,16 @@ client.on(Events.MessageCreate,async message=>{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
           question,history:channelContext?[]:history,channelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
-          customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName});
+          customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
+          research:webFact?webFact.title+': '+webFact.summary:''});
         aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
     }
-    answer=safeResponse(answer||cannedAnswer(question,facts))||'Oiee! 💛 Pode explicar um pouquinho melhor?';
+    answer=safeResponse(answer||(webFact?webFact.summary:cannedAnswer(question,facts)))||'Oiee! 💛 Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
+    if(webFact)answer=answer.slice(0,1700)+'\n\nFonte: <'+webFact.url+'>';
     const sent=await message.reply({content:answer.slice(0,1900),allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(sent){
       // Never wait for background database writes before releasing the user.
