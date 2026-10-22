@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
+import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
 import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
