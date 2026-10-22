@@ -33,11 +33,11 @@ function publicChannel(message){
     c.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel));
 }
 function makeTurn(message){
-  const clean=String(message.content||'').replace(/<@!?(\\d+)>/g,(_,id)=>{
+  const clean=String(message.content||'').replace(/<@!?(\d+)>/g,(_,id)=>{
     const u=message.mentions?.users?.get?.(id);
     return '@'+(u?.globalName||u?.username||'membro');
-  }).replace(/https?:\\/\\/\\S+/gi,'[link]').replace(/@everyone|@here/gi,'@grupo')
-    .replace(/\\s+/g,' ').trim().slice(0,320);
+  }).replace(/https?:\/\/\S+/gi,'[link]').replace(/@everyone|@here/gi,'@grupo')
+    .replace(/\s+/g,' ').trim().slice(0,320);
   return {id:message.id,authorId:message.author.id,
     speaker:String(message.member?.displayName||message.author.globalName||message.author.username).slice(0,36),
     channelId:message.channelId,channel:String(message.channel?.name||'geral').slice(0,36),
@@ -59,7 +59,7 @@ function currentServerContext(currentMessageId){
   }
   return [...unique.values()].sort((a,b)=>a.timestamp-b.timestamp)
     .slice(-26).map(m=>'[#'+m.channel+'] '+m.speaker+': '+m.text)
-    .join('\\n').slice(-6500);
+    .join('\n').slice(-6500);
 }
 function commitSharedChange(transform){
   sharedWrite=sharedWrite.catch(()=>{}).then(async()=>{
