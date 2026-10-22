@@ -77,7 +77,7 @@ export function followUpReference(question,history=[]) {
     previous+'". Interprete expressões como "e o jogo?", "e o filme?", "e ele?" ou "e a história?" relacionadas ao assunto anterior, mesmo que o nome não tenha sido repetido. Se antes falavam de "Cyberpunk" e agora a pessoa diz "e o jogo?", ela está perguntando sobre o jogo da franquia Cyberpunk, especialmente Cyberpunk 2077. Não mude de assunto sozinho. Se ainda estiver ambíguo, pergunte de forma simples.';
 }
 
-export async function askCloudflare({accountId,token,model=MODEL,question,history=[],knowledge='',name='',customPersonality='',channelContext='',speaker='',research=''}) {
+export async function askCloudflare({accountId,token,model=MODEL,question,history=[],knowledge='',name='',profileFacts='',customPersonality='',channelContext='',speaker='',research=''}) {
   if(!accountId||!token)return null;
   const timeout=AbortSignal.timeout(18000);
   const context=(knowledge||'').slice(0,3700);
