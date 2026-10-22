@@ -1,11 +1,12 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
-import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits} from 'discord.js';
+import {randomUUID} from 'node:crypto';
+import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
-import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults} from './web-research.mjs';
+import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -25,7 +26,31 @@ const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTE
 
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
-const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map();
+const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
+
+// Cada botão de fontes tem ID temporário próprio, visível em qualquer resposta pesquisada.
+function sourcesButton(results){
+  const id=randomUUID();
+  researchSources.set(id,{sources:results.slice(0,4),expires:Date.now()+DELETE_AFTER});
+  return {id,row:new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('duck:sources:'+id)
+      .setLabel('Ver fontes').setEmoji('📚').setStyle(ButtonStyle.Secondary)
+  )};
+}
+function unknownButtons(userId){
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('duck:explain:'+userId).setLabel('Eu explico')
+      .setEmoji('💬').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('duck:search:'+userId).setLabel('Pesquisar')
+      .setEmoji('🔎').setStyle(ButtonStyle.Primary)
+  );
+}
+function pruneSourceCache(){
+  const now=Date.now();
+  for(const [key,value] of researchSources)if(value.expires<=now)researchSources.delete(key);
+  for(const [key,value] of pendingResearch)if(now-value.at>10*60_000)pendingResearch.delete(key);
+}
+
 const serverRecent=[]; // Conversa recente dos canais públicos, só em RAM.
 let sharedTurns=[],sharedReady=Promise.resolve(),sharedWrite=Promise.resolve();
 const CHAT_AGE=48*60*60_000;
