@@ -90,10 +90,14 @@ export async function askCloudflare({accountId,token,model=MODEL,question,histor
   // GLM-4.7-Flash habilita raciocínio por padrão. No modo chat do Discord
   // pode gastar todos os tokens em raciocínio sem produzir texto visível.
   const isGLM=model==='@cf/zai-org/glm-4.7-flash';
+  const isGemma4=model.startsWith('@cf/google/gemma-4-');
+  // Evita que modelos de raciocínio gastem todos os tokens com pensamento interno,
+  // sem deixar resposta visível. A Cloudflare recomenda isso para Gemma 4.
   const payload={
-    model,messages,max_completion_tokens:isGLM?1024:650,
+    model,messages,max_completion_tokens:isGLM||isGemma4?1024:650,
     temperature:0.6,stream:false,
-    ...(isGLM?{chat_template_kwargs:{enable_thinking:false,clear_thinking:true}}:{})
+    ...(isGLM?{chat_template_kwargs:{enable_thinking:false,clear_thinking:true}}:{}),
+    ...(isGemma4?{chat_template_kwargs:{enable_thinking:false}}:{})
   };
   const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,{
     method:'POST',signal:timeout,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
