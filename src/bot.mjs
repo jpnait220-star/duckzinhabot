@@ -20,6 +20,7 @@ const CF_ACCOUNT=process.env.CF_ACCOUNT_ID?.trim()||'';
 const CF_TOKEN=process.env.CF_API_TOKEN?.trim()||'';
 const CF_MODEL=process.env.CF_MODEL?.trim()||MODEL;
 const TAVILY_KEY=process.env.TAVILY_API_KEY?.trim()||'';
+const SERPER_KEY=process.env.SERPER_API_KEY?.trim()||'';
 const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTES)||20))*60_000;
 
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
@@ -268,7 +269,8 @@ client.on(Events.MessageCreate,async message=>{
     const searching=confirmation||wantsWebResearch(question);
     let webFacts=null,searchError=null;
     if(searching){
-      try{webFacts=await broadWebSearch(researchTopic(question)||question,TAVILY_KEY)}
+      try{webFacts=await broadWebSearch(researchTopic(question)||question,TAVILY_KEY,SERPER_KEY);
+        if(webFacts.provider)console.log('[Duckzinha] Pesquisa via '+webFacts.provider+'.')}
       catch(err){searchError=err;console.warn('[Duckzinha] Pesquisa web: '+err.message)}
     }
     const modelReady=Boolean(CF_ACCOUNT&&CF_TOKEN);
@@ -284,7 +286,7 @@ client.on(Events.MessageCreate,async message=>{
     }
     if(searching&&searchError)answer='A pesquisa na web falhou agora. Pode tentar de novo mais tarde?';
     else if(searching&&webFacts?.status==='not_configured')
-      answer='Ainda não tenho pesquisa web ampla configurada. Um administrador precisa adicionar TAVILY_API_KEY na hospedagem.';
+      answer='A pesquisa web ainda não está configurada. Configure TAVILY_API_KEY e/ou SERPER_API_KEY na hospedagem.';
     else if(searching&&webFacts?.status!=='ok')
       answer='Procurei na web, mas não encontrei resultados suficientes para confirmar isso.';
     else if(searching&&webFacts?.status==='ok'){
