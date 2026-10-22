@@ -170,13 +170,15 @@ client.on(Events.MessageCreate,async message=>{
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,history,personality,channelContext]=await Promise.all([
+    const [member,facts,personality,channelContext]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
-      getHistory(id),
       getPersonality(),
       getChannelConversation(message)
     ]);
+    // Se o histórico coletivo não estiver disponível, usa o histórico pessoal
+    // como alternativa, sem misturar os dois contextos.
+    const history=channelContext?[]:await getHistory(id);
     const newName=pickName(question);
     if(newName&&newName!==member?.preferred_name)
       void store.rememberName(id,newName).catch(err=>console.warn('[Duckzinha] Salvar nome: '+err.message));
