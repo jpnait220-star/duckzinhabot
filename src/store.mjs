@@ -59,6 +59,9 @@ export class DuckStore {
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
     await this.requireResult(this.db.from('duckzinha_memory').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
+    await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
+      console.warn('[Duckzinha] Fatos pessoais: '+err.message));
   }
   async resetMemory() {
     if(!this.db)throw Error('Supabase não configurado.');
