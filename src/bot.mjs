@@ -65,6 +65,39 @@ function pruneSourceCache(){
   for(const [key,value] of pendingResearch)if(now-value.at>10*60_000)pendingResearch.delete(key);
 }
 
+// Reações de imagem usam artes fornecidas pelo administrador, nunca imagens geradas automaticamente.
+let lastImageReactionAt=0,replyingWithImage=false;
+const lastImageByChannel=new Map();
+async function maybeSendImageReaction(message){
+  const type=imageReactionKind(message.content);
+  if(!type||replyingWithImage||!maySendImageReaction({
+    now:Date.now(),lastGlobal:lastImageReactionAt,
+    lastChannel:lastImageByChannel.get(message.channelId)||0,roll:Math.random()
+  }))return;
+  let file;
+  for(const extension of ['png','webp','gif']){
+    const path=fileURLToPath(new URL('../assets/reactions/'+type+'.'+extension,import.meta.url));
+    const info=await fs.stat(path).catch(()=>null);
+    if(info?.isFile()&&info.size>0&&info.size<=2*1024*1024){file=path;break;}
+  }
+  if(!file)return; // Sem artes personalizadas, não envia mensagens.
+  replyingWithImage=true;
+  try{
+    const member=message.guild.members.me||await message.guild.members.fetchMe();
+    if(!message.channel.permissionsFor(member)?.has([
+      PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.AttachFiles
+    ]))return;
+    const sent=await message.channel.send({
+      files:[file],allowedMentions:{parse:[]}
+    });
+    lastImageReactionAt=Date.now();
+    lastImageByChannel.set(message.channelId,lastImageReactionAt);
+    if(sent)void schedule(sent).catch(()=>{});
+  }catch(err){console.warn('[Duckzinha] Reação em imagem: '+err.message)}
+  finally{replyingWithImage=false;}
+}
+
 const serverRecent=[]; // Conversa recente dos canais públicos, só em RAM.
 let sharedTurns=[],sharedReady=Promise.resolve(),sharedWrite=Promise.resolve();
 const CHAT_AGE=48*60*60_000;
