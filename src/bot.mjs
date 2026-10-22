@@ -5,7 +5,7 @@ import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
-import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision} from './web-research.mjs';
+import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -290,9 +290,14 @@ client.on(Events.MessageCreate,async message=>{
     else if(searching&&webFacts?.status!=='ok')
       answer='Procurei na web, mas não encontrei resultados suficientes para confirmar isso.';
     else if(searching&&webFacts?.status==='ok'){
-      answer=uncertainty(answer)?null:answer;
-      if(!answer)answer='Encontrei estas informações: '+webFacts.results.slice(0,2)
-        .map(item=>item.title+': '+item.summary).join(' ');
+      // A pesquisa realmente ocorreu. Algumas IAs repetem mensagens antigas
+      // sobre chaves não configuradas mesmo recebendo resultados da web.
+      if(answerIgnoresWebResults(answer)){
+        console.warn('[Duckzinha] IA ignorou a pesquisa concluída; usando resumos das fontes.');
+        answer=null;
+      }
+      if(!answer)answer='Encontrei estas informações nas páginas consultadas: '+
+        webFacts.results.slice(0,2).map(item=>item.title+': '+item.summary).join(' ');
     }
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
