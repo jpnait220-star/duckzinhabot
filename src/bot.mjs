@@ -22,6 +22,69 @@ const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTE
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
 const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map();
+const serverRecent=[]; // Conversa recente dos canais públicos, só em RAM.
+let sharedTurns=[],sharedReady=Promise.resolve(),sharedWrite=Promise.resolve();
+const CHAT_AGE=48*60*60_000;
+function publicChannel(message){
+  const c=message.channel;
+  const everyone=message.guild?.roles?.everyone;
+  return Boolean(everyone&&c?.isTextBased?.()&&!c.isThread?.()&&!c.nsfw&&
+    !/(ticket|staff|admin|moder|denuncia|suporte|atendimento|logs?)/i.test(c.name||'')&&
+    c.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel));
+}
+function makeTurn(message){
+  const clean=String(message.content||'').replace(/<@!?(\\d+)>/g,(_,id)=>{
+    const u=message.mentions?.users?.get?.(id);
+    return '@'+(u?.globalName||u?.username||'membro');
+  }).replace(/https?:\\/\\/\\S+/gi,'[link]').replace(/@everyone|@here/gi,'@grupo')
+    .replace(/\\s+/g,' ').trim().slice(0,320);
+  return {id:message.id,authorId:message.author.id,
+    speaker:String(message.member?.displayName||message.author.globalName||message.author.username).slice(0,36),
+    channelId:message.channelId,channel:String(message.channel?.name||'geral').slice(0,36),
+    text:clean,timestamp:message.createdTimestamp||Date.now()};
+}
+function addRecent(message){
+  if(!publicChannel(message)||!message.content?.trim())return false;
+  serverRecent.push(makeTurn(message));
+  const cutoff=Date.now()-CHAT_AGE;
+  while(serverRecent.length>100||serverRecent[0]?.timestamp<cutoff)serverRecent.shift();
+  return true;
+}
+function currentServerContext(currentMessageId){
+  const since=Date.now()-CHAT_AGE;
+  const unique=new Map();
+  for(const m of [...sharedTurns,...serverRecent]){
+    if(m?.id&&m.id!==currentMessageId&&m.timestamp>=since&&m.text)
+      unique.set(m.id,m);
+  }
+  return [...unique.values()].sort((a,b)=>a.timestamp-b.timestamp)
+    .slice(-26).map(m=>'[#'+m.channel+'] '+m.speaker+': '+m.text)
+    .join('\\n').slice(-6500);
+}
+function commitSharedChange(transform){
+  sharedWrite=sharedWrite.catch(()=>{}).then(async()=>{
+    await sharedReady;
+    sharedTurns=transform(sharedTurns).slice(-80);
+    await store.saveSharedContext(sharedTurns);
+  });
+  return sharedWrite;
+}
+async function saveSharedExchange(message,reply){
+  if(!publicChannel(message))return;
+  const user=makeTurn(message);
+  const answer={...user,id:reply.id,authorId:client.user.id,speaker:'Duckzinha',
+    text:reply.content?.slice(0,320)||'',timestamp:reply.createdTimestamp||Date.now()};
+  await commitSharedChange(list=>[...list,user,answer]);
+}
+async function clearSharedUser(userId){
+  for(let i=serverRecent.length-1;i>=0;i--)
+    if(serverRecent[i].authorId===userId)serverRecent.splice(i,1);
+  await commitSharedChange(items=>items.filter(m=>m.authorId!==userId));
+}
+async function clearSharedAll(){
+  serverRecent.length=0;
+  await commitSharedChange(()=>[]);
+}
 let personalityCache={value:'',expires:0};
 function invalidatePersonality(){personalityCache.expires=0;}
 async function getPersonality(){
