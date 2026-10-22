@@ -17,6 +17,7 @@ export function commandPayloads(){
   list.push(new SlashCommandBuilder().setName('duckzinha').setDescription('Memória da Duckzinha')
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
+    .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
     .setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('configurar')
     .setDescription('Enviar um TXT com a personalidade da Duckzinha (admin)')
