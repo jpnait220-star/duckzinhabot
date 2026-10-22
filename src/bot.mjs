@@ -403,6 +403,7 @@ client.on(Events.MessageCreate,async message=>{
     const history=await getHistory(id);
     const memorySaved=await memoryTask;
     const profileFacts=await store.getProfileFacts(id).catch(()=>[]);
+    const pastResearch=previousResearchNotes(history);
     const extraContext=currentServerContext(message.id);
     const mergedChannelContext=(channelContext.slice(-2500)+'\n'+
       (extraContext?'Conversas públicas recentes:\n'+extraContext.slice(-2200):'')).trim().slice(-4900);
@@ -426,6 +427,7 @@ client.on(Events.MessageCreate,async message=>{
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
+          pastResearch,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
         aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
@@ -460,8 +462,9 @@ client.on(Events.MessageCreate,async message=>{
     if(sent){
       if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
       // Never wait for background database writes before releasing the user.
-      if(modelReady&&aiAnswered)
-        void addHistory(id,question,answer).catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
+      if((modelReady&&aiAnswered)||(searching&&webFacts?.status==='ok'))
+        void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
+          .catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
       void schedule(sent).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
       console.log('[Duckzinha] Resposta enviada ao Discord.');
     }
