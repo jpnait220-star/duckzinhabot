@@ -233,7 +233,7 @@ client.on(Events.MessageCreate,async message=>{
   const previous=busy.get(id);
   if(previous&&Date.now()-previous<60000)return;
   if(previous)console.warn('[Duckzinha] Liberando atendimento antigo preso há mais de 60s.');
-  if(Date.now()-(cooldown.get(id)||0)<7500)return;
+  if(!confirmation&&Date.now()-(cooldown.get(id)||0)<7500)return;
   if(confirmation)pendingResearch.delete(id);
   const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
   if(confirmation&&said==='no'){
