@@ -22,6 +22,12 @@ test('Limites globais e por canal evitam spam automático',()=>{
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:now-60_000,roll:0.05}),false);
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,roll:0.8}),false);
 });
+test('Piadas e bordões só viram memória por pedido expresso',async()=>{
+  const {captureCandidate}=await import('../src/memory-capture.mjs');
+  assert.equal(captureCandidate('meu bordão é pato rei',{mentioned:true}),null);
+  assert.equal(captureCandidate('lembra que meu bordão é pato rei')?.key,'bordao');
+  assert.equal(captureCandidate('lembra que minha piada favorita é pato ninja')?.key,'piada');
+});
 test('Assistente de ticket orienta a equipe e protege segredos',()=>{
   const guide=ticketGuide();
   assert.match(guide,/versão/);
