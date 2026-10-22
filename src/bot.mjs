@@ -4,7 +4,8 @@ import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits} from '
 import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
-import {wikipediaResearch} from './research.mjs';
+import {researchTopic} from './research.mjs';
+import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -18,11 +19,12 @@ const PANEL_ID=/^\d{17,22}$/.test(process.env.SUPPORT_PANEL_CHANNEL_ID||'')?proc
 const CF_ACCOUNT=process.env.CF_ACCOUNT_ID?.trim()||'';
 const CF_TOKEN=process.env.CF_API_TOKEN?.trim()||'';
 const CF_MODEL=process.env.CF_MODEL?.trim()||MODEL;
+const TAVILY_KEY=process.env.TAVILY_API_KEY?.trim()||'';
 const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTES)||20))*60_000;
 
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
-const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map();
+const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map();
 const serverRecent=[]; // Conversa recente dos canais públicos, só em RAM.
 let sharedTurns=[],sharedReady=Promise.resolve(),sharedWrite=Promise.resolve();
 const CHAT_AGE=48*60*60_000;
@@ -216,14 +218,29 @@ client.once(Events.ClientReady,async me=>{
 
 client.on(Events.MessageCreate,async message=>{
   if(!message.inGuild()||message.guildId!==GUILD_ID||message.author.bot)return;
-  if(!client.user||!message.mentions.users.has(client.user.id))return;
-  if(!message.content.includes('<@'+client.user.id+'>')&&!message.content.includes('<@!'+client.user.id+'>'))return;
+  if(!client.user)return;
   const id=message.author.id;
+  const pending=pendingResearch.get(id);
+  if(pending&&Date.now()-pending.at>10*60_000)pendingResearch.delete(id);
+  const mentioned=message.mentions.users.has(client.user.id)&&
+    (message.content.includes('<@'+client.user.id+'>')||message.content.includes('<@!'+client.user.id+'>'));
+  const said=decision(stripMentions(message.content,client.user.id));
+  const confirmation=Boolean(pending&&said&&message.channelId===pending.channelId&&
+    Date.now()-pending.at<10*60_000&&
+    (mentioned||message.reference?.messageId===pending.promptId||
+      Date.now()-pending.at<90_000));
+  if(!mentioned&&!confirmation)return;
   const previous=busy.get(id);
   if(previous&&Date.now()-previous<60000)return;
   if(previous)console.warn('[Duckzinha] Liberando atendimento antigo preso há mais de 60s.');
   if(Date.now()-(cooldown.get(id)||0)<7500)return;
-  const question=stripMentions(message.content,client.user.id);
+  if(confirmation)pendingResearch.delete(id);
+  const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
+  if(confirmation&&said==='no'){
+    const sent=await message.reply({content:'Tá bom! 💛 Se mudar de ideia, é só me chamar.',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
+    if(sent)void schedule(sent).catch(()=>{});
+    return;
+  }
   if(!question){
     const r=await message.reply({content:'Oiee! 🦆💛 Me conta sua dúvida depois de me mencionar! Quer ver meus comandos? Usa `/ajuda` ✨',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
     if(r)void schedule(r).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));return;
@@ -234,15 +251,11 @@ client.on(Events.MessageCreate,async message=>{
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,personality,channelContext,webFact]=await Promise.all([
+    const [member,facts,personality,channelContext]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
       getPersonality(),
-      getChannelConversation(message),
-      wikipediaResearch(question).catch(err=>{
-        console.warn('[Duckzinha] Pesquisa na Wikipédia indisponível: '+err.message);
-        return null;
-      })
+      getChannelConversation(message)
     ]);
     // Se o histórico coletivo não estiver disponível, usa o histórico pessoal
     // como alternativa, sem misturar os dois contextos.
@@ -252,24 +265,44 @@ client.on(Events.MessageCreate,async message=>{
       void store.rememberName(id,newName).catch(err=>console.warn('[Duckzinha] Salvar nome: '+err.message));
     const latestName=newName||member?.preferred_name||'';
     let answer=null,aiAnswered=false;
+    const searching=confirmation||wantsWebResearch(question);
+    let webFacts=null,searchError=null;
+    if(searching){
+      try{webFacts=await broadWebSearch(researchTopic(question)||question,TAVILY_KEY)}
+      catch(err){searchError=err;console.warn('[Duckzinha] Pesquisa web: '+err.message)}
+    }
     const modelReady=Boolean(CF_ACCOUNT&&CF_TOKEN);
-    if(modelReady){
+    if(modelReady&&(!searching||webFacts?.status==='ok')){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
           question,history:channelContext?[]:history,channelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
-          research:webFact?webFact.title+': '+webFact.summary:''});
+          research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
         aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
     }
-    answer=safeResponse(answer||(webFact?webFact.summary:cannedAnswer(question,facts)))||'Oiee! 💛 Pode explicar um pouquinho melhor?';
+    if(searching&&searchError)answer='A pesquisa na web falhou agora. Pode tentar de novo mais tarde?';
+    else if(searching&&webFacts?.status==='not_configured')
+      answer='Ainda não tenho pesquisa web ampla configurada. Um administrador precisa adicionar TAVILY_API_KEY na hospedagem.';
+    else if(searching&&webFacts?.status!=='ok')
+      answer='Procurei na web, mas não encontrei resultados suficientes para confirmar isso.';
+    else if(searching&&webFacts?.status==='ok'){
+      answer=uncertainty(answer)?null:answer;
+      if(!answer)answer='Encontrei estas informações: '+webFacts.results.slice(0,2)
+        .map(item=>item.title+': '+item.summary).join(' ');
+    }
+    answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
-    if(webFact)answer=answer.slice(0,1700)+'\n\nFonte: <'+webFact.url+'>';
+    if(searching&&webFacts?.status==='ok')
+      answer=answer.slice(0,1250)+'\n\nFontes: '+researchCitations(webFacts.results);
+    const shouldOffer=(!searching&&aiAnswered&&uncertainty(answer));
+    if(shouldOffer)answer='Ainda não tenho certeza sobre isso. Quer que eu pesquise mais a fundo na internet? Responda **sim** ou **não**. 💛';
     const sent=await message.reply({content:answer.slice(0,1900),allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(sent){
+      if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now()});
       // Never wait for background database writes before releasing the user.
       if(modelReady&&aiAnswered)
         void addHistory(id,question,answer).catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
