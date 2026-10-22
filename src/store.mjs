@@ -7,9 +7,19 @@ export class DuckStore {
   }
   get persistent(){return Boolean(this.db)}
   async requireResult(query) {
-    const {data,error}=await query;
-    if(error)throw new Error('Banco da Duckzinha indisponível: '+error.message);
-    return data;
+    // Never let a stalled Supabase request lock the Discord message handler forever.
+    // The request may continue in the background, but the bot can reply again.
+    let timeoutId;
+    const deadline=new Promise((_,reject)=>{
+      timeoutId=setTimeout(()=>reject(new Error('Supabase demorou mais de 8 segundos')),8000);
+    });
+    try{
+      const {data,error}=await Promise.race([Promise.resolve(query),deadline]);
+      if(error)throw new Error('Banco da Duckzinha indisponível: '+error.message);
+      return data;
+    }finally{
+      clearTimeout(timeoutId);
+    }
   }
   async getConversation(discordId) {
     if(!this.db)return [];
