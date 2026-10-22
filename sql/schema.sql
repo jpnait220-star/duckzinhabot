@@ -84,3 +84,20 @@ alter table public.duckzinha_profile_facts enable row level security;
 revoke all on public.duckzinha_profile_facts from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_profile_facts to service_role;
 notify pgrst, 'reload schema';
+
+-- Familiaridade baseada em interações voluntárias no chat público.
+-- Não armazena brincadeiras nem informações privadas; apenas contagem.
+create table if not exists public.duckzinha_familiarity (
+  guild_id text not null,
+  discord_user_id text not null,
+  turns_count integer not null default 0
+    check (turns_count between 0 and 100000),
+  last_interaction_at timestamptz not null default now(),
+  primary key (guild_id, discord_user_id)
+);
+create index if not exists duckzinha_familiarity_recent_idx
+  on public.duckzinha_familiarity(guild_id, last_interaction_at desc);
+alter table public.duckzinha_familiarity enable row level security;
+revoke all on public.duckzinha_familiarity from anon, authenticated;
+grant select, insert, update, delete on public.duckzinha_familiarity to service_role;
+notify pgrst, 'reload schema';
