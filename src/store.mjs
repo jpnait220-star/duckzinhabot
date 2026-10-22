@@ -64,6 +64,7 @@ export class DuckStore {
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
     await this.requireResult(this.db.from('duckzinha_memory').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
+    await this.deleteFamiliarity(discordId);
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
       console.warn('[Duckzinha] Fatos pessoais: '+err.message));
@@ -72,6 +73,8 @@ export class DuckStore {
     if(!this.db)throw Error('Supabase não configurado.');
     await this.requireResult(this.db.from('duckzinha_conversations').delete().eq('guild_id',this.guildId));
     await this.requireResult(this.db.from('duckzinha_memory').delete().eq('guild_id',this.guildId));
+    await this.requireResult(this.db.from('duckzinha_familiarity').delete()
+      .eq('guild_id',this.guildId));
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
       .eq('guild_id',this.guildId)).catch(err=>
       console.warn('[Duckzinha] Resetar preferências: '+err.message));
