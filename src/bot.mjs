@@ -374,7 +374,109 @@ client.on(Events.MessageCreate,async message=>{
   }
 });
 
+
+async function handleDuckButton(interaction){
+  if(!interaction.inGuild()||interaction.guildId!==GUILD_ID)return;
+  const [prefix,action,key]=interaction.customId.split(':');
+  if(prefix!=='duck')return;
+  if(action==='sources'){
+    const item=researchSources.get(key);
+    if(!item||item.expires<Date.now()){
+      await interaction.reply({content:'Essas fontes expiraram. Pode me pedir para pesquisar novamente! 💛',flags:MessageFlags.Ephemeral}).catch(()=>{});
+      return;
+    }
+    await interaction.reply({
+      content:sourceDetails(item.sources),
+      flags:MessageFlags.Ephemeral,
+      allowedMentions:{parse:[]}
+    }).catch(err=>console.warn('[Duckzinha] Ver fontes: '+err.message));
+    return;
+  }
+  if(action!=='search'&&action!=='explain')return;
+  const saved=pendingResearch.get(key);
+  if(interaction.user.id!==key){
+    await interaction.reply({content:'Essa pergunta é de outra pessoa. Me mencione para fazer a sua! 💛',flags:MessageFlags.Ephemeral}).catch(()=>{});
+    return;
+  }
+  if(!saved||saved.mode!=='choice'||saved.promptId!==interaction.message.id||
+      saved.channelId!==interaction.channelId||Date.now()-saved.at>10*60_000){
+    await interaction.reply({content:'Essa pergunta expirou. Me mencione novamente para continuar! 💛',flags:MessageFlags.Ephemeral}).catch(()=>{});
+    return;
+  }
+  if(action==='explain'){
+    pendingResearch.set(key,{...saved,mode:'explain',at:Date.now()});
+    await interaction.reply({
+      content:'Aaa, quero ouvir! 🦆💛 Me marca com @Duckzinha neste canal e conta o que você sabe sobre o assunto. Vou lembrar na conversa, mas não vou tratar como fato confirmado.',
+      flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}
+    });
+    return;
+  }
+  // Buscar só depois da confirmação de quem fez a pergunta.
+  pendingResearch.delete(key);
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
+  const question=saved.question;
+  let webFacts;
+  try{
+    webFacts=await broadWebSearch(researchTopic(question)||question,TAVILY_KEY,SERPER_KEY);
+    if(webFacts.provider)console.log('[Duckzinha] Pesquisa via '+webFacts.provider+' (botão).');
+  }catch(err){
+    console.warn('[Duckzinha] Pesquisa pelo botão: '+err.message);
+    await interaction.editReply('Aii, os buscadores não responderam agora. Tenta de novo depois! 💛');
+    return;
+  }
+  if(webFacts.status!=='ok'){
+    const feedback=webFacts.status==='not_configured'
+      ?'A pesquisa ainda não está configurada. Configure TAVILY_API_KEY e/ou SERPER_API_KEY na hospedagem.'
+      :'Não encontrei fontes suficientes para confirmar isso na web. 🥺';
+    await interaction.editReply(feedback);
+    return;
+  }
+  const speaker=interaction.member?.displayName||interaction.user.globalName||interaction.user.username;
+  let answer=null;
+  if(CF_ACCOUNT&&CF_TOKEN){
+    try{
+      const [personality,facts,channelContext]=await Promise.all([
+        getPersonality(),communityKnowledge(),getChannelConversation(interaction.message)
+      ]);
+      answer=await askCloudflare({
+        accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,question,
+        speaker,history:[],name:'',
+        channelContext,customPersonality:personality,
+        knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),
+        research:webResearchContext(webFacts.results)
+      });
+    }catch(err){console.warn('[Duckzinha] Resposta web por botão: '+err.message);}
+  }
+  if(answerIgnoresWebResults(answer))answer=null;
+  if(!answer)answer='Encontrei estas informações nas páginas consultadas: '+
+    webFacts.results.slice(0,2).map(item=>item.title+': '+item.summary).join(' ');
+  const sources=sourcesButton(webFacts.results);
+  const text=safeResponse(answer)||'Encontrei algumas fontes. Confira no botão abaixo!';
+  const sent=await interaction.message.reply({
+    content:text.slice(0,1700),
+    components:[sources.row],
+    allowedMentions:{repliedUser:false,parse:[]}
+  }).catch(err=>{console.warn('[Duckzinha] Falha ao enviar resultado pesquisado: '+err.message);return null});
+  if(sent){
+    void schedule(sent).catch(()=>{});
+    await interaction.editReply('Pesquisei e respondi no canal! 💛 Clique em **Ver fontes** para conferir os sites.');
+  }else{
+    researchSources.delete(sources.id);
+    await interaction.editReply('Encontrei resultados, mas não consegui enviar a resposta no canal. Pode tentar de novo?');
+  }
+}
+
 client.on(Events.InteractionCreate,async interaction=>{
+  if(interaction.isButton()){
+    try{await handleDuckButton(interaction);}
+    catch(err){
+      console.error('[Duckzinha] Botão: '+err.message);
+      const data={content:'Opa, tive um probleminha com esse botão. Tenta novamente! 💛',flags:MessageFlags.Ephemeral};
+      if(interaction.deferred||interaction.replied)await interaction.editReply(data).catch(()=>{});
+      else await interaction.reply(data).catch(()=>{});
+    }
+    return;
+  }
   if(!interaction.isChatInputCommand())return;
   try{
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,schedule,localKnowledge,client,clearSession,invalidatePersonality});
