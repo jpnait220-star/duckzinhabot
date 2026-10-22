@@ -8,7 +8,7 @@ export function captureCandidate(input,{mentioned=false,isStaff=false}={}){
   if(isStaff&&directive&&/^(?:o|a|no|na|nosso|nossa)\s+(?:servidor|server|sv|comunidade)\b/i.test(message))
     return {kind:'server',key:'servidor',value:message.slice(0,180)};
   if(!mentioned&&!directive)return null;
-  const allowed=/^(?:meu jogo favorito (?:[ée]|eh)|minha cor favorita (?:[ée]|eh)|meu hobby (?:[ée]|eh)|meu anime favorito (?:[ée]|eh)|eu gosto de (?:jogar|minecraft|anime|desenhar|programar)|eu curto (?:jogar|minecraft|anime|desenhar|programar))\b/i;
+  const allowed=/^(?:meu jogo favorito (?:[ée]|eh)|minha cor favorita (?:[ée]|eh)|meu hobby (?:[ée]|eh)|meu anime favorito (?:[ée]|eh)|eu gosto de (?:jogar|minecraft|anime|desenhar|programar)|eu curto (?:jogar|minecraft|anime|desenhar|programar))(?:\s|$)/i;
   if(!allowed.test(message))return null;
   const key=/^meu jogo/i.test(message)?'jogo':/^minha cor/i.test(message)?'cor':/^meu hobby/i.test(message)?'hobby':/^meu anime/i.test(message)?'anime':'interesse';
   return {kind:'self',key,value:message.slice(0,140)};
