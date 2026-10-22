@@ -373,6 +373,7 @@ client.on(Events.MessageCreate,async message=>{
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
   if(!mentioned&&!confirmation&&!explaining){
+    if(isPublic&&!candidate)void maybeSendImageReaction(message);
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
