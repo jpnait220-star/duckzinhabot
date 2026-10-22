@@ -36,7 +36,7 @@ export function cannedAnswer(input, extraKnowledge={}) {
   if(/\b(site|website|pagina|download|versao)\b/.test(s))return 'Nosso cantinho é https://duckzincommunity.vercel.app 💛 Lá você encontra os projetos, downloads e versões!';
   if(/\b(ticket|ajuda|erro|bug|problema|falha|nao funciona|suporte)\b/.test(s))return 'Aii, que chato! 🥺💛 Abre um ticket no painel de suporte e aguarda um atendente da equipe, tá? Eu posso te orientar no básico, mas eles conseguem analisar melhor!';
   if(/\b(oi|ola|eai|opa|bom dia|boa tarde|boa noite)\b/.test(s))return 'Oieee! 🦆💛 Tudo bem? Você joga mais BoxPvP ou curte criar mods também?';
-  return 'Oiee! 💛 Ainda tô aprendendo a conversar sobre tudo, KKKKK. Me conta um pouquinho mais? Se precisar de ajuda técnica, abre um ticket pra equipe, tá? 🎫';
+  return 'Minha IA não conseguiu responder agora. Pode tentar de novo daqui a pouquinho?';
 }
 
 export async function askCloudflare({accountId,token,model=MODEL,question,history=[],knowledge='',name='',customPersonality=''}) {
@@ -56,7 +56,7 @@ export async function askCloudflare({accountId,token,model=MODEL,question,histor
   messages.push({role:'user',content:question.slice(0,900)});
   const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,{
     method:'POST',signal:timeout,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({model,messages,max_tokens:350,temperature:0.75,stream:false})
+    body:JSON.stringify({model,messages,max_tokens:650,temperature:0.6,stream:false})
   });
   if(!response.ok)throw Error('Workers AI retornou HTTP '+response.status);
   const json=await response.json();
