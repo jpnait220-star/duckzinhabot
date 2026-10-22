@@ -6,7 +6,7 @@ import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
-import {broadWebSearch,webResearchContext,researchCitations,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails} from './web-research.mjs';
+import {broadWebSearch,webResearchContext,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -351,7 +351,8 @@ client.on(Events.MessageCreate,async message=>{
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
-    const shouldOffer=(!searching&&aiAnswered&&uncertainty(answer));
+    const shouldOffer=!searching&&((aiAnswered&&uncertainty(answer))||
+      (!aiAnswered&&Boolean(researchTopic(question))));
     if(shouldOffer)answer='Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
     const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
     const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
