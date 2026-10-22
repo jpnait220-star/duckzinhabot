@@ -9,7 +9,7 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
 - **Conversa coletiva por canal:** quando mencionada, a Duckzinha consulta até 25 mensagens anteriores do canal público, considera no máximo 16 mensagens dos últimos 30 minutos e distingue os autores. Ela continua respondendo **somente quando mencionada**, não vigia outros canais e não salva esse histórico coletivo no Supabase. Como lê o Discord ao ser chamada, o contexto recente continua disponível após reinícios enquanto as mensagens estiverem no canal.
 - **Histórico pessoal:** até 12 mensagens por usuário, armazenadas no Supabase por até 14 dias, usado como alternativa quando não há contexto de canal.
-- **Pesquisa factual automática:** perguntas como `@Duckzinha quem é Neymarjr?` ou `@Duckzinha pesquise sobre a Amazônia` consultam o resumo da Wikipédia em português, sem nova chave API. O bot usa a fonte na resposta. Não é uma busca ampla na internet nem fonte de notícias em tempo real.
+- **Pesquisa web com autorização:** quando a IA não souber um fato, pergunta se o membro quer pesquisar mais a fundo; respostas `sim` e `não` são aceitas na conversa. Se alguém pedir diretamente `pesquise sobre ...`, a busca começa sem a pergunta adicional. A integração usa Tavily e requer `TAVILY_API_KEY` na FadeHost; traz fontes de vários sites, sem fingir que é uma pesquisa do Google.
 - `/duckzinha apagar-me`: cada membro pode excluir histórico e nome. `/duckzinha reset`: exclusivo para administradores, apaga a memória dos membros.
 - `/configurar arquivo:<arquivo.txt>`: administradores podem enviar um TXT UTF-8 com a personalidade e o comportamento desejado (até 8.000 caracteres). O texto fica salvo no Supabase e é aplicado às próximas respostas.
 
@@ -63,3 +63,7 @@ npm test
 ## Configurar a personalidade pelo Discord
 
 Como administrador, envie `/configurar arquivo:` e anexe um `.txt` codificado em UTF-8. O conteúdo substitui a personalidade personalizada anterior (mantendo as regras fixas de segurança da bot). Não envie tokens ou senhas no arquivo. A tabela `duckzinha_config` é criada pelo `sql/schema.sql`.
+
+## Pesquisa ampla na web (Tavily)
+
+Cadastre a chave da API no painel da FadeHost como `TAVILY_API_KEY`. A chave deve ficar somente nas variáveis privadas da hospedagem, nunca no repositório ou nas conversas. Sem a chave, a Duckzinha informa que a busca ampla não está configurada. A Tavily oferece créditos gratuitos mensais sujeitos aos termos do provedor. Ao ficar em dúvida numa pergunta factual, a Duckzinha pergunta se pode pesquisar; apenas depois de um `sim` do mesmo usuário ela consulta a web. Se não encontrar resultados, avisa sem inventar. O comando de pesquisa explícito não requer segunda confirmação.
