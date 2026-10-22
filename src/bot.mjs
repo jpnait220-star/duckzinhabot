@@ -230,6 +230,8 @@ client.once(Events.ClientReady,async me=>{
     console.log('[Duckzinha] Comandos cadastrados no servidor '+guild.name+'.');
   }catch(e){console.error('[Duckzinha] Erro ao cadastrar comandos: '+e.message)}
   console.log('[Duckzinha] IA: '+(CF_ACCOUNT&&CF_TOKEN?CF_MODEL:'modo básico (sem chave de IA)')+'. Memória persistente: '+(store.persistent?'ativada':'não configurada')+'.');
+  console.log('[Duckzinha] Boas-vindas: '+(WELCOME_CHANNEL_ID?'ativadas':'desativadas (configure WELCOME_CHANNEL_ID)')+
+    '. Tickets: '+(TICKET_CATEGORY_ID?'categoria configurada':'reconhecimento por nome privado ticket-/atendimento-')+'.');
   void cleanupExpired();
   void store.cleanupConversations().catch(e=>console.warn('[Duckzinha] Limpeza de histórico: '+e.message));
   const timer=setInterval(()=>{
