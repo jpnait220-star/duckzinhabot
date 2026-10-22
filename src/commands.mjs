@@ -14,6 +14,8 @@ const choice=[
 
 export function commandPayloads(){
   const list=choice.map(([name,description])=>new SlashCommandBuilder().setName(name).setDescription(description).setDMPermission(false).toJSON());
+  list.push(new SlashCommandBuilder().setName('amizade')
+    .setDescription('Ver o quanto a Duckzinha já conversou com você').setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('duckzinha').setDescription('Memória da Duckzinha')
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
@@ -76,6 +78,12 @@ export async function runCommand(interaction,{store,site,panelId,schedule,localK
     await store.setPersonalityPrompt(prompt,interaction.user.id);
     invalidatePersonality();
     return interaction.editReply('Personalidade atualizada! O TXT foi salvo no Supabase e continuará ativo depois de reiniciar.');
+  }
+  if(cmd==='amizade'){
+    const count=await store.getFamiliarity(interaction.user.id).catch(()=>0);
+    const status=count<5?'a gente está se conhecendo':count<20?'você já é presença conhecida por aqui':'já conversamos bastante por aqui';
+    return respond('🦆💛 **Nossa familiaridade**\n'+status+'! Já tivemos **'+count+
+      '** conversas registradas em canais públicos.\n\nSe quiser apagar, use `/duckzinha apagar-me`.',true);
   }
   if(cmd==='duckzinha'){
     if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
