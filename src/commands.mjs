@@ -80,6 +80,10 @@ export async function runCommand(interaction,{store,site,panelId,schedule,localK
   if(cmd==='duckzinha'){
     if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     const sub=interaction.options.getSubcommand();
+    if(sub==='minhas-memorias'){
+      const notes=await store.getProfileFacts(interaction.user.id);
+      return respond(notes.length?notes.map(x=>x.fact_value).join('\n'):'Nenhuma preferência salva ainda.',true);
+    }
     if(sub==='apagar-me'){
       await store.forgetSelf(interaction.user.id);
       clearSession(interaction.user.id);
