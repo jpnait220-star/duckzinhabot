@@ -322,7 +322,13 @@ client.on(Events.MessageCreate,async message=>{
   if(pending&&Date.now()-pending.at>10*60_000)pendingResearch.delete(id);
   const mentioned=message.mentions.users.has(client.user.id)&&
     (message.content.includes('<@'+client.user.id+'>')||message.content.includes('<@!'+client.user.id+'>'));
-  const said=decision(stripMentions(message.content,client.user.id));
+  // Conserva as mensagens normais de canais públicos somente em RAM.
+  const isPublic=addRecent(message);
+  const rawQuestion=stripMentions(message.content,client.user.id);
+  const candidate=isPublic?captureCandidate(rawQuestion,{
+    mentioned,isStaff:Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild))
+  }):null;
+  const said=decision(rawQuestion);
   const explaining=Boolean(pending?.mode==='explain'&&message.channelId===pending.channelId&&
     Date.now()-pending.at<10*60_000&&
     (mentioned||message.reference?.messageId===pending.promptId));
@@ -330,7 +336,19 @@ client.on(Events.MessageCreate,async message=>{
     Date.now()-pending.at<10*60_000&&
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
-  if(!mentioned&&!confirmation&&!explaining)return;
+  if(!mentioned&&!confirmation&&!explaining){
+    if(candidate){
+      try{
+        const saved=await persistCandidate(message,candidate);
+        if(saved){
+          const notice=await message.reply({content:'🧠 **Memória atualizada!**',
+            allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
+          if(notice)void schedule(notice).catch(()=>{});
+        }
+      }catch(err){console.warn('[Duckzinha] Salvar memória: '+err.message)}
+    }
+    return;
+  }
   if(explaining){
     const explanation=stripMentions(message.content,client.user.id);
     if(explanation.length<10){
@@ -368,6 +386,8 @@ client.on(Events.MessageCreate,async message=>{
   if(question.length<2)return;
   const requestStarted=Date.now();
   busy.set(id,requestStarted);cooldown.set(id,requestStarted);
+  const memoryTask=candidate?persistCandidate(message,candidate)
+    .catch(err=>{console.warn('[Duckzinha] Salvar memória: '+err.message);return false;}):Promise.resolve(false);
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
