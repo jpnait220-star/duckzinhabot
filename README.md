@@ -9,6 +9,7 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
 - **Conversa coletiva por canal:** quando mencionada, a Duckzinha consulta até 25 mensagens anteriores do canal público, considera no máximo 16 mensagens dos últimos 30 minutos e distingue os autores. Ela continua respondendo **somente quando mencionada**, não vigia outros canais e não salva esse histórico coletivo no Supabase. Como lê o Discord ao ser chamada, o contexto recente continua disponível após reinícios enquanto as mensagens estiverem no canal.
 - **Histórico pessoal:** até 12 mensagens por usuário, armazenadas no Supabase por até 14 dias, usado como alternativa quando não há contexto de canal.
+- **Pesquisa factual automática:** perguntas como `@Duckzinha quem é Neymarjr?` ou `@Duckzinha pesquise sobre a Amazônia` consultam o resumo da Wikipédia em português, sem nova chave API. O bot usa a fonte na resposta. Não é uma busca ampla na internet nem fonte de notícias em tempo real.
 - `/duckzinha apagar-me`: cada membro pode excluir histórico e nome. `/duckzinha reset`: exclusivo para administradores, apaga a memória dos membros.
 - `/configurar arquivo:<arquivo.txt>`: administradores podem enviar um TXT UTF-8 com a personalidade e o comportamento desejado (até 8.000 caracteres). O texto fica salvo no Supabase e é aplicado às próximas respostas.
 
