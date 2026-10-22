@@ -67,6 +67,16 @@ function pruneSourceCache(){
 
 // Reações de imagem usam artes fornecidas pelo administrador, nunca imagens geradas automaticamente.
 let lastImageReactionAt=0,replyingWithImage=false;
+async function findReactionFile(type){
+  if(!['riso','fofo','ola','gg','surpresa'].includes(type))return null;
+  for(const extension of ['webp','png','gif']){
+    const file=fileURLToPath(new URL('../assets/reactions/'+type+'.'+extension,import.meta.url));
+    const info=await fs.stat(file).catch(()=>null);
+    if(info?.isFile()&&info.size>0&&info.size<=2*1024*1024)return file;
+  }
+  return null;
+}
+
 const lastImageByChannel=new Map();
 async function maybeSendImageReaction(message){
   const type=imageReactionKind(message.content);
@@ -74,12 +84,7 @@ async function maybeSendImageReaction(message){
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,roll:Math.random()
   }))return;
-  let file;
-  for(const extension of ['png','webp','gif']){
-    const path=fileURLToPath(new URL('../assets/reactions/'+type+'.'+extension,import.meta.url));
-    const info=await fs.stat(path).catch(()=>null);
-    if(info?.isFile()&&info.size>0&&info.size<=2*1024*1024){file=path;break;}
-  }
+  const file=await findReactionFile(type);
   if(!file)return; // Sem artes personalizadas, não envia mensagens.
   replyingWithImage=true;
   try{
