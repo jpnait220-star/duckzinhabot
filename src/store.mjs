@@ -84,6 +84,20 @@ export class DuckStore {
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id'}));
   }
+  async getProfileFacts(discordId) {
+    if(!this.db)return [];
+    const rows=await this.requireResult(this.db.from('duckzinha_profile_facts')
+      .select('fact_key,fact_value').eq('guild_id',this.guildId)
+      .eq('discord_user_id',discordId).order('updated_at',{ascending:false}).limit(8));
+    return rows||[];
+  }
+  async saveProfileFact(discordId,key,value) {
+    if(!this.db)throw Error('Banco não configurado.');
+    await this.requireResult(this.db.from('duckzinha_profile_facts').upsert({
+      guild_id:this.guildId,discord_user_id:discordId,fact_key:key,fact_value:value,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id,discord_user_id,fact_key'}));
+  }
   async getMember(discordId) {
     if(!this.db)return null;
     return await this.requireResult(this.db.from('duckzinha_memory').select('enabled,preferred_name')
