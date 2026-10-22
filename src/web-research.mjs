@@ -21,6 +21,7 @@ export function decision(text){
   const t=simplify(text).replace(/[!?.]+$/g,'').trim();
   if(/^(sim|s|pode|pode sim|claro|quero|vai|procura|pesquisa|pesquise|por favor|bora|faz isso|pode pesquisar)$/.test(t))return 'yes';
   if(/^(nao|n|nao precisa|deixa|deixa pra la|dispenso|melhor nao|agora nao)$/.test(t))return 'no';
+  if(/^(eu explico|vou explicar|quero explicar|posso explicar|me deixa explicar|deixa eu explicar|te explico|explicar)$/.test(t))return 'explain';
   return null;
 }
 const approved=new Map();
@@ -130,4 +131,16 @@ export function webResearchContext(results){
 }
 export function researchCitations(results){
   return results.slice(0,3).map((x,i)=>'['+(i+1)+'] <'+x.url+'>').join('  ');
+}
+
+
+// As fontes são exibidas em resposta privada pelo botão do Discord.
+export function sourceDetails(results) {
+  const usable=(Array.isArray(results)?results:[]).slice(0,4);
+  if(!usable.length)return 'Não há fontes disponíveis para esta resposta.';
+  return '📚 **Fontes da pesquisa**\n'+usable.map((item,i)=>{
+    const title=String(item.title||'Página').replace(/[@\r\n*_~]/g,' ').slice(0,100);
+    const url=String(item.url||'');
+    return (i+1)+'. **'+title+'**\n<'+url+'>';
+  }).join('\n\n').slice(0,1800);
 }
