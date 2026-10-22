@@ -419,7 +419,7 @@ client.on(Events.MessageCreate,async message=>{
     if(modelReady&&(!searching||webFacts?.status==='ok')){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
-          question,history,channelContext,
+          question,history,channelContext:mergedChannelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
