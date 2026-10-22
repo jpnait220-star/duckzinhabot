@@ -7,10 +7,13 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - Responde quando **mencionada diretamente** `@Duckzinha` no servidor (não reage a mensagens normais nem a DMs).
 - Personalidade simpática, educada, simples, com emojis, GG/W/KKKK quando combinar.
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
-- `/memoria ativar`, `/memoria ver`, `/memoria apagar`: nome opcional por usuário; apagar remove o nome e o consentimento. **Sem salvar conversas inteiras no banco.**
+- Memória automática: até 12 mensagens recentes por usuário, armazenadas no Supabase por até 14 dias, para continuar conversas após reinícios.
+- `/duckzinha apagar-me`: cada membro pode excluir histórico e nome. `/duckzinha reset`: exclusivo para administradores, apaga a memória dos membros.
+- `/configurar arquivo:<arquivo.txt>`: administradores podem enviar um TXT UTF-8 com a personalidade e o comportamento desejado (até 8.000 caracteres). O texto fica salvo no Supabase e é aplicado às próximas respostas.
+
 - `/ensinar` e `/ensinamentos`: administradores configuram assuntos sem editar o código (com Supabase ativo).
 - Respostas públicas enviadas pela Duckzinha são apagadas em **20 minutos** (apenas as respostas **dela**, nunca as dos usuários). Agendamento persiste após reinício se o Supabase estiver configurado.
-- IA opcional **Cloudflare Workers AI: `@cf/qwen/qwen3-30b-a3b-fp8`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA incluem apenas a pergunta recente e até oito mensagens recentes daquela conversa. Não usa respostas de outros membros.
+- IA opcional **Cloudflare Workers AI: `@cf/google/gemma-4-26b-a4b-it`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA incluem apenas a pergunta recente e até doze mensagens recentes daquela conversa. Não usa respostas de outros membros.
 
 ## Antes de executar
 
@@ -26,12 +29,13 @@ Crie um **novo repositório privado** só para a Duckzinha. Publique os arquivos
 
 ## Segurança e privacidade
 
-- A conversa temporária fica **apenas em RAM** por até 45 minutos para manter contexto. O bot **não salva o conteúdo das conversas** no Supabase.
-- A única memória pessoal persistente é o **nome**, com `/memoria ativar` prévio; `/memoria apagar` remove tudo salvo sobre o membro. Não ensine nomes reais, endereços, telefones, senhas ou dados de outras pessoas.
-- O Supabase cria três tabelas exclusivas `duckzinha_*`, com RLS e sem acesso ao público; a chave `service_role` só fica no processo do bot.
+- Até 12 mensagens por usuário ficam guardadas no Supabase para retomar a conversa após reiniciar, com expiração de 14 dias. As mensagens são excluídas por `/duckzinha apagar-me` e administradores podem resetar as memórias.
+- O prompt de `/configurar` tem acesso restrito aos administradores, fica salvo em `duckzinha_config` e não deve conter tokens nem dados pessoais.
+- O banco usa tabelas próprias com RLS; a chave `service_role` deve ficar apenas nas variáveis secretas da FadeHost.
+
 - O arquivo `knowledge.json` contém **exemplos de conhecimento da comunidade informados pelo criador**, não fatos históricos verificados.
 - A exclusão de mensagens só funciona quando o bot tem acesso ao canal e às próprias mensagens. Mensagens efêmeras do Discord seguem as regras do próprio Discord.
-- APIs de IA possuem limites; `DAILY_AI_LIMIT` é um limite adicional de segurança por instância. Não garante limite exato de cobrança, por isso confira o painel do provedor.
+- APIs de IA possuem limites; Não há limite diário interno de mensagens de IA, mas há antispam e limites/cotas do provedor; acompanhe o consumo no painel Cloudflare.
 - Configuração de contas externas deve respeitar a idade mínima e os termos de cada plataforma; peça ajuda a um responsável quando necessário. Não tente contornar restrições etárias.
 
 ## Testes
@@ -51,4 +55,8 @@ npm test
 - `sql/schema.sql`: tabelas de memória, ensinamentos e exclusão agendada.
 - `.env.example`: nomes de variáveis **sem valores secretos**.
 
-> Etapa atual: código criado e testado localmente. **Ainda não está hospedado nem conectado ao Discord**, porque a nova aplicação/token e as contas do provedor precisam ser configuradas pelo usuário/responsável.
+> A Duckzinha está hospedada separadamente na FadeHost. Após alterar o GitHub, reinicie/reimplante o serviço para usar a nova versão. Em Environment Variables, mantenha os tokens e IDs secretos.
+
+## Configurar a personalidade pelo Discord
+
+Como administrador, envie `/configurar arquivo:` e anexe um `.txt` codificado em UTF-8. O conteúdo substitui a personalidade personalizada anterior (mantendo as regras fixas de segurança da bot). Não envie tokens ou senhas no arquivo. A tabela `duckzinha_config` é criada pelo `sql/schema.sql`.
