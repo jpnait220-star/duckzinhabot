@@ -8,6 +8,7 @@ import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from '.
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
+import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
 import {broadWebSearch,webResearchContext,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
@@ -173,10 +174,10 @@ async function getChannelConversation(message){
     clearTimeout(timeoutId);
   }
 }
-async function addHistory(userId,question,answer){
+async function addHistory(userId,question,answer,searchResults=[]){
   const items=await getHistory(userId);
   items.push({role:'user',content:question.slice(0,800)},
-    {role:'assistant',content:answer.slice(0,800)});
+    {role:'assistant',content:historyAnswer(answer,question,searchResults)});
   const recent=items.slice(-12);
   session.set(userId,{items:recent,updated:Date.now()});
   await store.saveConversation(userId,recent).catch(err=>
