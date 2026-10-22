@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
+import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
@@ -214,6 +215,21 @@ async function communityKnowledge(){
   const merged={...localKnowledge};
   for(const {topic,answer} of rows)merged[topic]=answer;
   return merged;
+}
+async function persistCandidate(message,candidate){
+  if(!candidate||!store.persistent)return false;
+  if(candidate.kind==='self'){
+    const options=await store.getMember(message.author.id);
+    if(options?.enabled===false)return false;
+    await store.saveProfileFact(message.author.id,candidate.key,candidate.value);
+    return true;
+  }
+  if(candidate.kind==='server'){
+    const key='servidor_'+createHash('sha256').update(candidate.value.toLowerCase()).digest('hex').slice(0,14);
+    await store.teach(key,candidate.value);
+    return true;
+  }
+  return false;
 }
 function helpWithTicket(question,answer){
   if(!/\b(erro|bug|não funciona|nao funciona|crash|instalar|problema|nao abre|não abre|falha)\b/i.test(question))return answer;
