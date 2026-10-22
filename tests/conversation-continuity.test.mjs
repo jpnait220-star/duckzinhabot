@@ -35,7 +35,8 @@ test('a IA recebe histórico pessoal mesmo quando existe conversa coletiva',asyn
     assert.ok(payload.messages.some(m=>m.role==='assistant'&&m.content.includes('Cyberpunk é')));
     assert.ok(payload.messages[0].content.includes('CONTINUIDADE DA CONVERSA'));
     assert.ok(payload.messages[0].content.includes('conversa diferente'));
-    assert.equal(payload.messages.at(-1).content,'Mensagem atual de João: e o jogo?');
+    assert.match(payload.messages.at(-1).content,/Mensagem atual de João: e o jogo\?/);
+    assert.match(payload.messages.at(-1).content,/continuação da pergunta.*O que é Cyberpunk\?/i);
   }finally{
     globalThis.fetch=previous;
   }
