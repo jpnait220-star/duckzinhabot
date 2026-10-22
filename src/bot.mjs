@@ -17,33 +17,46 @@ const PANEL_ID=/^\d{17,22}$/.test(process.env.SUPPORT_PANEL_CHANNEL_ID||'')?proc
 const CF_ACCOUNT=process.env.CF_ACCOUNT_ID?.trim()||'';
 const CF_TOKEN=process.env.CF_API_TOKEN?.trim()||'';
 const CF_MODEL=process.env.CF_MODEL?.trim()||MODEL;
-const DAY_CAP=Math.min(500,Math.max(1,Number(process.env.DAILY_AI_LIMIT)||70));
 const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTES)||20))*60_000;
 
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
-const session=new Map(),busy=new Set(),cooldown=new Map(),allTimes=[],perUserTimes=new Map(),deleteTimers=new Map();
+const session=new Map(),busy=new Set(),cooldown=new Map(),deleteTimers=new Map();
+let personalityCache={value:'',expires:0};
+function invalidatePersonality(){personalityCache.expires=0;}
+async function getPersonality(){
+  if(personalityCache.expires>Date.now())return personalityCache.value;
+  try{
+    const value=await store.getPersonalityPrompt();
+    personalityCache={value,expires:Date.now()+120000};
+    return value;
+  }catch(e){console.warn('[Duckzinha] Personalidade: '+e.message);return personalityCache.value;}
+}
+
 let localKnowledge={};
 try { localKnowledge=JSON.parse(await fs.readFile(new URL('../knowledge.json',import.meta.url),'utf-8')); }
 catch {console.warn('[Duckzinha] knowledge.json ausente; usando apenas as respostas internas.');}
 
-function getHistory(userId){
+async function getHistory(userId){
   const obj=session.get(userId);
-  if(!obj||Date.now()-obj.updated>45*60_000){session.delete(userId);return []}
-  return obj.items.slice(-8);
+  if(obj&&Date.now()-obj.updated<45*60_000)return obj.items.slice(-12);
+  const items=await store.getConversation(userId).catch(err=>{
+    console.warn('[Duckzinha] Falha ao ler histórico: '+err.message);return [];
+  });
+  session.set(userId,{items,updated:Date.now()});
+  return items;
 }
-function addHistory(userId,question,answer){
-  const items=getHistory(userId);
-  items.push({role:'user',content:question.slice(0,800)},{role:'assistant',content:answer.slice(0,800)});
-  session.set(userId,{items:items.slice(-8),updated:Date.now()});
+async function addHistory(userId,question,answer){
+  const items=await getHistory(userId);
+  items.push({role:'user',content:question.slice(0,800)},
+    {role:'assistant',content:answer.slice(0,800)});
+  const recent=items.slice(-12);
+  session.set(userId,{items:recent,updated:Date.now()});
+  await store.saveConversation(userId,recent).catch(err=>
+    console.warn('[Duckzinha] Falha ao guardar histórico: '+err.message));
 }
-function canUseAI(userId){
-  const now=Date.now(),start=now-24*60*60_000;
-  while(allTimes.length&&allTimes[0]<start)allTimes.shift();
-  const u=(perUserTimes.get(userId)||[]).filter(t=>t>=start);
-  perUserTimes.set(userId,u);
-  if(allTimes.length>=DAY_CAP||u.length>=24)return false;
-  allTimes.push(now);u.push(now);return true;
+function clearSession(userId){
+  if(userId)session.delete(userId);else session.clear();
 }
 async function removeOwnMessage(messageId,channelId){
   try{
@@ -92,6 +105,7 @@ client.once(Events.ClientReady,async me=>{
   }catch(e){console.error('[Duckzinha] Erro ao cadastrar comandos: '+e.message)}
   console.log('[Duckzinha] IA: '+(CF_ACCOUNT&&CF_TOKEN?CF_MODEL:'modo básico (sem chave de IA)')+'. Memória persistente: '+(store.persistent?'ativada':'não configurada')+'.');
   void cleanupExpired();
+  void store.cleanupConversations().catch(e=>console.warn('[Duckzinha] Limpeza de histórico: '+e.message));
   const timer=setInterval(()=>{
     void cleanupExpired();
     const now=Date.now();for(const [key,obj] of session)if(now-obj.updated>45*60_000)session.delete(key);
@@ -114,23 +128,24 @@ client.on(Events.MessageCreate,async message=>{
   busy.add(id);cooldown.set(id,Date.now());
   try{
     const member=await store.getMember(id).catch(()=>null);
-    const newName=member?.enabled?pickName(question):null;
-    if(newName&&newName!==member.preferred_name)await store.rememberName(id,newName).catch(()=>{});
+    const newName=pickName(question);
+    if(newName&&newName!==member?.preferred_name)await store.rememberName(id,newName).catch(()=>{});
     const latestName=newName||member?.preferred_name||'';
     const facts=await communityKnowledge();
-    let answer=null;
+    let answer=null,aiAnswered=false;
     const modelReady=Boolean(CF_ACCOUNT&&CF_TOKEN);
-    if(modelReady&&canUseAI(id)){
+    if(modelReady){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
-          question,history:getHistory(id),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName});
+          question,history:await getHistory(id),customPersonality:await getPersonality(),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName});
+        aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
     }
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Oiee! 💛 Pode explicar um pouquinho melhor?';
-    if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Se quiser que eu lembre, ativa `/memoria ativar` e se apresenta quando me mencionar.';
+    if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
-    addHistory(id,question,answer);
+    if(modelReady&&aiAnswered)await addHistory(id,question,answer);
     const sent=await message.reply({content:answer.slice(0,1900),allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(sent)await schedule(sent);
   }catch(error){
@@ -143,7 +158,7 @@ client.on(Events.MessageCreate,async message=>{
 client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
-    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,schedule,localKnowledge,client});
+    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,schedule,localKnowledge,client,clearSession,invalidatePersonality});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
     const data={content:'Aii, não consegui fazer isso agora 🥺💛 Tenta de novo daqui a pouquinho!',ephemeral:true};
