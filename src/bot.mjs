@@ -400,6 +400,7 @@ client.on(Events.MessageCreate,async message=>{
     // Use tanto o histórico desta pessoa quanto as falas públicas recentes.
     // O contexto do canal NÃO substitui a conversa anterior do usuário.
     const history=await getHistory(id);
+    const memorySaved=await memoryTask;
     const profileFacts=await store.getProfileFacts(id).catch(()=>[]);
     const extraContext=currentServerContext(message.id);
     const mergedChannelContext=(channelContext.slice(-2500)+'\n'+
