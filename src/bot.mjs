@@ -365,10 +365,12 @@ client.on(Events.GuildMemberAdd,async member=>{
     const botMember=member.guild.members.me||await member.guild.members.fetchMe();
     const permissions=channel.permissionsFor(botMember);
     if(!permissions?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages]))return;
-    const greetingImage=permissions.has(PermissionFlagsBits.AttachFiles)
+    const greetingSticker=await resolveDuckSticker(member.guild,'ola');
+    const greetingImage=!greetingSticker&&permissions.has(PermissionFlagsBits.AttachFiles)
       ?await findReactionFile('ola'):null;
     await channel.send({
       content:welcomeMessage(member.id,member.guild.name),
+      ...(greetingSticker?{stickers:[greetingSticker]}:{}),
       ...(greetingImage?{files:[greetingImage]}:{}),
       allowedMentions:{users:[member.id],roles:[],repliedUser:false}
     });
