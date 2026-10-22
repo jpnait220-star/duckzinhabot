@@ -54,14 +54,30 @@ export async function askCloudflare({accountId,token,model=MODEL,question,histor
     if((it.role==='user'||it.role==='assistant') && typeof it.content==='string')messages.push({role:it.role,content:it.content.slice(0,850)});
   }
   messages.push({role:'user',content:question.slice(0,900)});
+  // GLM-4.7-Flash habilita raciocínio por padrão. No modo chat do Discord
+  // pode gastar todos os tokens em raciocínio sem produzir texto visível.
+  const isGLM=model==='@cf/zai-org/glm-4.7-flash';
+  const payload={
+    model,messages,max_completion_tokens:isGLM?1024:650,
+    temperature:0.6,stream:false,
+    ...(isGLM?{chat_template_kwargs:{enable_thinking:false,clear_thinking:true}}:{})
+  };
   const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,{
     method:'POST',signal:timeout,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({model,messages,max_tokens:650,temperature:0.6,stream:false})
+    body:JSON.stringify(payload)
   });
   if(!response.ok)throw Error('Workers AI retornou HTTP '+response.status);
   const json=await response.json();
-  const raw=json?.choices?.[0]?.message?.content ?? json?.result?.response;
-  const output=Array.isArray(raw)?raw.map(x=>x.text||'').join(''):raw;
-  if(!output)throw Error('Resposta sem texto do modelo');
-  return safeResponse(output);
+  const choice=json?.choices?.[0];
+  const raw=choice?.message?.content ?? json?.result?.response;
+  const output=Array.isArray(raw)
+    ?raw.map(part=>typeof part==='string'?part:(part?.text||'')).join('')
+    :raw;
+  const answer=typeof output==='string'?safeResponse(output):null;
+  if(!answer){
+    const finish=choice?.finish_reason||'não informado';
+    const used=json?.usage?.completion_tokens??'desconhecido';
+    throw Error(`Resposta sem texto (modelo=${model}, motivo=${finish}, tokens_gerados=${used})`);
+  }
+  return answer;
 }
