@@ -21,6 +21,18 @@ export class DuckStore {
       clearTimeout(timeoutId);
     }
   }
+  async getSharedContext() {
+    if(!this.db)return [];
+    const row=await this.requireResult(this.db.from('duckzinha_server_context').select('messages')
+      .eq('guild_id',this.guildId).maybeSingle());
+    return Array.isArray(row?.messages)?row.messages:[];
+  }
+  async saveSharedContext(messages) {
+    if(!this.db)return;
+    await this.requireResult(this.db.from('duckzinha_server_context')
+      .upsert({guild_id:this.guildId,messages:messages.slice(-80),updated_at:new Date().toISOString()},
+        {onConflict:'guild_id'}));
+  }
   async getConversation(discordId) {
     if(!this.db)return [];
     const row=await this.requireResult(this.db.from('duckzinha_conversations')
