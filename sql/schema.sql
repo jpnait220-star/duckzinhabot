@@ -64,3 +64,23 @@ alter table public.duckzinha_config enable row level security;
 revoke all on public.duckzinha_config from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_config to service_role;
 notify pgrst, 'reload schema';
+
+
+-- Memórias voluntárias de interesses declarados pelos próprios membros.
+-- Persistem até exclusão pelo usuário, sem coletar conversas completas.
+create table if not exists public.duckzinha_profile_facts (
+  guild_id text not null,
+  discord_user_id text not null,
+  fact_key text not null,
+  fact_value text not null,
+  updated_at timestamptz not null default now(),
+  primary key (guild_id,discord_user_id,fact_key),
+  constraint duckzinha_profile_key_length check (length(fact_key) between 2 and 60),
+  constraint duckzinha_profile_value_length check (length(fact_value) between 1 and 160)
+);
+create index if not exists duckzinha_profile_facts_user_idx
+  on public.duckzinha_profile_facts(guild_id,discord_user_id);
+alter table public.duckzinha_profile_facts enable row level security;
+revoke all on public.duckzinha_profile_facts from anon,authenticated;
+grant select,insert,update,delete on public.duckzinha_profile_facts to service_role;
+notify pgrst, 'reload schema';
