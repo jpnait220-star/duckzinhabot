@@ -424,6 +424,7 @@ client.on(Events.MessageCreate,async message=>{
           question,history,channelContext:mergedChannelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
+          profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
         aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
