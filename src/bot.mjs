@@ -453,6 +453,7 @@ client.on(Events.MessageCreate,async message=>{
     if(shouldOffer)answer='Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
     const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
     const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
+    if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
     const sent=await message.reply({content:answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
