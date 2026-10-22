@@ -525,6 +525,20 @@ async function handleDuckButton(interaction){
   if(!interaction.inGuild()||interaction.guildId!==GUILD_ID)return;
   const [prefix,action,key]=interaction.customId.split(':');
   if(prefix!=='duck')return;
+  if(action==='ticket'&&key==='tips'){
+    const channel=interaction.channel;
+    const everyone=interaction.guild?.roles?.everyone;
+    const visible=channel?.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel);
+    const valid=interaction.message?.author?.id===client.user?.id&&
+      typeof visible==='boolean'&&
+      isTicketChannel({type:channel?.type,parentId:channel?.parentId,
+        name:channel?.name,visibleToEveryone:visible},TICKET_CATEGORY_ID);
+    await interaction.reply({
+      content:valid?ticketGuide():'Estas orientações só aparecem dentro de um ticket.',
+      flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}
+    });
+    return;
+  }
   if(action==='sources'){
     const item=researchSources.get(key);
     if(!item||item.expires<Date.now()){
