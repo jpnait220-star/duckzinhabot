@@ -343,7 +343,14 @@ client.on(Events.ChannelCreate,channel=>{
       if(!fresh.permissionsFor(botMember)?.has([
         PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages
       ]))return;
-      await fresh.send({content:ticketOpeningMessage(),allowedMentions:{parse:[]}});
+      await fresh.send({
+        content:ticketOpeningMessage(),
+        components:[new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('duck:ticket:tips')
+            .setLabel('Como explicar meu problema').setStyle(ButtonStyle.Secondary)
+        )],
+        allowedMentions:{parse:[]}
+      });
       console.log('[Duckzinha] Aviso de espera enviado ao novo ticket.');
     }catch(err){console.warn('[Duckzinha] Não consegui avisar no ticket: '+err.message);}
   },2000);
