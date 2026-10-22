@@ -361,9 +361,9 @@ client.on(Events.MessageCreate,async message=>{
       getPersonality(),
       getChannelConversation(message)
     ]);
-    // Se o histórico coletivo não estiver disponível, usa o histórico pessoal
-    // como alternativa, sem misturar os dois contextos.
-    const history=channelContext?[]:await getHistory(id);
+    // Use tanto o histórico desta pessoa quanto as falas públicas recentes.
+    // O contexto do canal NÃO substitui a conversa anterior do usuário.
+    const history=await getHistory(id);
     const newName=pickName(question);
     if(newName&&newName!==member?.preferred_name)
       void store.rememberName(id,newName).catch(err=>console.warn('[Duckzinha] Salvar nome: '+err.message));
@@ -380,7 +380,7 @@ client.on(Events.MessageCreate,async message=>{
     if(modelReady&&(!searching||webFacts?.status==='ok')){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
-          question,history:channelContext?[]:history,channelContext,
+          question,history,channelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
