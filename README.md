@@ -4,7 +4,7 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 
 ## O que já faz
 
-- Responde quando **mencionada diretamente** `@Duckzinha` no servidor (não reage a mensagens normais nem a DMs).
+- Responde normalmente quando **mencionada diretamente** `@Duckzinha` no servidor. Exceção: confirma pedidos explícitos de memória feitos em canais públicos; não responde a DMs.
 - Personalidade simpática, educada, simples, com emojis, GG/W/KKKK quando combinar.
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
 - **Conversa coletiva em canais públicos:** lê mensagens normais de canais públicos para manter em RAM até 100 mensagens recentes (máximo de 48 horas), inclusive entre canais públicos, sem persistir esse chat completo. Ao ser mencionada, também consulta mensagens recentes do canal. Nunca inclui tickets, DMs, canais privados ou canais da equipe nessa memória coletiva. A RAM é apagada ao reiniciar.
@@ -44,7 +44,7 @@ Crie um **novo repositório privado** só para a Duckzinha. Publique os arquivos
 
 ## Segurança e privacidade
 
-- Apenas o histórico individual (até 12 mensagens por usuário, 14 dias) é guardado no Supabase. O contexto do canal é buscado no Discord quando alguém menciona a bot e não é salvo em banco. As mensagens são excluídas por `/duckzinha apagar-me` e administradores podem resetar as memórias.
+- O histórico individual (até 12 mensagens por usuário, 14 dias) e preferências voluntárias explicitamente salvas ficam no Supabase. A memória coletiva recente de canais públicos fica apenas em RAM e não é gravada como transcrição permanente. O contexto do canal é buscado no Discord quando alguém menciona a bot e não é salvo em banco. As mensagens são excluídas por `/duckzinha apagar-me` e administradores podem resetar as memórias.
 - Avise os membros do servidor de que, quando mencionada, a Duckzinha utiliza mensagens recentes do mesmo canal público para contextualizar respostas; o conteúdo é enviado ao provedor Cloudflare Workers AI. A bot não coleta mensagens privadas nem arquivos/anexos como contexto.
 - O prompt de `/configurar` tem acesso restrito aos administradores, fica salvo em `duckzinha_config` e não deve conter tokens nem dados pessoais.
 - O banco usa tabelas próprias com RLS; a chave `service_role` deve ficar apenas nas variáveis secretas da FadeHost.
