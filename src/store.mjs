@@ -104,6 +104,23 @@ export class DuckStore {
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id,discord_user_id,fact_key'}));
   }
+  async getFamiliarity(discordId) {
+    if(!this.db)return 0;
+    const row=await this.requireResult(this.db.from('duckzinha_familiarity')
+      .select('turns_count').eq('guild_id',this.guildId)
+      .eq('discord_user_id',discordId).maybeSingle());
+    return Math.max(0,Number(row?.turns_count)||0);
+  }
+  async incrementFamiliarity(discordId) {
+    if(!this.db)return 0;
+    const current=await this.getFamiliarity(discordId);
+    const next=Math.min(100000,current+1);
+    await this.requireResult(this.db.from('duckzinha_familiarity').upsert({
+      guild_id:this.guildId,discord_user_id:discordId,
+      turns_count:next,last_interaction_at:new Date().toISOString()
+    },{onConflict:'guild_id,discord_user_id'}));
+    return next;
+  }
   async getMember(discordId) {
     if(!this.db)return null;
     return await this.requireResult(this.db.from('duckzinha_memory').select('enabled,preferred_name')
