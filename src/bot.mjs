@@ -225,6 +225,7 @@ client.once(Events.ClientReady,async me=>{
   const timer=setInterval(()=>{
     void cleanupExpired();
     const now=Date.now();for(const [key,obj] of session)if(now-obj.updated>45*60_000)session.delete(key);
+    pruneSourceCache();
   },60_000);timer.unref?.();
   // Discord normally reconnects on its own. Restart only if the gateway
   // remains disconnected for over two minutes (FadeHost restarts crashed bots).
@@ -251,17 +252,39 @@ client.on(Events.MessageCreate,async message=>{
   const mentioned=message.mentions.users.has(client.user.id)&&
     (message.content.includes('<@'+client.user.id+'>')||message.content.includes('<@!'+client.user.id+'>'));
   const said=decision(stripMentions(message.content,client.user.id));
-  const confirmation=Boolean(pending&&said&&message.channelId===pending.channelId&&
+  const explaining=Boolean(pending?.mode==='explain'&&message.channelId===pending.channelId&&
+    Date.now()-pending.at<10*60_000&&
+    (mentioned||message.reference?.messageId===pending.promptId));
+  const confirmation=Boolean(pending?.mode!=='explain'&&pending&&said&&message.channelId===pending.channelId&&
     Date.now()-pending.at<10*60_000&&
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
-  if(!mentioned&&!confirmation)return;
+  if(!mentioned&&!confirmation&&!explaining)return;
+  if(explaining){
+    const explanation=stripMentions(message.content,client.user.id);
+    if(explanation.length<10){
+      await message.reply({content:'Me conta com um pouquinho mais de detalhes? 💛',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
+      return;
+    }
+    pendingResearch.delete(id);
+    const result=await message.reply({content:'Aaa, entendi! Obrigada por me explicar! 🦆💛 Vou considerar isso na nossa conversa, mas ainda não é uma informação verificada.',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
+    if(result)void schedule(result).catch(()=>{});
+    void addHistory(id,'Sobre '+pending.question+', você me explicou: '+explanation.slice(0,640),
+      'Entendi sua explicação! Informação compartilhada por um membro, ainda não verificada.').catch(err=>console.warn('[Duckzinha] Explicação: '+err.message));
+    return;
+  }
   const previous=busy.get(id);
   if(previous&&Date.now()-previous<60000)return;
   if(previous)console.warn('[Duckzinha] Liberando atendimento antigo preso há mais de 60s.');
   if(!confirmation&&Date.now()-(cooldown.get(id)||0)<7500)return;
   if(confirmation)pendingResearch.delete(id);
   const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
+  if(confirmation&&said==='explain'){
+    pendingResearch.set(id,{...pending,mode:'explain',at:Date.now()});
+    const sent=await message.reply({content:'Aaaa, me explica então! 💛 Me marca com @Duckzinha e conta o que é, que eu vou acompanhar nossa conversa.',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
+    if(sent)void schedule(sent).catch(()=>{});
+    return;
+  }
   if(confirmation&&said==='no'){
     const sent=await message.reply({content:'Tá bom! 💛 Se mudar de ideia, é só me chamar.',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
     if(sent)void schedule(sent).catch(()=>{});
@@ -328,13 +351,14 @@ client.on(Events.MessageCreate,async message=>{
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
-    if(searching&&webFacts?.status==='ok')
-      answer=answer.slice(0,1250)+'\n\nFontes: '+researchCitations(webFacts.results);
     const shouldOffer=(!searching&&aiAnswered&&uncertainty(answer));
-    if(shouldOffer)answer='Ainda não tenho certeza sobre isso. Quer que eu pesquise mais a fundo na internet? Responda **sim** ou **não**. 💛';
-    const sent=await message.reply({content:answer.slice(0,1900),allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
+    if(shouldOffer)answer='Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
+    const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
+    const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
+    const sent=await message.reply({content:answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
+    if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
-      if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now()});
+      if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
       // Never wait for background database writes before releasing the user.
       if(modelReady&&aiAnswered)
         void addHistory(id,question,answer).catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
