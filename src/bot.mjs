@@ -5,6 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
+import {emojiForReaction,stickerEnvName,matchSticker} from './sticker-reactions.mjs';
 import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
@@ -63,6 +64,35 @@ function pruneSourceCache(){
   const now=Date.now();
   for(const [key,value] of researchSources)if(value.expires<=now)researchSources.delete(key);
   for(const [key,value] of pendingResearch)if(now-value.at>10*60_000)pendingResearch.delete(key);
+}
+
+const stickerCache=new Map();
+async function resolveDuckSticker(guild,kind){
+  const variable=stickerEnvName(kind);
+  if(!variable)return null;
+  const configured=String(process.env[variable]||'').trim();
+  if(configured){
+    if(!isSnowflake(configured)){console.warn('[Duckzinha] '+variable+' não é um ID válido.');return null}
+    try{
+      const sticker=await guild.stickers.fetch(configured);
+      return sticker?.guildId===guild.id&&sticker.available!==false?sticker.id:null;
+    }catch(err){
+      console.warn('[Duckzinha] Figurinha '+kind+' não disponível: '+err.message);
+      return null;
+    }
+  }
+  // No ENV needed if stickers are called Duckzinha_Ola, Duckzinha_Riso etc.
+  const old=stickerCache.get(guild.id);
+  if(old&&old.expires>Date.now())return matchSticker(old.stickers,kind)?.id||null;
+  try{
+    const all=await guild.stickers.fetch();
+    stickerCache.set(guild.id,{stickers:[...all.values()],expires:Date.now()+5*60_000});
+    return matchSticker(all,kind)?.id||null;
+  }catch(err){
+    console.warn('[Duckzinha] Não consegui consultar figurinhas do servidor: '+err.message);
+    stickerCache.set(guild.id,{stickers:[],expires:Date.now()+60_000});
+    return null;
+  }
 }
 
 // Reações de imagem usam artes fornecidas pelo administrador, nunca imagens geradas automaticamente.
