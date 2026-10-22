@@ -5,7 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
-import {emojiForReaction,stickerEnvName,matchSticker} from './sticker-reactions.mjs';
+import {customEmojiEnv,customEmojiId,findCustomEmoji} from './emoji-reactions.mjs';
 import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
@@ -66,31 +66,31 @@ function pruneSourceCache(){
   for(const [key,value] of pendingResearch)if(now-value.at>10*60_000)pendingResearch.delete(key);
 }
 
-const stickerCache=new Map();
-async function resolveDuckSticker(guild,kind){
-  const variable=stickerEnvName(kind);
-  if(!variable)return null;
-  const configured=String(process.env[variable]||'').trim();
+const customEmojiCache=new Map();
+async function resolveDuckEmoji(guild,kind){
+  const env=customEmojiEnv(kind);
+  if(!env)return null;
+  const configured=String(process.env[env]||'').trim();
+  // Emojis precisam pertencer ao servidor e estar disponíveis.
   if(configured){
-    if(!isSnowflake(configured)){console.warn('[Duckzinha] '+variable+' não é um ID válido.');return null}
+    const id=customEmojiId(configured);
+    if(!id){console.warn('[Duckzinha] '+env+' não é um ID/emoji válido.');return null;}
     try{
-      const sticker=await guild.stickers.fetch(configured);
-      return sticker?.guildId===guild.id&&sticker.available!==false?sticker.id:null;
-    }catch(err){
-      console.warn('[Duckzinha] Figurinha '+kind+' não disponível: '+err.message);
-      return null;
-    }
+      const emoji=await guild.emojis.fetch(id);
+      return emoji?.guild?.id===guild.id&&emoji.available!==false?emoji.id:null;
+    }catch(err){console.warn('[Duckzinha] Emoji '+kind+' indisponível: '+err.message);return null;}
   }
-  // No ENV needed if stickers are called Duckzinha_Ola, Duckzinha_Riso etc.
-  const old=stickerCache.get(guild.id);
-  if(old&&old.expires>Date.now())return matchSticker(old.stickers,kind)?.id||null;
+  const cached=customEmojiCache.get(guild.id);
+  if(cached&&cached.expires>Date.now())
+    return findCustomEmoji(cached.emojis,kind)?.id||null;
   try{
-    const all=await guild.stickers.fetch();
-    stickerCache.set(guild.id,{stickers:[...all.values()],expires:Date.now()+5*60_000});
-    return matchSticker(all,kind)?.id||null;
+    const all=await guild.emojis.fetch();
+    const emojis=[...all.values()];
+    customEmojiCache.set(guild.id,{emojis,expires:Date.now()+5*60_000});
+    return findCustomEmoji(emojis,kind)?.id||null;
   }catch(err){
-    console.warn('[Duckzinha] Não consegui consultar figurinhas do servidor: '+err.message);
-    stickerCache.set(guild.id,{stickers:[],expires:Date.now()+60_000});
+    console.warn('[Duckzinha] Não foi possível consultar os emojis: '+err.message);
+    customEmojiCache.set(guild.id,{emojis:[],expires:Date.now()+60_000});
     return null;
   }
 }
@@ -108,7 +108,7 @@ async function findReactionFile(type){
 }
 
 const lastImageByChannel=new Map();
-async function maybeSendStickerReaction(message){
+async function maybeReactWithDuckEmoji(message){
   const type=imageReactionKind(message.content);
   if(!type||replyingWithImage||!maySendImageReaction({
     now:Date.now(),lastGlobal:lastImageReactionAt,
@@ -119,30 +119,21 @@ async function maybeSendStickerReaction(message){
   try{
     const botMember=message.guild.members.me||await message.guild.members.fetchMe();
     const permissions=message.channel.permissionsFor(botMember);
-    if(!permissions?.has(PermissionFlagsBits.ViewChannel))return;
-    // A sticker não pode ser usada como reação: o emoji reage à mensagem,
-    // a figurinha é enviada em resposta à mesma mensagem.
-    let completed=false;
-    if(permissions.has(PermissionFlagsBits.AddReactions)){
-      const emoji=emojiForReaction(type);
-      if(emoji)completed=Boolean(await message.react(emoji).catch(err=>{
-        console.warn('[Duckzinha] Reação emoji: '+err.message);return null;
-      }));
-    }
-    if(permissions.has(PermissionFlagsBits.SendMessages)){
-      const stickerId=await resolveDuckSticker(message.guild,type);
-      if(stickerId){
-        const sent=await message.reply({
-          stickers:[stickerId],allowedMentions:{repliedUser:false,parse:[]}
-        }).catch(err=>{console.warn('[Duckzinha] Figurinha: '+err.message);return null});
-        if(sent){completed=true;void schedule(sent).catch(()=>{});}
-      }
-    }
-    if(completed){
+    if(!permissions?.has([
+      PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,
+      PermissionFlagsBits.AddReactions
+    ]))return;
+    const emojiId=await resolveDuckEmoji(message.guild,type);
+    if(!emojiId)return; // Sem emoji da Duckzinha ainda? Não coloca emoji genérico.
+    const reacted=await message.react(emojiId).catch(err=>{
+      console.warn('[Duckzinha] Falha ao reagir com emoji personalizado: '+err.message);
+      return null;
+    });
+    if(reacted){
       lastImageReactionAt=Date.now();
       lastImageByChannel.set(message.channelId,lastImageReactionAt);
     }
-  }catch(err){console.warn('[Duckzinha] Reação social: '+err.message)}
+  }catch(err){console.warn('[Duckzinha] Reação: '+err.message)}
   finally{replyingWithImage=false;}
 }
 
@@ -365,12 +356,11 @@ client.on(Events.GuildMemberAdd,async member=>{
     const botMember=member.guild.members.me||await member.guild.members.fetchMe();
     const permissions=channel.permissionsFor(botMember);
     if(!permissions?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages]))return;
-    const greetingSticker=await resolveDuckSticker(member.guild,'ola');
-    const greetingImage=!greetingSticker&&permissions.has(PermissionFlagsBits.AttachFiles)
+    // Emojis são usados só para reagir; nas boas-vindas continua a imagem acenando.
+    const greetingImage=permissions.has(PermissionFlagsBits.AttachFiles)
       ?await findReactionFile('ola'):null;
     await channel.send({
       content:welcomeMessage(member.id,member.guild.name),
-      ...(greetingSticker?{stickers:[greetingSticker]}:{}),
       ...(greetingImage?{files:[greetingImage]}:{}),
       allowedMentions:{users:[member.id],roles:[],repliedUser:false}
     });
@@ -433,7 +423,7 @@ client.on(Events.MessageCreate,async message=>{
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
   if(!mentioned&&!confirmation&&!explaining){
-    if(isPublic&&!candidate)void maybeSendStickerReaction(message);
+    if(isPublic&&!candidate)void maybeReactWithDuckEmoji(message);
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
