@@ -535,6 +535,7 @@ async function handleDuckButton(interaction){
     return;
   }
   const speaker=interaction.member?.displayName||interaction.user.globalName||interaction.user.username;
+  const history=await getHistory(interaction.user.id);
   let answer=null;
   if(CF_ACCOUNT&&CF_TOKEN){
     try{
@@ -543,7 +544,7 @@ async function handleDuckButton(interaction){
       ]);
       answer=await askCloudflare({
         accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,question,
-        speaker,history:[],name:'',
+        speaker,history,name:'',pastResearch:previousResearchNotes(history),
         channelContext,customPersonality:personality,
         knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),
         research:webResearchContext(webFacts.results)
