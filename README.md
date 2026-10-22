@@ -7,13 +7,14 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - Responde quando **mencionada diretamente** `@Duckzinha` no servidor (não reage a mensagens normais nem a DMs).
 - Personalidade simpática, educada, simples, com emojis, GG/W/KKKK quando combinar.
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
-- Memória automática: até 12 mensagens recentes por usuário, armazenadas no Supabase por até 14 dias, para continuar conversas após reinícios.
+- **Conversa coletiva por canal:** quando mencionada, a Duckzinha consulta até 25 mensagens anteriores do canal público, considera no máximo 16 mensagens dos últimos 30 minutos e distingue os autores. Ela continua respondendo **somente quando mencionada**, não vigia outros canais e não salva esse histórico coletivo no Supabase. Como lê o Discord ao ser chamada, o contexto recente continua disponível após reinícios enquanto as mensagens estiverem no canal.
+- **Histórico pessoal:** até 12 mensagens por usuário, armazenadas no Supabase por até 14 dias, usado como alternativa quando não há contexto de canal.
 - `/duckzinha apagar-me`: cada membro pode excluir histórico e nome. `/duckzinha reset`: exclusivo para administradores, apaga a memória dos membros.
 - `/configurar arquivo:<arquivo.txt>`: administradores podem enviar um TXT UTF-8 com a personalidade e o comportamento desejado (até 8.000 caracteres). O texto fica salvo no Supabase e é aplicado às próximas respostas.
 
 - `/ensinar` e `/ensinamentos`: administradores configuram assuntos sem editar o código (com Supabase ativo).
 - Respostas públicas enviadas pela Duckzinha são apagadas em **20 minutos** (apenas as respostas **dela**, nunca as dos usuários). Agendamento persiste após reinício se o Supabase estiver configurado.
-- IA opcional **Cloudflare Workers AI: `@cf/google/gemma-4-26b-a4b-it`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA incluem apenas a pergunta recente e até doze mensagens recentes daquela conversa. Não usa respostas de outros membros.
+- IA opcional **Cloudflare Workers AI: `@cf/google/gemma-4-26b-a4b-it`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA podem incluir falas recentes de outros membros do mesmo canal público quando a bot é mencionada, para que participe do contexto coletivo.
 
 ## Antes de executar
 
@@ -29,7 +30,8 @@ Crie um **novo repositório privado** só para a Duckzinha. Publique os arquivos
 
 ## Segurança e privacidade
 
-- Até 12 mensagens por usuário ficam guardadas no Supabase para retomar a conversa após reiniciar, com expiração de 14 dias. As mensagens são excluídas por `/duckzinha apagar-me` e administradores podem resetar as memórias.
+- Apenas o histórico individual (até 12 mensagens por usuário, 14 dias) é guardado no Supabase. O contexto do canal é buscado no Discord quando alguém menciona a bot e não é salvo em banco. As mensagens são excluídas por `/duckzinha apagar-me` e administradores podem resetar as memórias.
+- Avise os membros do servidor de que, quando mencionada, a Duckzinha utiliza mensagens recentes do mesmo canal público para contextualizar respostas; o conteúdo é enviado ao provedor Cloudflare Workers AI. A bot não coleta mensagens privadas nem arquivos/anexos como contexto.
 - O prompt de `/configurar` tem acesso restrito aos administradores, fica salvo em `duckzinha_config` e não deve conter tokens nem dados pessoais.
 - O banco usa tabelas próprias com RLS; a chave `service_role` deve ficar apenas nas variáveis secretas da FadeHost.
 
