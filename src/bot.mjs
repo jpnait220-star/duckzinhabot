@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
-import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions} from './brain.mjs';
+import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -45,6 +45,30 @@ async function getHistory(userId){
   });
   session.set(userId,{items,updated:Date.now()});
   return items;
+}
+async function getChannelConversation(message){
+  // Consultar o chat só quando Duckzinha for mencionada.
+  // Não coletar DMs, canais privados ou mensagens de outros servidores.
+  const guild=message.guild;
+  const permissions=message.channel?.permissionsFor?.(guild?.roles?.everyone);
+  if(!permissions?.has(PermissionFlagsBits.ViewChannel))return '';
+  if(!message.channel?.messages?.fetch)return '';
+  let timeoutId;
+  try{
+    const timeout=new Promise((_,reject)=>{
+      timeoutId=setTimeout(()=>reject(new Error('tempo limite da leitura do canal')),4500);
+    });
+    const recent=await Promise.race([
+      message.channel.messages.fetch({limit:25,before:message.id}),
+      timeout
+    ]);
+    return formatChannelContext([...recent.values()],client.user?.id);
+  }catch(err){
+    console.warn('[Duckzinha] Contexto do canal indisponível: '+err.message);
+    return '';
+  }finally{
+    clearTimeout(timeoutId);
+  }
 }
 async function addHistory(userId,question,answer){
   const items=await getHistory(userId);
@@ -146,11 +170,12 @@ client.on(Events.MessageCreate,async message=>{
   console.log('[Duckzinha] Menção recebida; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,history,personality]=await Promise.all([
+    const [member,facts,history,personality,channelContext]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
       getHistory(id),
-      getPersonality()
+      getPersonality(),
+      getChannelConversation(message)
     ]);
     const newName=pickName(question);
     if(newName&&newName!==member?.preferred_name)
@@ -161,7 +186,9 @@ client.on(Events.MessageCreate,async message=>{
     if(modelReady){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
-          question,history,customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName});
+          question,history:channelContext?[]:history,channelContext,
+          speaker:message.member?.displayName||message.author.globalName||message.author.username,
+          customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName});
         aiAnswered=Boolean(answer);
       }catch(e){console.warn('[Duckzinha] IA temporariamente indisponível ('+e.message+'); usando resposta básica.')}
     }
