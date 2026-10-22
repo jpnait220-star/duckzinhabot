@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import fs from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
-import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
+import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand} from './commands.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
@@ -23,8 +24,17 @@ const CF_MODEL=process.env.CF_MODEL?.trim()||MODEL;
 const TAVILY_KEY=process.env.TAVILY_API_KEY?.trim()||'';
 const SERPER_KEY=process.env.SERPER_API_KEY?.trim()||'';
 const DELETE_AFTER=Math.max(5,Math.min(60,Number(process.env.DELETE_AFTER_MINUTES)||20))*60_000;
+const WELCOME_CHANNEL_ID=isSnowflake(process.env.WELCOME_CHANNEL_ID)?process.env.WELCOME_CHANNEL_ID.trim():'';
+const TICKET_CATEGORY_ID=isSnowflake(process.env.TICKET_CATEGORY_ID)?process.env.TICKET_CATEGORY_ID.trim():'';
+if(process.env.WELCOME_CHANNEL_ID&&!WELCOME_CHANNEL_ID)
+  console.warn('[Duckzinha] WELCOME_CHANNEL_ID inválido; boas-vindas desativadas.');
+if(process.env.TICKET_CATEGORY_ID&&!TICKET_CATEGORY_ID)
+  console.warn('[Duckzinha] TICKET_CATEGORY_ID inválido; detectando somente prefixos ticket-/atendimento-.');
 
-const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
+const client=new Client({intents:[
+  GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent,
+  ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
+]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
 const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
 
@@ -241,6 +251,48 @@ client.once(Events.ClientReady,async me=>{
     }
   },30000);
   watchdog.unref?.();
+});
+
+
+// Canal de boas-vindas: só é ativado com WELCOME_CHANNEL_ID e intent GuildMembers.
+client.on(Events.GuildMemberAdd,async member=>{
+  if(!WELCOME_CHANNEL_ID||member.guild.id!==GUILD_ID||member.user.bot)return;
+  try{
+    const channel=await member.guild.channels.fetch(WELCOME_CHANNEL_ID).catch(()=>null);
+    if(!channel||channel.type!==ChannelType.GuildText||channel.guildId!==GUILD_ID)return;
+    const botMember=member.guild.members.me||await member.guild.members.fetchMe();
+    const permissions=channel.permissionsFor(botMember);
+    if(!permissions?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages]))return;
+    await channel.send({
+      content:welcomeMessage(member.id,member.guild.name),
+      allowedMentions:{users:[member.id],roles:[],repliedUser:false}
+    });
+    console.log('[Duckzinha] Boas-vindas enviadas para novo membro.');
+  }catch(err){console.warn('[Duckzinha] Não consegui dar boas-vindas: '+err.message);}
+});
+
+// Alguns bots criam o ticket antes de terminar de configurar permissões.
+// Conferimos de novo depois de alguns instantes; não mexemos no ticket.
+client.on(Events.ChannelCreate,channel=>{
+  if(channel.guildId!==GUILD_ID||channel.type!==ChannelType.GuildText)return;
+  const timer=setTimeout(async()=>{
+    try{
+      const fresh=await channel.guild.channels.fetch(channel.id).catch(()=>null);
+      if(!fresh||fresh.type!==ChannelType.GuildText)return;
+      const everyone=fresh.guild.roles.everyone;
+      const visible=fresh.permissionsFor(everyone)?.has(PermissionFlagsBits.ViewChannel);
+      if(!isTicketChannel({
+        type:fresh.type,parentId:fresh.parentId,name:fresh.name,visibleToEveryone:visible
+      },TICKET_CATEGORY_ID))return;
+      const botMember=fresh.guild.members.me||await fresh.guild.members.fetchMe();
+      if(!fresh.permissionsFor(botMember)?.has([
+        PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages
+      ]))return;
+      await fresh.send({content:ticketOpeningMessage(),allowedMentions:{parse:[]}});
+      console.log('[Duckzinha] Aviso de espera enviado ao novo ticket.');
+    }catch(err){console.warn('[Duckzinha] Não consegui avisar no ticket: '+err.message);}
+  },2000);
+  timer.unref?.();
 });
 
 client.on(Events.MessageCreate,async message=>{
