@@ -281,6 +281,7 @@ client.on(Events.ChannelCreate,channel=>{
       if(!fresh||fresh.type!==ChannelType.GuildText)return;
       const everyone=fresh.guild.roles.everyone;
       const visible=fresh.permissionsFor(everyone)?.has(PermissionFlagsBits.ViewChannel);
+      if(typeof visible!=='boolean')return;
       if(!isTicketChannel({
         type:fresh.type,parentId:fresh.parentId,name:fresh.name,visibleToEveryone:visible
       },TICKET_CATEGORY_ID))return;
