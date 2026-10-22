@@ -104,7 +104,13 @@ export async function askCloudflare({accountId,token,model=MODEL,question,histor
     if((it.role==='user'||it.role==='assistant') && typeof it.content==='string')messages.push({role:it.role,content:it.content.slice(0,850)});
   }
   const from=String(speaker||'Membro').replace(/[\r\n\t]/g,' ').slice(0,36);
-  messages.push({role:'user',content:'Mensagem atual de '+from+': '+question.slice(0,900)});
+  // Reforce o assunto imediatamente antes da última pergunta para modelos compactos.
+  const isFollowUp=Boolean(followUpReference(question,history));
+  const lastUserTurn=isFollowUp?[...history].reverse().find(m=>m?.role==='user'&&typeof m.content==='string'):null;
+  const continuity=lastUserTurn?'\n[Esta é uma continuação da pergunta da mesma pessoa: "'+
+    lastUserTurn.content.replace(/\s+/g,' ').slice(0,280)+
+    '". Responda à parte nova da pergunta atual sem mudar o assunto.]':'';
+  messages.push({role:'user',content:'Mensagem atual de '+from+': '+question.slice(0,900)+continuity});
   // GLM-4.7-Flash habilita raciocínio por padrão. No modo chat do Discord
   // pode gastar todos os tokens em raciocínio sem produzir texto visível.
   const isGLM=model==='@cf/zai-org/glm-4.7-flash';
