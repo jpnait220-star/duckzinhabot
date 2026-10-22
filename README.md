@@ -1,6 +1,6 @@
 # 🦆 Duckzinha — Assistente do DuckzinCommunity (versão 1)
 
-Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele **não altera tickets**, não lê outros canais por conta própria, não se passa por humano e não exige chave de IA para iniciar.
+Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele **apenas publica avisos em novos tickets** (quando configurado) e não altera tickets, não consulta canais privados de suporte para gerar respostas de IA, não se passa por humano e não exige chave de IA para iniciar.
 
 ## O que já faz
 
@@ -8,6 +8,8 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - Personalidade simpática, educada, simples, com emojis, GG/W/KKKK quando combinar.
 - `/ajuda`, `/website`, `/ticket`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
 - **Conversa coletiva por canal:** quando mencionada, a Duckzinha consulta até 25 mensagens anteriores do canal público, considera no máximo 16 mensagens dos últimos 30 minutos e distingue os autores. Ela continua respondendo **somente quando mencionada**, não vigia outros canais e não salva esse histórico coletivo no Supabase. Como lê o Discord ao ser chamada, o contexto recente continua disponível após reinícios enquanto as mensagens estiverem no canal.
+- **Boas-vindas automáticas:** com `WELCOME_CHANNEL_ID` definido na FadeHost e **Server Members Intent** ativado no Discord Developer Portal, a Duckzinha cumprimenta os novos membros no canal de entrada. Ela não faz menção a cargos nem envia DMs.
+- **Aviso em tickets recém-criados:** quando um bot de tickets cria um **canal de texto privado** em `TICKET_CATEGORY_ID`, a Duckzinha avisa para aguardar a staff. Sem essa variável, ela só reconhece canais privados com prefixos `ticket-`, `tickets-` ou `atendimento-` (ou usando `_`). A bot precisa ter acesso e permissão de enviar mensagens nesse canal. Não interfere na criação ou fechamento de tickets, nem lê o conteúdo para esse aviso. A mensagem de espera não é apagada automaticamente.
 - **Histórico pessoal:** até 12 mensagens por usuário, armazenadas no Supabase por até 14 dias, usado como alternativa quando não há contexto de canal.
 - **Pesquisa na web com botões:** quando não tem certeza sobre uma pergunta factual (ex.: "o que é MushMC?"), a Duckzinha oferece os botões **Eu explico** e **Pesquisar**. O primeiro deixa o autor explicar no chat, sem gravar aquilo automaticamente como conhecimento oficial do servidor. O segundo consulta Tavily e, se necessário, Serper. Depois de pesquisar, mostra **Ver fontes**; cada pessoa pode clicar para visualizar os links em uma resposta privada do Discord. Os botões são temporários e não sobrevivem totalmente a reinicializações da hospedagem. A busca direta por mensagem continua disponível. Apenas fontes que o buscador efetivamente retornou são exibidas.
 - `/duckzinha apagar-me`: cada membro pode excluir histórico e nome. `/duckzinha reset`: exclusivo para administradores, apaga a memória dos membros.
@@ -17,9 +19,17 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - Respostas públicas enviadas pela Duckzinha são apagadas em **20 minutos** (apenas as respostas **dela**, nunca as dos usuários). Agendamento persiste após reinício se o Supabase estiver configurado.
 - IA opcional **Cloudflare Workers AI: `@cf/google/gemma-4-26b-a4b-it`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA podem incluir falas recentes de outros membros do mesmo canal público quando a bot é mencionada, para que participe do contexto coletivo.
 
+## Configurar entrada e tickets na FadeHost
+
+- `WELCOME_CHANNEL_ID` = ID numérico do **canal de boas-vindas/entrada**. Essa variável ativa o evento de entrada dos membros. Habilite **Server Members Intent (Guild Members)** em **Discord Developer Portal → Bot → Privileged Gateway Intents** antes de reiniciar o bot; sem isso, o Discord pode desconectá-lo com o erro 4014.
+- `TICKET_CATEGORY_ID` = ID numérico da **categoria do Discord** onde o bot de tickets cria os canais privados. Recomendado para não confundir com outros canais. Se o bot de tickets usa threads em vez de canais, o aviso de abertura por canal não se aplica.
+- Na lista de membros/cargos autorizados da categoria de tickets, inclua a Duckzinha com **Ver canal**, **Enviar mensagens** e **Ler histórico de mensagens**, ou conceda acesso ao cargo do bot. O bot não solicita permissões de administrador.
+
+Para copiar um ID no Discord, ative **Modo desenvolvedor** em Configurações avançadas, clique com o botão direito no canal/categoria e use **Copiar ID**. Nunca copie uma chave de API nesses campos.
+
 ## Antes de executar
 
-1. Crie um **novo aplicativo/bot** no Discord Developer Portal: não use o token do Duckzin Bridge. Ative **Message Content Intent** nas configurações de Bot (caso permitido/necessário). Nas permissões, conceda somente **View Channels, Send Messages, Embed Links, Read Message History** e o escopo `applications.commands` ao instalar.
+1. Crie um **novo aplicativo/bot** no Discord Developer Portal: não use o token do Duckzin Bridge. Ative **Message Content Intent** nas configurações de Bot (caso permitido/necessário). Para boas-vindas, também ative **Server Members Intent**. Nas permissões, conceda somente **View Channels, Send Messages, Embed Links, Read Message History** e o escopo `applications.commands` ao instalar.
 2. Faça uma cópia de `.env.example` para `.env`, preencha os IDs do **novo bot** e o ID do servidor. **Não publique `.env`, chaves ou tokens**, nem mesmo no GitHub privado.
 3. Instale Node.js 22. Rode `npm install` e `npm start`. Com apenas as variáveis Discord, já funcionam os comandos e as respostas básicas.
 4. Para **memória persistente e aprendizado**, abra `sql/schema.sql`, execute no Supabase sob responsabilidade do administrador, e configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` **somente na hospedagem**, nunca no site.
@@ -49,6 +59,8 @@ npm test
 ```
 
 ## Arquivos
+
+- `src/community-events.mjs`: identificação segura de tickets privados e textos de boas-vindas.
 
 - `src/bot.mjs`: Discord, respostas por menção, limpeza, fila e inicialização.
 - `src/brain.mjs`: personalidade, resposta básica e requisição opcional ao modelo.
