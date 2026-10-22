@@ -446,6 +446,7 @@ client.on(Events.MessageCreate,async message=>{
     const history=await getHistory(id);
     const memorySaved=await memoryTask;
     const profileFacts=await store.getProfileFacts(id).catch(()=>[]);
+    const friendshipTurns=member?.enabled===false?0:await store.getFamiliarity(id).catch(()=>0);
     const pastResearch=previousResearchNotes(history);
     const extraContext=currentServerContext(message.id);
     const mergedChannelContext=(channelContext.slice(-2500)+'\n'+
@@ -470,6 +471,7 @@ client.on(Events.MessageCreate,async message=>{
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
+          familiarity:member?.enabled===false?'novo por aqui':familiarityLabel(friendshipTurns),
           pastResearch,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
         aiAnswered=Boolean(answer);
