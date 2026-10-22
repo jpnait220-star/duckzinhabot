@@ -53,6 +53,11 @@ export class DuckStore {
       expires_at:new Date(Date.now()+14*86400000).toISOString()
     },{onConflict:'guild_id,discord_user_id'}));
   }
+  async deleteFamiliarity(discordId) {
+    if(!this.db)return;
+    await this.requireResult(this.db.from('duckzinha_familiarity').delete()
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
+  }
   async forgetSelf(discordId) {
     if(!this.db)throw Error('Supabase não configurado.');
     await this.requireResult(this.db.from('duckzinha_conversations').delete()
