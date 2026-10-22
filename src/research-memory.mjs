@@ -17,7 +17,8 @@ export function researchMemoryNote(question,results=[]){
 export function historyAnswer(answer,question,results=[]){
   const note=researchMemoryNote(question,results);
   if(!note)return compact(answer).slice(0,800);
-  return (compact(answer).slice(0,250)+'\n'+note).slice(0,800);
+  const room=Math.max(0,800-note.length-1);
+  return (compact(answer).slice(0,room)+'\n'+note).slice(0,800);
 }
 
 export function previousResearchNotes(history=[]){
