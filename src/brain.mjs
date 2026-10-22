@@ -69,7 +69,7 @@ export function cannedAnswer(input, extraKnowledge={}) {
 // Referências curtas normalmente retomam o assunto da pergunta anterior da pessoa.
 export function followUpReference(question,history=[]) {
   const q=String(question||'').replace(/\s+/g,' ').trim();
-  if(q.length>100 || !/^(?:e(?:\s|[?!,.:;]|$)|mas(?:\s|[?!,.:;]|$)|ent[aã]o\b|sobre\b|quanto\b|e\s+se\b|qual\b|como\b|o jogo\b|a historia\b|a história\b|o filme\b|a serie\b|a série\b)/i.test(q))return '';
+  if(q.length>100 || !/^(?:e(?:\s|[?!,.:;]|$)|mas(?:\s|[?!,.:;]|$)|ent[aã]o\b|sobre\s+(?:isso|ele|ela|o mesmo|a mesma)\b|qual\s+(?:deles|delas)\b|como\s+assim\b|o jogo\b|a historia\b|a história\b|o filme\b|a serie\b|a série\b)/i.test(q))return '';
   const old=[...history].reverse().find(it=>it?.role==='user'&&typeof it.content==='string'&&it.content.trim());
   if(!old)return '';
   const previous=old.content.replace(/\s+/g,' ').slice(0,280);
