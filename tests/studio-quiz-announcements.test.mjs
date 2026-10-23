@@ -110,6 +110,7 @@ test('anúncio usa um campo e envia Markdown completo como texto',async()=>{
   };
   const store={guildId:'g',persistent:true,addProjectUpdate:async(...args)=>{saved=args;}};
   assert.equal(await runNewCommand(interaction,{store}),true);
+  assert.ok(posted,'Anúncio não enviado. Feedback: '+JSON.stringify(confirmed));
   assert.equal(posted.content,announcement);
   assert.deepEqual(posted.allowedMentions,{parse:[]});
   assert.equal(saved[0],'🦆 Atualização!');
