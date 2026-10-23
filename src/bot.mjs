@@ -64,8 +64,11 @@ async function testDuckVoice(interaction){
   const played=await voiceVisits.speak(interaction.guildId,audio);
   if(!played)return 'O áudio foi gerado, mas o player não conseguiu reproduzir. Confira os logs.';
   const playbackMs=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
+  const selected=audio.duckTtsProvider==='google'
+    ?'Google TTS (voz alternativa; o Edge falhou)'
+    :'Edge TTS ('+voiceLabel(selectedVoice)+')';
   return 'O player processou '+playbackMs+'ms de áudio na call '+voice.name+
-    ' usando '+voiceLabel(selectedVoice)+'. Isso não garante que o Discord transmitiu som. '+
+    ' com '+selected+'. Isso não garante que o Discord transmitiu som. '+
     'Se não ouviu, confira se a bot está silenciada no servidor, o volume dela e os logs da FadeHost.';
 }
 
