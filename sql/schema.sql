@@ -66,7 +66,17 @@ alter table public.duckzinha_config add column if not exists voice_name text not
 alter table public.duckzinha_config alter column voice_name set default 'pt-BR-FranciscaNeural';
 -- Vozes da antiga integração Azure não funcionam no Edge: migrar para Francisca.
 update public.duckzinha_config set voice_name='pt-BR-FranciscaNeural'
-where voice_name not in ('pt-BR-FranciscaNeural','pt-BR-ThalitaMultilingualNeural','pt-BR-AntonioNeural');
+where voice_name not in ('pt-BR-FranciscaNeural',
+  'pt-BR-FranciscaFofaNeural',
+  'pt-BR-FranciscaSuaveNeural',
+  'pt-BR-FranciscaAnimadaNeural',
+  'pt-BR-ThalitaMultilingualNeural',
+  'pt-BR-ThalitaFofaNeural',
+  'pt-BR-ThalitaSuaveNeural',
+  'pt-BR-AntonioNeural',
+  'pt-BR-RaquelPortugalNeural',
+  'pt-BR-RaquelFofaNeural',
+  'pt-BR-DuartePortugalNeural');
 alter table public.duckzinha_config enable row level security;
 revoke all on public.duckzinha_config from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_config to service_role;
