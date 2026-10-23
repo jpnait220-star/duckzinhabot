@@ -105,7 +105,7 @@ export class DuckVoiceVisits{
         session.subscription=session.connection.subscribe(session.player);
         if(!session.subscription)throw Error('Sem assinatura de áudio na call');
       }
-      const resource=createAudioResource(Readable.from(audio),{inputType:StreamType.OggOpus});
+      const resource=createAudioResource(Readable.from(audio),{inputType:StreamType.WebmOpus});
       const player=session.player;
       return new Promise((resolve,reject)=>{
         let timer;
