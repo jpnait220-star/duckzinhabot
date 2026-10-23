@@ -50,17 +50,18 @@ export function commandPayloads(){
 }
 
 export const embed=(title,description)=>new EmbedBuilder().setColor(gold).setTitle(title).setDescription(description).setFooter({text:'Duckzinha • DuckzinCommunity 🦆💛'});
-export async function runCommand(interaction,{store,site,panelId,schedule,localKnowledge,client,clearSession,invalidatePersonality}){
+export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
   const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
   async function respond(payload,privateReply=ephemeral){
     const options=typeof payload==='string'?{content:payload}:payload;
-    const sent=await interaction.reply({...options,allowedMentions:{parse:[]},...(privateReply?{flags:MessageFlags.Ephemeral}:{withResponse:true})});
-    if(!privateReply){
-      const message=sent?.resource?.message || await interaction.fetchReply().catch(()=>null);
-      if(message)void schedule(message);
-    }
+    // As respostas de comandos slash (/website, /ajuda etc.) são permanentes.
+    // Não registrar na fila de exclusão das mensagens temporárias do chat.
+    return interaction.reply({
+      ...options,allowedMentions:{parse:[]},
+      ...(privateReply?{flags:MessageFlags.Ephemeral}:{})
+    });
   }
   if(cmd==='configurar'){
     if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
