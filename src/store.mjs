@@ -148,6 +148,20 @@ export class DuckStore {
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id,discord_user_id'}));
   }
+  async addProjectUpdate(title,description,authorId){
+    if(!this.db)throw Error('Supabase não configurado.');
+    await this.requireResult(this.db.from('duckzinha_project_updates').insert({
+      guild_id:this.guildId,title:title.slice(0,80),
+      description:description.slice(0,700),author_id:authorId
+    }));
+  }
+  async listProjectUpdates(){
+    if(!this.db)return [];
+    const rows=await this.requireResult(this.db.from('duckzinha_project_updates')
+      .select('title,description,created_at').eq('guild_id',this.guildId)
+      .order('created_at',{ascending:false}).limit(5));
+    return rows||[];
+  }
   async getProfileFacts(discordId) {
     if(!this.db)return [];
     const rows=await this.requireResult(this.db.from('duckzinha_profile_facts')
