@@ -4,72 +4,74 @@ import {PermissionFlagsBits,MessageFlags} from 'discord.js';
 import {runCommand,commandPayloads} from '../src/commands.mjs';
 import {
   DEFAULT_VOICE,PT_BR_VOICES,voiceChoices,voiceLabel,validVoice,
-  azureSpeechReady,voiceSSML,synthesizeDuckSpeech
+  edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech
 } from '../src/duck-tts.mjs';
 
-test('Dezoito vozes brasileiras aparecem no /duckzinha voice nome',()=>{
-  assert.equal(PT_BR_VOICES.length,18);
-  assert.equal(voiceChoices().length,18);
+test('Três vozes brasileiras do Edge aparecem no /duckzinha voice nome',()=>{
+  assert.equal(PT_BR_VOICES.length,3);
+  assert.equal(voiceChoices().length,3);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
-  assert.equal(voiceLabel(DEFAULT_VOICE),'Letícia');
-  assert.equal(validVoice('pt-BR-YaraNeural'),true);
-  assert.equal(validVoice('en-US-JennyNeural'),false);
+  assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca');
+  assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
+  assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
     .options.find(x=>x.name==='voice').options[0].choices;
-  assert.equal(choices.length,18);
-  assert.ok(choices.some(x=>x.value==='pt-BR-GiovannaNeural'));
+  assert.equal(choices.length,3);
+  assert.ok(choices.some(x=>x.value==='pt-BR-FranciscaNeural'));
+  assert.ok(choices.some(x=>x.value==='pt-BR-AntonioNeural'));
 });
 
 test('Somente admin pode trocar a voz, e ela é salva antes de atualizar o cache',async()=>{
   let saved,changed,reply;
-  const mk=(admin,choice='pt-BR-GiovannaNeural')=>({
+  const mk=(admin,choice='pt-BR-ThalitaMultilingualNeural')=>({
     guildId:'g',inGuild:()=>true,commandName:'duckzinha',user:{id:'a'},
     memberPermissions:{has:bit=>admin&&bit===PermissionFlagsBits.Administrator},
     options:{getSubcommand:()=> 'voice',getString:()=>choice},
     reply:async x=>{reply=x}
   });
   const store={guildId:'g',persistent:true,setVoice:async v=>{saved=v}};
-  await runCommand(mk(false),{store,onVoiceChanged:v=>{changed=v},azureVoiceReady:true});
+  await runCommand(mk(false),{store,onVoiceChanged:v=>{changed=v},edgeVoiceReady:true});
   assert.equal(saved,undefined);
   assert.equal(reply.flags,MessageFlags.Ephemeral);
-  await runCommand(mk(true),{store,onVoiceChanged:v=>{changed=v},azureVoiceReady:true});
-  assert.equal(saved,'pt-BR-GiovannaNeural');
+  await runCommand(mk(true),{store,onVoiceChanged:v=>{changed=v},edgeVoiceReady:true});
+  assert.equal(saved,'pt-BR-ThalitaMultilingualNeural');
   assert.equal(changed,saved);
-  assert.match(reply.content,/Giovanna/);
+  assert.match(reply.content,/Thalita/);
+  assert.match(reply.content,/Edge TTS/);
   assert.equal(reply.flags,MessageFlags.Ephemeral);
-  await runCommand(mk(true,'en-US-JennyNeural'),{store});
+  await runCommand(mk(true,'pt-BR-LeticiaNeural'),{store});
   assert.match(reply.content,/português brasileiro/);
+  assert.equal(saved,'pt-BR-ThalitaMultilingualNeural');
 });
 
-test('Azure monta SSML protegido contra texto XML e usa formato Ogg/Opus',async()=>{
-  assert.equal(azureSpeechReady({key:'chave',region:'brazilsouth'}),true);
-  assert.equal(azureSpeechReady({key:'',region:'brazilsouth'}),false);
-  assert.equal(azureSpeechReady({key:'chave',region:'../../example'}),false);
-  assert.match(voiceSSML('olá & <teste>','pt-BR-YaraNeural'),/olá &amp; &lt;teste&gt;/);
-  assert.throws(()=>voiceSSML('ola','en-US-JennyNeural'));
-  let got;
-  const audio=Buffer.concat([Buffer.from('OggS'),Buffer.alloc(64)]);
-  const fetcher=async (url,options)=>{
-    got={url,options};
-    return {ok:true,headers:{get:()=>String(audio.length)},arrayBuffer:async()=>audio};
-  };
-  const out=await synthesizeDuckSpeech({
-    text:'Olá, gente!',voice:'pt-BR-LeticiaNeural',key:'chave',region:'brazilsouth',fetcher
+test('Edge TTS gera WebM/Opus e aplica tom levemente agudo nas femininas',async()=>{
+  assert.equal(edgeSpeechReady(),true);
+  assert.equal(edgeVoiceOptions('pt-BR-FranciscaNeural').pitch,'+12Hz');
+  assert.equal(edgeVoiceOptions('pt-BR-AntonioNeural').pitch,'+0Hz');
+  assert.throws(()=>edgeVoiceOptions('pt-BR-LeticiaNeural'));
+  let called;
+  const fakeAudio=Buffer.concat([Buffer.from([0x1a,0x45,0xdf,0xa3]),Buffer.alloc(64)]);
+  const result=await synthesizeDuckSpeech({
+    text:'Olá, gente!',voice:'pt-BR-FranciscaNeural',
+    ttsFactory:()=>({
+      generate:async (text,voice,options)=>{
+        called={text,voice,options};return {audio:fakeAudio,format:'webm'};
+      }
+    })
   });
-  assert.equal(out.toString('ascii',0,4),'OggS');
-  assert.equal(got.options.headers['X-Microsoft-OutputFormat'],'ogg-24khz-16bit-mono-opus');
-  assert.equal(got.options.headers['Ocp-Apim-Subscription-Key'],'chave');
-  assert.match(got.options.body,/LeticiaNeural/);
+  assert.deepEqual(result,fakeAudio);
+  assert.equal(called.voice,'pt-BR-FranciscaNeural');
+  assert.equal(called.options.outputFormat,'webm-24khz-16bit-mono-opus');
+  assert.equal(called.options.pitch,'+12Hz');
 });
 
-test('Audio inválido ou indisponibilidade falha sem fingir reprodução',async()=>{
-  await assert.rejects(synthesizeDuckSpeech({text:'oi',key:'',region:''}));
+test('Erros do Edge TTS são propagados sem fingir áudio',async()=>{
+  await assert.rejects(synthesizeDuckSpeech({text:'oi',voice:'pt-BR-LeticiaNeural'}),/indisponível/);
+  await assert.rejects(synthesizeDuckSpeech({text:'   '}),/vazio/);
   await assert.rejects(synthesizeDuckSpeech({
-    text:'oi',key:'chave',region:'brazilsouth',
-    fetcher:async()=>({ok:false,status:401})
-  }),/401/);
+    text:'oi',ttsFactory:()=>({generate:async()=>{throw Error('rede indisponível');}})
+  }),/rede indisponível/);
   await assert.rejects(synthesizeDuckSpeech({
-    text:'oi',key:'chave',region:'brazilsouth',
-    fetcher:async()=>({ok:true,headers:{get:()=>0},arrayBuffer:async()=>Buffer.from('bad')})
-  }),/inválido/);
+    text:'oi',ttsFactory:()=>({generate:async()=>({audio:Buffer.from('mp3')})})
+  }),/WebM\/Opus válido/);
 });
