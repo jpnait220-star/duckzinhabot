@@ -101,7 +101,7 @@ test('anúncio usa um campo e envia Markdown completo como texto',async()=>{
   const announcement='# 🦆 Atualização!\n> **Avatares personalizados**\n\n✨ Novo quiz!';
   let posted,saved,deferred,confirmed;
   const interaction={
-    inGuild:()=>true,guildId:'g',commandName:'novidade',
+    inGuild:()=>true,guildId:'g',commandName:'novidade',user:{id:'moderator'},
     memberPermissions:{has:flag=>flag===PermissionFlagsBits.ManageGuild},
     guild:{members:{me:{id:'bot'}}},channel:{permissionsFor:()=>({has:()=>true}),
       send:async content=>{posted=content;}},
