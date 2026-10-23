@@ -5,7 +5,7 @@ import {deflateSync} from 'node:zlib';
 export const COLORS=Object.freeze({
   corpo:['amarelo','creme','branco','rosa','menta','azul','lilas','marrom','caramelo'],
   fundo:['ceu','lilas','menta','noite','rosa','por_do_sol','neon','cafe','espaco'],
-  chapeu:['nenhum','bone','coroa','touca','coelho','sombrero','chines','cartola','tiara','natal'],
+  chapeu:['nenhum','bone','coroa','fone','laco','touca','coelho','sombrero','chines','cartola','tiara','natal'],
   rosto:['nenhum','oculos','escuros','visor','mascara_pato','mascara_corvo','mascara_japonesa','monoculo'],
   roupa:['nenhuma','moletom','cachecol','jaqueta','kimono','capa','uniforme','sueter','terno','armadura','praia'],
   maos:['nenhuma','luvas_boxe','garras','punhos_gelo','punhos_fogo','punhos_corrompidos','luvas_brancas'],
@@ -18,7 +18,7 @@ export const DEFAULT_AVATAR=Object.freeze({
   roupa:'moletom',maos:'nenhuma',aura:'brilho',pet:'nenhum',olhos:'normal'
 });
 const legacyAccessory={oculos:['rosto','oculos'],coroa:['chapeu','coroa'],bone:['chapeu','bone'],
-  fone:['chapeu','touca'],laco:['chapeu','tiara']};
+  fone:['chapeu','fone'],laco:['chapeu','laco']};
 export function normalizeAvatar(input){
   const obj=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
   const result=Object.fromEntries(Object.entries(COLORS).map(([k,values])=>[
@@ -363,6 +363,23 @@ function hat(d,type){
     d.polygon([[114,72],[108,24],[133,49],[160,17],[186,49],[211,24],[204,72]],OUT);
     d.polygon([[118,66],[114,32],[135,54],[160,27],[184,54],[204,33],[200,67]],'#fbd76b');
     d.line(118,66,200,66,8,'#d39a47');star(d,160,55,9,'#e7799b');
+  }else if(type==='fone'){
+    // O arco fica por cima da cabeça; as conchas nas laterais,
+    // sem cobrir rosto, olhos ou bico.
+    d.ellipse(160,117,87,89,OUT);
+    d.ellipse(160,116,80,82,'#b8b0d2');
+    d.ellipse(160,126,75,77,BODY[d.avatarColor||'amarelo']?.[0]||'#ffe26b');
+    d.line(86,111,99,66,11,'#444761');
+    d.line(99,66,160,44,11,'#444761');
+    d.line(160,44,219,66,11,'#444761');
+    d.line(219,66,233,111,11,'#444761');
+    d.ellipse(83,151,13,28,'#454760');
+    d.ellipse(237,151,13,28,'#454760');
+    d.ellipse(82,150,9,24,'#9bc2e5');d.ellipse(238,150,9,24,'#9bc2e5');
+  }else if(type==='laco'){
+    d.ellipse(183,68,24,17,'#e77da7');
+    d.ellipse(224,68,24,17,'#e77da7');
+    d.ellipse(203,73,12,11,'#fff2da');
   }else if(type==='touca'){
     d.ellipse(160,69,72,39,OUT);d.ellipse(160,63,65,35,'#b37eb7');
     d.line(99,81,221,81,14,'#eed3fa');
