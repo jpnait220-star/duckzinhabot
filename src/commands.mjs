@@ -144,8 +144,10 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
       if(!validVoice(chosen))return respond('Escolha uma das vozes em português brasileiro da lista.',true);
       await store.setVoice(chosen,interaction.user.id);
       onVoiceChanged?.(chosen);
-      return respond('🎙️ Voz da Duckzinha alterada para **'+voiceLabel(chosen)+'** ('+chosen+'). A escolha foi salva!'+
-        (edgeVoiceReady?' Vou usá-la nas próximas respostas em call (Edge TTS).':' O serviço de voz está indisponível no momento.'),true);
+      return respond('🎙️ Estilo selecionado: **'+voiceLabel(chosen)+'**. A escolha foi salva! '+
+        'Se o Edge TTS funcionar, ouviremos essa voz neural. '+
+        'Quando o Edge falhar, o Google TTS usa ajustes de tom e velocidade '+
+        '(não é a voz original do Edge). Teste com /duckzinha testevoz.',true);
     }
     if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     if(sub==='minhas-memorias'){
