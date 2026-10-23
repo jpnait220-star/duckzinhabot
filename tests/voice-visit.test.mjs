@@ -28,7 +28,7 @@ test('Uma menção válida ocorre no chat público da mesma call',()=>{
   assert.equal(voiceMentionContext(fixture({publicChannel:false}).message),null);
 });
 
-test('Entra silenciosamente, renova prazo com menções, sai após cinco minutos',async()=>{
+test('Entra preparada para falar, renova prazo com menções, sai após cinco minutos',async()=>{
   let now=1_000_000,serial=0,joinCount=0,destroyed=0;
   const tasks=new Map();
   const clock={
@@ -39,7 +39,7 @@ test('Entra silenciosamente, renova prazo com menções, sai após cinco minutos
   const join=config=>{
     joinCount++;
     assert.equal(config.channelId,'channelA');
-    assert.equal(config.selfMute,true);
+    assert.equal(config.selfMute,false);
     assert.equal(config.selfDeaf,true);
     return {state:{status:VoiceConnectionStatus.Ready},destroy:()=>{destroyed++}};
   };
