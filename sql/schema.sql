@@ -56,10 +56,13 @@ grant select,insert,update,delete on public.duckzinha_conversations to service_r
 create table if not exists public.duckzinha_config (
   guild_id text primary key,
   personality_prompt text not null default '',
+  voice_name text not null default 'pt-BR-LeticiaNeural',
   updated_by text,
   updated_at timestamptz not null default now(),
   constraint duckzinha_config_prompt_length check (char_length(personality_prompt)<=8000)
 );
+-- Compatibilidade com bancos que já possuíam a tabela antes das vozes.
+alter table public.duckzinha_config add column if not exists voice_name text not null default 'pt-BR-LeticiaNeural';
 alter table public.duckzinha_config enable row level security;
 revoke all on public.duckzinha_config from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_config to service_role;
