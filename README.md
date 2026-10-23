@@ -107,3 +107,15 @@ Como administrador, envie `/configurar arquivo:` e anexe um `.txt` codificado em
 ## Pesquisa ampla na web e botão Ver fontes (Tavily + Serper)
 
 Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost. As chaves não devem aparecer no GitHub ou no chat. A Tavily oferece 1.000 créditos mensais gratuitos e o Serper 2.500 pesquisas gratuitas iniciais (não renovadas todo mês). A Duckzinha usa Tavily primeiro e Serper quando a Tavily não retornar resultados ou estiver sem cota/indisponível; qualquer um dos dois funciona sozinho. Sem ambas as chaves, informa que a busca ampla não está configurada. Ao ficar em dúvida numa pergunta factual, a Duckzinha pergunta se pode pesquisar; apenas depois de um `sim` do mesmo usuário ela consulta a web. Se não encontrar resultados, avisa sem inventar. O comando de pesquisa explícito não requer segunda confirmação. O botão **Ver fontes** só aparece quando a API devolve resultados, enquanto **Eu explico** e **Pesquisar** aparecem se a IA sinalizar dúvida. No primeiro caso, o membro deve mencionar a Duckzinha com sua explicação; ela utiliza esse conteúdo na conversa, sem considerá-lo conhecimento verificado.
+
+
+## Duckzinha Studio (novo)
+- Use `/avatar` para receber um link individual e temporário (5 minutos) para personalizar o patinho; as escolhas são gravadas no Supabase, sem senha do Discord. Não envie esse link para outras pessoas.
+- Use `/ver pessoa usuario:@membro` para ver a arte PNG salva. `/perfil` exibe o avatar e os acertos de quiz da sessão atual. `/jogo quiz` permite brincar com botões interativos.
+- `/painel` abre o editor administrativo via link temporário; o painel permite ajustar o humor, a voz expressiva e as reações especiais. `/falar` manda áudio sintetizado com limite de tamanho e intervalo entre pedidos. `/reacao` envia uma das artes disponíveis.
+- `/novidade publicar` é exclusivo de quem pode gerenciar o servidor, e `/novidades` lista anúncios publicados. Não publica automaticamente mudanças sem confirmação da equipe.
+- As reações visuais dependem dos arquivos presentes em `assets/reactions`; algumas variantes ainda precisam receber suas ilustrações finais.
+- Para ativar o Studio na FadeHost, ative um endereço WEB/HTTPS para o serviço Node, roteando a porta do processo (`PORT` quando a hospedagem fornecer, senão 8080), e configure `APP_URL` com o endereço HTTPS **somente se a FadeHost não o definir automaticamente**. Sem um URL HTTPS público, o bot continuará rodando, mas `/avatar` e `/painel` não poderão fornecer o link.
+- Aplique as instruções adicionadas em `sql/schema.sql` no Supabase: nova coluna `features` e tabelas `duckzinha_avatars` e `duckzinha_project_updates`. Nenhuma chave extra é necessária.
+- `/duckzinha apagar-me` apaga também o avatar da pessoa. O site não coleta áudio. **Conversa por voz com reconhecimento de fala ainda NÃO está habilitada**: requer fluxo explícito de consentimento, limite de retenção e serviço de transcrição testado, sem iniciar escuta automática.
+- A personalização do Google TTS altera somente tom e velocidade, e não oferece as vozes neurais do Edge.
