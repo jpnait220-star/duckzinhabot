@@ -746,11 +746,9 @@ async function handleReactionTest(interaction){
   }
   try{
     await own.react(emojiId);
-    lastImageReactionAt=Date.now();
-    lastImageByChannel.set(channel.id,lastImageReactionAt);
-    lastImageByUser.set(interaction.user.id,lastImageReactionAt);
+    // Teste manual não pode impedir uma reação automática logo em seguida.
     diagnostics.push('✔ **Consegui reagir à sua última mensagem!**');
-    diagnostics.push('As reações automáticas também dependem do conteúdo e do intervalo antispam.');
+    diagnostics.push('Agora envie "ola" ou "@Duckzinha oiii" em outra mensagem. O teste manual não ativa o intervalo antispam.');
   }catch(err){
     console.warn('[Duckzinha] Teste de reação: '+err.message);
     diagnostics.push('✘ O Discord recusou a reação: '+String(err?.message||'erro').slice(0,180));
