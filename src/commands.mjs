@@ -50,6 +50,23 @@ export function commandPayloads(){
 }
 
 export const embed=(title,description)=>new EmbedBuilder().setColor(gold).setTitle(title).setDescription(description).setFooter({text:'Duckzinha • DuckzinCommunity 🦆💛'});
+// As respostas dos comandos slash também funcionam por pedidos explícitos.
+export function publicInfoPayload(kind,{site}={}){
+  if(kind==='website')return {embeds:[embed('🌐 Conheça o DuckzinCommunity',
+    'Oiêê! 💛 Nosso site reúne os projetos da comunidade num lugar só!\n\n'+
+    '🧩 **Mods:** criações e novidades do Minecraft.\n'+
+    '💻 **Aplicativos:** ferramentas como o DuckCapture.\n'+
+    '📂 **Recursos:** arquivos e materiais da comunidade.\n'+
+    '⬇️ **Downloads por versão:** abra o projeto, escolha a versão que combina com você e baixe o arquivo disponível.\n'+
+    '👤 **Perfis e conta:** acompanhe os recursos do site.\n'+
+    '🎫 **Suporte:** pode abrir um ticket quando tiver dificuldades e esperar um atendente.\n\n'+
+    `✨ **Acesse:** ${site}\n\n`+
+    'Dica: veja as versões e os requisitos antes de instalar um mod!') ]};
+  if(kind==='projetos')return {embeds:[embed('📦 Mods, apps e recursos',
+    `Aaaa, tem coisa legal no nosso site! ✨\n\n🦆 DuckModels, DuckCapture e outros projetos aparecem no catálogo conforme forem publicados.\n\n🌐 **Veja tudo:** ${site}\n\n⬇️ Clique num projeto e selecione a versão antes de baixar, quando houver mais de uma.`)]};
+  return null;
+}
+
 export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
@@ -138,23 +155,13 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
     '🌐 **/website** — conhecer nosso site\n🎫 **/ticket** — atendimento humano\n📦 **/projetos** — mods, apps e arquivos\n🎮 **/boxpvp** — modo de jogo e gírias\n❓ **/faq** — dúvidas comuns\n💛 **/sobre** — saber mais sobre mim\n🏓 **/ping** — estou online?\n🧠 **/memoria** — controle sua memória\n\n'+
     '💬 **Para conversar comigo**, escreva `@Duckzinha` e sua pergunta. Só respondo quando sou mencionada!\n\n'+
     '⚠️ Para bugs e problemas de verdade, abra um ticket e aguarde a equipe.') ]});
-  if(cmd==='website')return respond({embeds:[embed('🌐 Conheça o DuckzinCommunity',
-    'Oiêê! 💛 Nosso site reúne os projetos da comunidade num lugar só!\n\n'+
-    '🧩 **Mods:** criações e novidades do Minecraft.\n'+
-    '💻 **Aplicativos:** ferramentas como o DuckCapture.\n'+
-    '📂 **Recursos:** arquivos e materiais da comunidade.\n'+
-    '⬇️ **Downloads por versão:** abra o projeto, escolha a versão que combina com você e baixe o arquivo disponível.\n'+
-    '👤 **Perfis e conta:** acompanhe os recursos do site.\n'+
-    '🎫 **Suporte:** pode abrir um ticket quando tiver dificuldades e esperar um atendente.\n\n'+
-    `✨ **Acesse:** ${site}\n\n`+
-    'Dica: veja as versões e os requisitos antes de instalar um mod!') ]});
+  if(cmd==='website')return respond(publicInfoPayload('website',{site}));
   if(cmd==='explicarproblema')return respond('🎫 **Guia da Duckzinha para tickets**\n\n'+ticketGuide(),true);
   if(cmd==='ticket')return respond({embeds:[embed('🎫 Precisa de um atendente?',
     'Aii, vamos tentar resolver! 💛\n\n**1.** Entre no canal de tickets do servidor.\n**2.** Escolha a categoria certa.\n**3.** Use `/explicarproblema` para ver um guia de atendimento.\n**4.** Aguarde alguém da equipe atender; não é preciso mencionar toda a staff.\n\n'+
     (panel?`🔗 **Abrir o painel:** ${panel}`:'📌 Procure o canal de abrir tickets no servidor.')+
     '\n\n🔒 Seu atendimento é privado para você e a equipe autorizada. Eu não leio nem respondo dentro do ticket.') ]});
-  if(cmd==='projetos')return respond({embeds:[embed('📦 Mods, apps e recursos',
-    `Aaaa, tem coisa legal no nosso site! ✨\n\n🦆 DuckModels, DuckCapture e outros projetos aparecem no catálogo conforme forem publicados.\n\n🌐 **Veja tudo:** ${site}\n\n⬇️ Clique num projeto e selecione a versão antes de baixar, quando houver mais de uma.`)]});
+  if(cmd==='projetos')return respond(publicInfoPayload('projetos',{site}));
   if(cmd==='boxpvp')return respond({embeds:[embed('🎮 BoxPvP? W demais!',
     'BoxPvP é um PvP de Minecraft com mapas em caixas, minas de vários temas, kits muito fortes, elytras e até jaulas de vidro em alguns servidores!\n\n💛 Na comunidade, **W** pode ser uma reação de admiração e **GG** pode significar um bom jogo.\n\nExemplos de servidores conhecidos por essa comunidade: BawMC e RaizuMC. As regras podem mudar em cada servidor!') ]});
   if(cmd==='faq')return respond({embeds:[embed('❓ Perguntinhas frequentes',
