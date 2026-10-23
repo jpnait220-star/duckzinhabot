@@ -56,13 +56,17 @@ grant select,insert,update,delete on public.duckzinha_conversations to service_r
 create table if not exists public.duckzinha_config (
   guild_id text primary key,
   personality_prompt text not null default '',
-  voice_name text not null default 'pt-BR-LeticiaNeural',
+  voice_name text not null default 'pt-BR-FranciscaNeural',
   updated_by text,
   updated_at timestamptz not null default now(),
   constraint duckzinha_config_prompt_length check (char_length(personality_prompt)<=8000)
 );
 -- Compatibilidade com bancos que já possuíam a tabela antes das vozes.
-alter table public.duckzinha_config add column if not exists voice_name text not null default 'pt-BR-LeticiaNeural';
+alter table public.duckzinha_config add column if not exists voice_name text not null default 'pt-BR-FranciscaNeural';
+alter table public.duckzinha_config alter column voice_name set default 'pt-BR-FranciscaNeural';
+-- Vozes da antiga integração Azure não funcionam no Edge: migrar para Francisca.
+update public.duckzinha_config set voice_name='pt-BR-FranciscaNeural'
+where voice_name not in ('pt-BR-FranciscaNeural','pt-BR-ThalitaMultilingualNeural','pt-BR-AntonioNeural');
 alter table public.duckzinha_config enable row level security;
 revoke all on public.duckzinha_config from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_config to service_role;
