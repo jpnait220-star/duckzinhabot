@@ -13,6 +13,7 @@ import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from '.
 import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
+import {DEFAULT_VOICE,voiceLabel,azureSpeechReady,synthesizeDuckSpeech} from './duck-tts.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -46,6 +47,25 @@ const client=new Client({intents:[
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
+const SPEECH_KEY=process.env.AZURE_SPEECH_KEY?.trim()||'';
+const SPEECH_REGION=process.env.AZURE_SPEECH_REGION?.trim().toLowerCase()||'';
+const SPEECH_READY=azureSpeechReady({key:SPEECH_KEY,region:SPEECH_REGION});
+let selectedVoice=DEFAULT_VOICE;
+async function speakDuckReply(guildId,channelId,messageText){
+  if(!SPEECH_READY||!voiceVisits.sessions.has(guildId))return;
+  if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
+  const voiceAtRequest=selectedVoice;
+  try{
+    const audio=await synthesizeDuckSpeech({
+      text:messageText,voice:voiceAtRequest,key:SPEECH_KEY,region:SPEECH_REGION
+    });
+    if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
+    await voiceVisits.speak(guildId,audio);
+  }catch(error){
+    console.warn('[Duckzinha] TTS '+voiceLabel(voiceAtRequest)+': '+String(error?.message||error));
+  }
+}
+
 const voiceVisits=new DuckVoiceVisits();
 const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
 
@@ -396,6 +416,12 @@ function helpWithTicket(question,answer){
 
 client.once(Events.ClientReady,async me=>{
   console.log('[Duckzinha] Online como '+me.user.tag+' (bot separado).');
+  selectedVoice=await store.getVoice().catch(err=>{
+    console.warn('[Duckzinha] Voz salva indisponível: '+err.message);
+    return DEFAULT_VOICE;
+  });
+  console.log('[Duckzinha] Voz escolhida: '+voiceLabel(selectedVoice)+
+    (SPEECH_READY?' (Azure Speech pronto).':' (somente texto; configure Azure Speech).'));
   me.user.setActivity('🦆💛 | /ajuda • mencione a Duckzinha',{type:ActivityType.Custom});
   try{
     const guild=await me.guilds.fetch(GUILD_ID);
@@ -671,7 +697,8 @@ client.on(Events.MessageCreate,async message=>{
     const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
     const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
     if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
-    const sent=await message.reply({content:message.channel?.type===ChannelType.GuildVoice?voiceReadableText(answer):answer.slice(0,1900),components:message.channel?.type===ChannelType.GuildVoice?[]:components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
+    const voiceText=message.channel?.type===ChannelType.GuildVoice?voiceReadableText(answer):null;
+    const sent=await message.reply({content:voiceText||answer.slice(0,1900),components:voiceText?[]:components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
       if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
@@ -683,6 +710,7 @@ client.on(Events.MessageCreate,async message=>{
         void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
           .catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
       void schedule(sent).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
+      if(voiceText)void speakDuckReply(message.guildId,message.channelId,voiceText);
       console.log('[Duckzinha] Resposta enviada ao Discord.');
     }
   }catch(error){
@@ -874,7 +902,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
-    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality});
+    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},azureVoiceReady:SPEECH_READY});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
     const data={content:'Aii, não consegui fazer isso agora 🥺💛 Tenta de novo daqui a pouquinho!',ephemeral:true};
