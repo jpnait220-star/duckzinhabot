@@ -26,7 +26,8 @@ Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele *
 - `/configurar arquivo:<arquivo.txt>`: administradores podem enviar um TXT UTF-8 com a personalidade e o comportamento desejado (até 8.000 caracteres). O texto fica salvo no Supabase e é aplicado às próximas respostas.
 
 - `/ensinar` e `/ensinamentos`: administradores configuram assuntos sem editar o código (com Supabase ativo).
-- Respostas públicas enviadas pela Duckzinha são apagadas em **20 minutos** (apenas as respostas **dela**, nunca as dos usuários). Agendamento persiste após reinício se o Supabase estiver configurado.
+- **Respostas de comandos slash são permanentes:** `/website`, `/ajuda`, `/projetos`, `/ticket`, `/faq`, `/sobre`, `/boxpvp`, `/ping` etc. ficam no canal, sem agendamento de exclusão. Os comandos que respondem privadamente continuam efêmeros conforme o Discord.
+- **Respostas normais de conversa** (ao mencionar a Duckzinha) continuam sendo apagadas após **20 minutos**, apenas as mensagens dela; o agendamento pode persistir após reinício se o Supabase estiver configurado. Mensagens de comandos antigas já agendadas antes desta correção ainda podem expirar.
 - IA opcional **Cloudflare Workers AI: `@cf/google/gemma-4-26b-a4b-it`**; fallback para respostas básicas quando não houver configuração, o serviço falhar ou atingir a cota. As mensagens enviadas à IA podem incluir falas recentes de outros membros do mesmo canal público quando a bot é mencionada, para que participe do contexto coletivo.
 
 ## Configurar entrada e tickets na FadeHost
