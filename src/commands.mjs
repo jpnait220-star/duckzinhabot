@@ -1,5 +1,6 @@
 import {EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 'discord.js';
 import {ticketGuide} from './community-social.mjs';
+import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
 
 const gold=0xf7d65b;
 const choice=[
@@ -32,6 +33,9 @@ export function commandPayloads(){
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
     .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
+    .addSubcommand(x=>x.setName('voice').setDescription('Escolher a voz brasileira da Duckzinha (admin)')
+      .addStringOption(o=>o.setName('nome').setDescription('Selecione uma voz pt-BR').setRequired(true)
+        .addChoices(...voiceChoices())))
     .setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('configurar')
     .setDescription('Enviar um TXT com a personalidade da Duckzinha (admin)')
@@ -67,7 +71,7 @@ export function publicInfoPayload(kind,{site}={}){
   return null;
 }
 
-export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality}){
+export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,azureVoiceReady=false}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
   const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
@@ -116,8 +120,20 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
       '** conversas registradas em canais públicos.\n\nSe quiser apagar, use `/duckzinha apagar-me`.',true);
   }
   if(cmd==='duckzinha'){
-    if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     const sub=interaction.options.getSubcommand();
+    if(sub==='voice'){
+      // Não bloquear /apagar-me para membros: permissões são verificadas só neste subcomando.
+      if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
+        return respond('Só administradores podem alterar minha voz! 🦆💛',true);
+      if(!store.persistent)return respond('É necessário configurar o Supabase para salvar a voz.',true);
+      const chosen=interaction.options.getString('nome',true);
+      if(!validVoice(chosen))return respond('Escolha uma das vozes em português brasileiro da lista.',true);
+      await store.setVoice(chosen,interaction.user.id);
+      onVoiceChanged?.(chosen);
+      return respond('🎙️ Voz da Duckzinha alterada para **'+voiceLabel(chosen)+'** ('+chosen+'). A escolha foi salva!'+
+        (azureVoiceReady?' Vou usá-la nas próximas respostas em call.':' Para falar na call, ainda é preciso configurar o Azure Speech na hospedagem.'),true);
+    }
+    if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     if(sub==='minhas-memorias'){
       const notes=await store.getProfileFacts(interaction.user.id);
       return respond(notes.length?notes.map(x=>x.fact_value).join('\n'):'Nenhuma preferência salva ainda.',true);
