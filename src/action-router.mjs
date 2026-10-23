@@ -23,12 +23,11 @@ export function requestedAction(input){
   // Aceita "coloca a música X na call", "toca X", "põe música na call X".
   const start=/^(?:coloca|coloque|bota|bote|toca|toque|poe|ponha|reproduz|reproduza|play)\s+(.+)$/i.exec(normalized);
   if(start){
-    let rest=start[1].replace(/^(?:(?:uma?|o)\s+)?(?:musica|som|faixa|song)\s+/i,'');
-    rest=rest.replace(new RegExp('^(?:na|no) (?:minha )?'+voiceWords+' (?:a |uma )?(?:musica )?','i'),'');
-    rest=rest.replace(new RegExp('\\s+(?:na|no) (?:minha )?'+voiceWords+'$','i'),'');
+    let rest=start[1].replace(/^(?:(?:a|o|uma|um)\s+)?(?:musica|som|faixa|song)(?:\s+|$)/i,'').trim();
+    rest=rest.replace(new RegExp('^(?:na|no) (?:minha )?'+voiceWords+'(?: |$)','i'),'').trim();
+    rest=rest.replace(new RegExp('\\s+(?:na|no) (?:minha )?'+voiceWords+'$','i'),'').trim();
     rest=rest.replace(/^(?:de|do|da|chamada|chamado)\s+/i,'');
-    if(/^(?:(?:uma?|o)\s+)?(?:musica|som|faixa|song)(?:\s+(?:na|no)\s+(?:minha\s+)?(?:call|vc|voz))?$/i.test(start[1]))
-      return {kind:'music',song:''};
+    if(!rest)return {kind:'music',song:''};
     // Só encaminhar pedido se houver nome válido, sem menções nem comando encadeado.
     if(!rest||rest.length>95||/[\r\n;<>@`]|https?:\/\//i.test(rest))return null;
     if(/^(?:na|no|a|uma|o|musica|call|vc|voz|nada)$/i.test(rest))return {kind:'music',song:''};
