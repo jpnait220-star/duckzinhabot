@@ -18,8 +18,17 @@ export function imageReactionKind(message){
   return null;
 }
 
-export function maySendImageReaction({now=Date.now(),lastGlobal=0,lastChannel=0,roll=1}={}){
-  return now-lastGlobal>=5*60_000&&now-lastChannel>=20*60_000&&roll<0.12;
+export function maySendImageReaction({
+  now=Date.now(),lastGlobal=0,lastChannel=0,lastUser=0,
+  roll=1,isGreeting=false
+}={}){
+  if(isGreeting){
+    // Um oi pode receber reação imediatamente, mas não repita para cada spam.
+    return now-lastGlobal>=15_000&&now-lastChannel>=30_000&&
+      now-lastUser>=60_000;
+  }
+  return now-lastGlobal>=5*60_000&&now-lastChannel>=20*60_000&&
+    now-lastUser>=2*60_000&&roll<0.12;
 }
 
 export function ticketGuide(){
