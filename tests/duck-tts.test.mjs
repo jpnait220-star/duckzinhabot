@@ -4,14 +4,14 @@ import {PermissionFlagsBits,MessageFlags} from 'discord.js';
 import {runCommand,commandPayloads} from '../src/commands.mjs';
 import {
   DEFAULT_VOICE,PT_BR_VOICES,voiceChoices,voiceLabel,validVoice,
-  edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech
+  edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech,googleSpeechFallback
 } from '../src/duck-tts.mjs';
 
 test('Onze escolhas (cinco vozes base) aparecem no /duckzinha voice nome',()=>{
   assert.equal(PT_BR_VOICES.length,11);
   assert.equal(voiceChoices().length,11);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
-  assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca');
+  assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca • Natural');
   assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
@@ -113,4 +113,40 @@ test('Teste de voz mostra feedback privado e restringe a administradores',async(
     store,onVoiceTest:async()=>{throw Error('Falha de áudio simulada');}
   });
   assert.match(feedback,/Falha de áudio simulada/);
+});
+
+test('Se Edge WebSocket responder HTTP 200, usa áudio MP3 por HTTPS',async()=>{
+  const mp3=Buffer.concat([Buffer.from('ID3'),Buffer.alloc(256)]);
+  const queried=[];
+  const audio=await synthesizeDuckSpeech({
+    text:'Oi, eu sou a Duckzinha!',
+    voice:'pt-BR-FranciscaNeural',
+    ttsFactory:()=>({generate:async()=>{throw Error('Unexpected server response: 200')}}),
+    fallbackFetch:async url=>{
+      queried.push(new URL(url));
+      return {ok:true,status:200,arrayBuffer:async()=>mp3};
+    }
+  });
+  assert.deepEqual(audio,mp3);
+  assert.equal(queried.length,1);
+  assert.equal(queried[0].hostname,'translate.google.com');
+  assert.equal(queried[0].searchParams.get('tl'),'pt-BR');
+  assert.equal(queried[0].searchParams.get('q'),'Oi, eu sou a Duckzinha!');
+});
+
+test('Falha HTTP do TTS alternativo não é tratada como áudio',async()=>{
+  await assert.rejects(
+    googleSpeechFallback('Olá!',DEFAULT_VOICE,async()=>({
+      ok:true,status:200,arrayBuffer:async()=>Buffer.from('<html>no audio</html>')
+    })),
+    /sem áudio MP3/
+  );
+  await assert.rejects(
+    synthesizeDuckSpeech({
+      text:'Olá',
+      ttsFactory:()=>({generate:async()=>{throw Error('Unexpected server response: 200')}}),
+      fallbackFetch:async()=>({ok:false,status:429})
+    }),
+    /Edge TTS:.*Google TTS HTTP 429/
+  );
 });
