@@ -17,6 +17,8 @@
     "discord.js": "14.22.1",
     "dotenv": "17.2.2",
     "@discordjs/voice": "0.19.2",
-    "@andresaya/edge-tts": "1.9.1"
+    "@andresaya/edge-tts": "1.9.1",
+    "libsodium-wrappers": "0.7.16",
+    "opusscript": "0.1.1"
   }
 }
