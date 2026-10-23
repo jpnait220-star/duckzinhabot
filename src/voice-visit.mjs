@@ -91,13 +91,14 @@ export class DuckVoiceVisits{
   }
   async speak(guildId,audio){
     const session=this.sessions.get(guildId);
-    if(!session||!Buffer.isBuffer(audio)||audio.length<24)return false;
+    if(!session)throw Error('Duckzinha não está conectada à call');
+    if(!Buffer.isBuffer(audio)||audio.length<24)throw Error('Arquivo TTS inválido');
     // Nunca iniciar múltiplas falas ao mesmo tempo.
-    if((session.pendingSpeech||0)>=2)return false;
+    if((session.pendingSpeech||0)>=2)throw Error('Fila de fala cheia');
     session.pendingSpeech=(session.pendingSpeech||0)+1;
     const previous=session.speechQueue||Promise.resolve();
     const next=previous.catch(()=>{}).then(async()=>{
-      if(this.sessions.get(guildId)!==session)return false;
+      if(this.sessions.get(guildId)!==session)throw Error('A call mudou antes de reproduzir');
       if(!session.player){
         session.player=createAudioPlayer({
           behaviors:{noSubscriber:NoSubscriberBehavior.Pause}
@@ -105,7 +106,7 @@ export class DuckVoiceVisits{
         session.subscription=session.connection.subscribe(session.player);
         if(!session.subscription)throw Error('Sem assinatura de áudio na call');
       }
-      const resource=createAudioResource(Readable.from(audio),{inputType:StreamType.WebmOpus});
+      const resource=createAudioResource(Readable.from([audio]),{inputType:StreamType.WebmOpus});
       const player=session.player;
       return new Promise((resolve,reject)=>{
         let timer;
@@ -121,7 +122,7 @@ export class DuckVoiceVisits{
         player.once('error',onError);
         timer=setTimeout(()=>{
           player.stop(true);
-          done(new Error('TTS excedeu 40 segundos'));
+          done(new Error('Reprodução TTS excedeu 40 segundos'));
         },40000);
         timer.unref?.();
         try{player.play(resource);}
@@ -139,7 +140,7 @@ export class DuckVoiceVisits{
   shutdown(){for(const id of [...this.sessions.keys()])this.stop(id)}
 }
 
-// Texto mais curto e legível para o TTS Bot; a voz não é gerada pela Duckzinha.
+// Texto preparado para ser lido pelo próprio áudio da Duckzinha.
 export function voiceReadableText(answer){
   const clean=String(answer||'')
     .replace(/\*\*|__|~~|`/g,'')
