@@ -1,6 +1,6 @@
 import {createServer} from 'node:http';
 import {randomBytes} from 'node:crypto';
-import {renderAvatar,normalizeAvatar} from './duck-avatar.mjs';
+import {renderAvatar,normalizeAvatar,COLORS} from './duck-avatar.mjs';
 import {MOODS,normalizeSettings} from './duck-extras.mjs';
 
 function html(){
@@ -17,8 +17,8 @@ header small{color:#a5a4b5}main{max-width:1060px;padding:28px 20px 90px;margin:a
 .hero{margin:10px 0 25px}.hero h1{font-size:clamp(29px,5vw,48px);letter-spacing:-1.6px;margin:0 0 7px}.hero p{color:#abaabb;margin:0}
 .panel{background:#1d1e29;border:1px solid #343541;border-radius:22px;padding:24px;box-shadow:0 14px 40px #0002}
 .layout{display:grid;grid-template-columns:minmax(260px,420px) minmax(300px,1fr);gap:20px}
-.preview{display:grid;place-items:center;background:linear-gradient(150deg,#343148,#24232f);border-radius:18px;min-height:380px}
-.preview img{width:min(85%,320px);aspect-ratio:1;image-rendering:auto;border:6px solid #ffffff16;border-radius:25px;box-shadow:0 16px 45px #0006}
+.preview{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:17px;background:radial-gradient(circle at 18% 12%,#564465,#302b41 60%,#1f2638);border-radius:18px;min-height:430px;padding:24px 14px 19px;border:1px solid #ffffff17}
+.preview img{width:min(94%,340px);aspect-ratio:1;image-rendering:auto;border:6px solid #ffffff1a;border-radius:28px;box-shadow:0 18px 45px #0007}.preview small{color:#b7b9d1;text-align:center}.preview-head{font-weight:850;color:#ffde7a;letter-spacing:.04em;font-size:13px}.preview-tip{font-size:12px;color:#c3bdd4;max-width:310px;text-align:center}.subsection{grid-column:1/-1;color:#ffdf78;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #414050;padding:6px 0 7px}
 h2{font-size:20px;margin:0 0 16px}label{display:block;color:#d9d9e4;font-size:14px;margin:0 0 5px;font-weight:600}
 .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 select,input{width:100%;border:1px solid #494857;border-radius:12px;padding:12px;background:#282936;color:white;font:inherit;outline-color:#ffdc59}
@@ -35,22 +35,28 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
 </style></head>
 <body><header><div class="brand">🦆 <b>Duckzinha</b> Studio</div><small>Seu avatar, seu estilo</small></header>
 <main>
-<section class="hero"><h1>Crie seu patinho. 💛</h1><p>Escolha cores, roupas e acessórios para aparecer no Discord do seu jeito.</p></section>
+<section class="hero"><h1>Crie seu patinho. 💛</h1><p>Vista seu pato, misture cosméticos em camadas e monte um visual único para mostrar no Discord.</p></section>
 <section id="login" class="panel login"><h2>Entrar no Studio</h2><p>Abra o Discord e use <strong>/avatar</strong> para receber seu código de acesso privado. Ele expira em 5 minutos.</p>
 <label for="code">Código de acesso</label><input id="code" placeholder="Cole o código que recebeu pelo Discord" autocomplete="off">
 <button id="loginButton">Entrar</button><p id="loginStatus" role="status"></p></section>
 <section id="studio" class="hidden">
 <div class="tabs"><button id="avatarTab" class="secondary active">🎨 Meu avatar</button><button id="adminTab" class="secondary hidden">⚙️ Administração</button><button id="logout" class="secondary">Sair</button></div>
 <div id="avatarPane" class="layout">
- <section class="panel preview"><img id="avatar" alt="Prévia do seu avatar de pato"></section>
+ <section class="panel preview"><span class="preview-head">✦ DUCKZINHA AVATAR STUDIO ✦</span><img id="avatar" alt="Prévia detalhada do seu avatar de pato"><div class="preview-tip">Seu patinho com acessórios independentes e combinações exclusivas ✨</div></section>
  <section class="panel"><h2 id="welcome">Personalize seu avatar</h2>
  <div class="controls">
+ <div class="subsection">🎨 Aparência</div>
  <div><label for="corpo">Cor do patinho</label><select id="corpo"></select></div>
- <div><label for="fundo">Fundo</label><select id="fundo"></select></div>
- <div><label for="acessorio">Acessório</label><select id="acessorio"></select></div>
- <div><label for="roupa">Roupa</label><select id="roupa"></select></div>
- <div><label for="olhos">Expressão</label><select id="olhos"></select></div>
- </div><div class="actions"><button id="save">Salvar avatar</button><button id="random" class="secondary">Surpreenda-me</button></div>
+ <div><label for="olhos">Expressão dos olhos</label><select id="olhos"></select></div>
+ <div><label for="fundo">Fundo do avatar</label><select id="fundo"></select></div>
+ <div class="subsection">🧢 Cosméticos • combine à vontade</div>
+ <div><label for="chapeu">Chapéus e coroas</label><select id="chapeu"></select></div>
+ <div><label for="rosto">Óculos e máscaras</label><select id="rosto"></select></div>
+ <div><label for="roupa">Roupas</label><select id="roupa"></select></div>
+ <div><label for="maos">Punhos e luvas</label><select id="maos"></select></div>
+ <div><label for="aura">Auras e efeitos</label><select id="aura"></select></div>
+ <div><label for="pet">Mascote companheiro</label><select id="pet"></select></div>
+ </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button><button id="cute" class="secondary">🐰 Fofo</button><button id="combat" class="secondary">⚔️ PvP</button></div>
  <p id="status" role="status" class="notice"></p>
  <div class="tip">No Discord, use <strong>/ver pessoa</strong> para mostrar o avatar de alguém. Seus acessórios ficam salvos até você mudar novamente.</div>
  </section>
@@ -65,8 +71,24 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
 </section>
 </main>
 <script>
-const names={corpo:['amarelo','branco','creme','marrom','rosa','azul'],fundo:['ceu','lilas','menta','noite','rosa'],acessorio:['nenhum','oculos','coroa','fone','bone','laco'],roupa:['nenhuma','moletom','cachecol','jaqueta'],olhos:['normal','feliz','sonolento']};
-const pretty={ceu:'Céu',lilas:'Lilás',menta:'Menta',oculos:'Óculos',laco:'Laço',bone:'Boné',moletom:'Moletom',nenhum:'Nenhum',nenhuma:'Nenhuma',sonolento:'Sonolento',cachecol:'Cachecol',jaqueta:'Jaqueta',coroa:'Coroa',fone:'Fone'};
+const names=${JSON.stringify(COLORS)};
+const pretty={ceu:'Céu limpo',lilas:'Lilás',menta:'Menta',por_do_sol:'Pôr do sol',
+  neon:'Neon',cafe:'Café',espaco:'Espaço',creme:'Creme',caramelo:'Caramelo',
+  oculos:'Óculos clássicos',escuros:'Óculos escuros',visor:'Visor futurista',
+  mascara_pato:'Máscara de pato',mascara_corvo:'Máscara de corvo',mascara_japonesa:'Máscara japonesa',
+  monoculo:'Monóculo',laco:'Laço',bone:'Boné',touca:'Touca',coelho:'Orelhas de coelho',
+  sombrero:'Sombrero',chines:'Chapéu chinês',cartola:'Cartola',tiara:'Tiara',
+  natal:'Gorro de Natal',moletom:'Moletom',nenhum:'Nenhum',nenhuma:'Nenhuma',
+  sonolento:'Sonolento',piscando:'Piscando',determinado:'Determinado',
+  cachecol:'Cachecol',jaqueta:'Jaqueta',kimono:'Quimono',capa:'Capa real',
+  uniforme:'Uniforme',sueter:'Suéter',terno:'Terno elegante',armadura:'Armadura',
+  praia:'Roupa de praia',luvas_boxe:'Luvas de boxe',garras:'Garras Spring',
+  punhos_gelo:'Punhos de gelo',punhos_fogo:'Punhos de fogo',
+  punhos_corrompidos:'Punhos corrompidos',luvas_brancas:'Luvas brancas',
+  brilho:'Brilho delicado',estrelas:'Estrelas',coracoes:'Corações',
+  fogo:'Fogo',gelo:'Gelo',eletrica:'Eletricidade',dinheiro:'Dinheiro',
+  fantasma:'Ghost Pet',estrela:'Pet estrela',mini_pato:'Mini patinho',
+  ceifador:'Pet ceifador',borboleta:'Borboleta'};
 const $=id=>document.getElementById(id);
 for(const [k,opts] of Object.entries(names))for(const v of opts)$ (k).add(new Option(pretty[v]||v[0].toUpperCase()+v.slice(1),v));
 for(const v of ['auto','animada','calma','curiosa','sonolenta'])$('mood').add(new Option(v[0].toUpperCase()+v.slice(1),v));
@@ -106,6 +128,9 @@ $('save').onclick=async()=>{
  catch(e){$('status').textContent=e.message;}
 };
 $('random').onclick=()=>{for(const [k,opts] of Object.entries(names))$(k).value=opts[Math.floor(Math.random()*opts.length)];preview();};
+function preset(values){for(const [k,v] of Object.entries(values))if($(k))$(k).value=v;preview();}
+$('cute').onclick=()=>preset({corpo:'creme',fundo:'rosa',chapeu:'coelho',rosto:'nenhum',roupa:'moletom',maos:'luvas_brancas',aura:'coracoes',pet:'mini_pato',olhos:'feliz'});
+$('combat').onclick=()=>preset({corpo:'amarelo',fundo:'neon',chapeu:'bone',rosto:'visor',roupa:'armadura',maos:'punhos_corrompidos',aura:'eletrica',pet:'ceifador',olhos:'determinado'});
 function tab(admin){$('avatarPane').classList.toggle('hidden',admin);$('adminPane').classList.toggle('hidden',!admin);$('avatarTab').classList.toggle('active',!admin);$('adminTab').classList.toggle('active',admin);}
 $('avatarTab').onclick=()=>tab(false);
 $('adminTab').onclick=()=>{if(current?.admin)tab(true);};
