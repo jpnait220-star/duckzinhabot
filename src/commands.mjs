@@ -1,10 +1,12 @@
 import {EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 'discord.js';
+import {ticketGuide} from './community-social.mjs';
 
 const gold=0xf7d65b;
 const choice=[
   ['ajuda','Veja tudo que a Duckzinha pode fazer'],
   ['website','Conheça nosso site e como ele funciona'],
   ['ticket','Saiba onde abrir um ticket'],
+  ['explicarproblema','Como explicar um problema à equipe em um ticket'],
   ['projetos','Mods, apps e downloads da comunidade'],
   ['boxpvp','Entenda o que é BoxPvP'],
   ['faq','Perguntas frequentes'],
@@ -145,8 +147,9 @@ export async function runCommand(interaction,{store,site,panelId,schedule,localK
     '🎫 **Suporte:** pode abrir um ticket quando tiver dificuldades e esperar um atendente.\n\n'+
     `✨ **Acesse:** ${site}\n\n`+
     'Dica: veja as versões e os requisitos antes de instalar um mod!') ]});
+  if(cmd==='explicarproblema')return respond('🎫 **Guia da Duckzinha para tickets**\n\n'+ticketGuide(),true);
   if(cmd==='ticket')return respond({embeds:[embed('🎫 Precisa de um atendente?',
-    'Aii, vamos tentar resolver! 💛\n\n**1.** Entre no canal de tickets do servidor.\n**2.** Escolha a categoria certa.\n**3.** Explique seu problema com calma.\n**4.** Aguarde alguém da equipe atender; não é preciso mencionar toda a staff.\n\n'+
+    'Aii, vamos tentar resolver! 💛\n\n**1.** Entre no canal de tickets do servidor.\n**2.** Escolha a categoria certa.\n**3.** Use `/explicarproblema` para ver um guia de atendimento.\n**4.** Aguarde alguém da equipe atender; não é preciso mencionar toda a staff.\n\n'+
     (panel?`🔗 **Abrir o painel:** ${panel}`:'📌 Procure o canal de abrir tickets no servidor.')+
     '\n\n🔒 Seu atendimento é privado para você e a equipe autorizada. Eu não leio nem respondo dentro do ticket.') ]});
   if(cmd==='projetos')return respond({embeds:[embed('📦 Mods, apps e recursos',
