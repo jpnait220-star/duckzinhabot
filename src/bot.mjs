@@ -107,13 +107,14 @@ async function findReactionFile(type){
   return null;
 }
 
-const lastImageByChannel=new Map();
-async function maybeReactWithDuckEmoji(message){
-  const type=imageReactionKind(message.content);
+const lastImageByChannel=new Map(),lastImageByUser=new Map();
+async function maybeReactWithDuckEmoji(message,content=message.content){
+  const type=imageReactionKind(content);
   if(!type||replyingWithImage||!maySendImageReaction({
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,
-    roll:type==='ola'?0:Math.random()
+    lastUser:lastImageByUser.get(message.author.id)||0,
+    roll:Math.random(),isGreeting:type==='ola'
   }))return;
   replyingWithImage=true;
   try{
@@ -124,7 +125,11 @@ async function maybeReactWithDuckEmoji(message){
       PermissionFlagsBits.AddReactions
     ]))return;
     const emojiId=await resolveDuckEmoji(message.guild,type);
-    if(!emojiId)return; // Sem emoji da Duckzinha ainda? Não coloca emoji genérico.
+    if(!emojiId){
+      console.warn('[Duckzinha] Emoji para "'+type+'" não encontrado. Crie duckzinha_'+type+
+        ' no servidor ou configure DUCK_EMOJI_'+type.toUpperCase()+'.');
+      return; // Sem emoji personalizado, não colocar reação genérica.
+    }
     const reacted=await message.react(emojiId).catch(err=>{
       console.warn('[Duckzinha] Falha ao reagir com emoji personalizado: '+err.message);
       return null;
@@ -132,6 +137,8 @@ async function maybeReactWithDuckEmoji(message){
     if(reacted){
       lastImageReactionAt=Date.now();
       lastImageByChannel.set(message.channelId,lastImageReactionAt);
+      lastImageByUser.set(message.author.id,lastImageReactionAt);
+      console.log('[Duckzinha] Emoji '+type+' adicionado à mensagem '+message.id+'.');
     }
   }catch(err){console.warn('[Duckzinha] Reação: '+err.message)}
   finally{replyingWithImage=false;}
@@ -414,6 +421,8 @@ client.on(Events.MessageCreate,async message=>{
   const candidate=isPublic?captureCandidate(rawQuestion,{
     mentioned,isStaff:Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild))
   }):null;
+  // A menção não impede a reação: "@Duckzinha oi" funciona como "oi".
+  if(isPublic&&!candidate)void maybeReactWithDuckEmoji(message,rawQuestion);
   const said=decision(rawQuestion);
   const explaining=Boolean(pending?.mode==='explain'&&message.channelId===pending.channelId&&
     Date.now()-pending.at<10*60_000&&
@@ -423,7 +432,6 @@ client.on(Events.MessageCreate,async message=>{
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
   if(!mentioned&&!confirmation&&!explaining){
-    if(isPublic&&!candidate)void maybeReactWithDuckEmoji(message);
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
