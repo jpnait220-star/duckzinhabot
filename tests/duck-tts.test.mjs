@@ -7,18 +7,21 @@ import {
   edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech
 } from '../src/duck-tts.mjs';
 
-test('Três vozes brasileiras do Edge aparecem no /duckzinha voice nome',()=>{
-  assert.equal(PT_BR_VOICES.length,3);
-  assert.equal(voiceChoices().length,3);
+test('Onze escolhas (cinco vozes base) aparecem no /duckzinha voice nome',()=>{
+  assert.equal(PT_BR_VOICES.length,11);
+  assert.equal(voiceChoices().length,11);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
   assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca');
   assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
     .options.find(x=>x.name==='voice').options[0].choices;
-  assert.equal(choices.length,3);
+  assert.equal(choices.length,11);
   assert.ok(choices.some(x=>x.value==='pt-BR-FranciscaNeural'));
   assert.ok(choices.some(x=>x.value==='pt-BR-AntonioNeural'));
+  assert.ok(choices.some(x=>x.name.includes('Portugal')));
+  assert.ok(choices.some(x=>x.name.includes('Fofinha')));
+  assert.ok(choices.every(x=>/^pt-BR-[A-Za-z]+Neural$/.test(x.value)));
 });
 
 test('Somente admin pode trocar a voz, e ela é salva antes de atualizar o cache',async()=>{
@@ -47,6 +50,7 @@ test('Somente admin pode trocar a voz, e ela é salva antes de atualizar o cache
 test('Edge TTS gera WebM/Opus e aplica tom levemente agudo nas femininas',async()=>{
   assert.equal(edgeSpeechReady(),true);
   assert.equal(edgeVoiceOptions('pt-BR-FranciscaNeural').pitch,'+12Hz');
+  assert.equal(edgeVoiceOptions('pt-BR-FranciscaFofaNeural').pitch,'+35Hz');
   assert.equal(edgeVoiceOptions('pt-BR-AntonioNeural').pitch,'+0Hz');
   assert.throws(()=>edgeVoiceOptions('pt-BR-LeticiaNeural'));
   let called;
@@ -63,6 +67,14 @@ test('Edge TTS gera WebM/Opus e aplica tom levemente agudo nas femininas',async(
   assert.equal(called.voice,'pt-BR-FranciscaNeural');
   assert.equal(called.options.outputFormat,'webm-24khz-16bit-mono-opus');
   assert.equal(called.options.pitch,'+12Hz');
+  const alternative=await synthesizeDuckSpeech({
+    text:'Olá!',voice:'pt-BR-RaquelPortugalNeural',
+    ttsFactory:()=>({generate:async (text,voice,options)=>{
+      called={text,voice,options};return {audio:fakeAudio,format:'webm'};
+    }})
+  });
+  assert.deepEqual(alternative,fakeAudio);
+  assert.equal(called.voice,'pt-PT-RaquelNeural');
 });
 
 test('Erros do Edge TTS são propagados sem fingir áudio',async()=>{
