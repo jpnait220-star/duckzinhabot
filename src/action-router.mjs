@@ -10,7 +10,7 @@ export function requestedAction(input){
   if(!original||original.length>240)return null;
   const normalized=normalizeActionText(original).replace(/^[,!.?\s]+|[,!.?\s]+$/g,'');
   // Comandos rápidos são aceitos somente quando a mensagem menciona o bot (checagem no bot.mjs).
-  if(/^(?:-join\s*(?:do\s+)?tts|(?:liga|ligue|ativa|ative|chama|chame|conecta|conecte|coloca|coloque|entra|entre|bota|bote|poe|ponha)\s+(?:o\s+)?tts(?:\s+(?:na|no|da|do|pra|para|nessa|nesta|minha|de|com|do canal|em)\s+.*)?|(?:coloca|coloque|bota|bote|poe|ponha|chama|chame)\s+(?:o\s+)?tts\s+(?:na|no|pra|para)\s+.*|(?:entra|entre|coloca|coloque|liga|ativa)\s+(?:na\s+)?call\s+(?:do\s+)?tts)$/i.test(normalized)){
+  if(/^(?:(?:faz|faca|manda|mande|escreve|envia|envie|digita|digite)\s+-join(?:\s+(?:do\s+)?tts|\s+(?:na|no)\s+(?:chat\s+da\s+)?call.*)?|-join\s*(?:do\s+)?tts|(?:liga|ligue|ativa|ative|chama|chame|conecta|conecte|coloca|coloque|entra|entre|bota|bote|poe|ponha)\s+(?:o\s+)?tts(?:\s+(?:na|no|da|do|pra|para|nessa|nesta|minha|de|com|do canal|em)\s+.*)?|(?:coloca|coloque|bota|bote|poe|ponha|chama|chame)\s+(?:o\s+)?tts\s+(?:na|no|pra|para)\s+.*|(?:entra|entre|coloca|coloque|liga|ativa)\s+(?:na\s+)?call\s+(?:do\s+)?tts)$/i.test(normalized)){
     return {kind:'tts'};
   }
   if(/^(?:qual|quais|que|manda|mand[ae]|passa|me\s+passa|mostra|me\s+mostra|tem|onde|como\s+acesso)\b.*\b(?:site|link|pagina|website)\b|^(?:site|website|link\s+do\s+site)(?:\s+(?:do\s+)?duckzin(?:community)?)?$/i.test(normalized) ||
