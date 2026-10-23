@@ -71,7 +71,7 @@ export function publicInfoPayload(kind,{site}={}){
   return null;
 }
 
-export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,azureVoiceReady=false}){
+export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,edgeVoiceReady=true}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
   const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
@@ -131,7 +131,7 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
       await store.setVoice(chosen,interaction.user.id);
       onVoiceChanged?.(chosen);
       return respond('🎙️ Voz da Duckzinha alterada para **'+voiceLabel(chosen)+'** ('+chosen+'). A escolha foi salva!'+
-        (azureVoiceReady?' Vou usá-la nas próximas respostas em call.':' Para falar na call, ainda é preciso configurar o Azure Speech na hospedagem.'),true);
+        (edgeVoiceReady?' Vou usá-la nas próximas respostas em call (Edge TTS).':' O serviço de voz está indisponível no momento.'),true);
     }
     if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     if(sub==='minhas-memorias'){
