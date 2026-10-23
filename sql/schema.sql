@@ -149,7 +149,7 @@ create table if not exists public.duckzinha_project_updates (
  id bigint generated always as identity primary key,
  guild_id text not null,
  title text not null check(length(title) between 1 and 80),
- description text not null check(length(description) between 1 and 700),
+ description text not null check(length(description) between 1 and 1800),
  author_id text not null,
  created_at timestamptz not null default now()
 );
@@ -160,3 +160,7 @@ revoke all on public.duckzinha_project_updates from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_project_updates to service_role;
 grant usage,select on sequence public.duckzinha_project_updates_id_seq to service_role;
 notify pgrst,'reload schema';
+
+-- Compatibilidade com tabelas criadas antes do anúncio em campo único.
+alter table public.duckzinha_project_updates drop constraint if exists duckzinha_project_updates_description_check;
+alter table public.duckzinha_project_updates add constraint duckzinha_project_updates_description_check check(length(description) between 1 and 1800);
