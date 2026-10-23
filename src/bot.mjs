@@ -23,7 +23,7 @@ const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
 const CLIENT_ID=process.env.DISCORD_CLIENT_ID?.trim();
 if(!TOKEN||!GUILD_ID||!CLIENT_ID){
-  console.error('Faltam DISCORD_TOKEN, DISCORD_CLIENT_ID ou DISCORD_GUILD_ID. Configure as variáveis no Railway (não publique as chaves).');
+  console.error('Faltam DISCORD_TOKEN, DISCORD_CLIENT_ID ou DISCORD_GUILD_ID. Configure as variáveis na FadeHost (não publique as chaves).');
   process.exit(1);
 }
 const SITE=process.env.WEBSITE_URL?.startsWith('https://')?process.env.WEBSITE_URL:'https://duckzincommunity.vercel.app';
@@ -57,13 +57,16 @@ async function testDuckVoice(interaction){
     inGuild:()=>true};
   const joined=await voiceVisits.mention(sample);
   if(!joined.ok)return 'Não consegui conectar: '+joined.reason+
+    (joined.error?' ('+joined.error+')':'')+
     '. Confira as permissões Ver canal, Conectar e Falar.';
   const sampleText='Oiê! Sou a Duckzinha. Essa é minha voz de teste!'; 
   const audio=await synthesizeDuckSpeech({text:sampleText,voice:selectedVoice});
   const played=await voiceVisits.speak(interaction.guildId,audio);
   if(!played)return 'O áudio foi gerado, mas o player não conseguiu reproduzir. Confira os logs.';
-  return 'Áudio gerado e reprodução concluída na call '+voice.name+
-    ' usando '+voiceLabel(selectedVoice)+'. Se não ouviu, confira o volume da Duckzinha no Discord.';
+  const playbackMs=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
+  return 'O player processou '+playbackMs+'ms de áudio na call '+voice.name+
+    ' usando '+voiceLabel(selectedVoice)+'. Isso não garante que o Discord transmitiu som. '+
+    'Se não ouviu, confira se a bot está silenciada no servidor, o volume dela e os logs da FadeHost.';
 }
 
 async function speakDuckReply(guildId,channelId,messageText){
