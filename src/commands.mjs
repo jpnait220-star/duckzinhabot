@@ -1,6 +1,7 @@
 import {EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 'discord.js';
 import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
+import {newCommands} from './duck-features.mjs';
 
 const gold=0xf7d65b;
 const choice=[
@@ -51,6 +52,7 @@ export function commandPayloads(){
     .addSubcommand(s=>s.setName('apagar').setDescription('Apagar um assunto da memória da comunidade')
       .addStringOption(o=>o.setName('assunto').setDescription('Nome do assunto').setRequired(true)))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON());
+  list.push(...newCommands());
   return list;
 }
 
