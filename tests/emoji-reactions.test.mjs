@@ -35,3 +35,12 @@ test('Limites impedem excesso de reações automáticas',()=>{
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:now-1000,roll:0}),false);
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,roll:0}),true);
 });
+
+test('Saudações respondem mais rápido mas seguem antispam por usuário',()=>{
+  const now=1_800_000;
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:0,roll:0.95,isGreeting:true}),true);
+  assert.equal(maySendImageReaction({now,lastGlobal:now-1000,lastChannel:0,lastUser:0,roll:0,isGreeting:true}),false);
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:now-1000,lastUser:0,roll:0,isGreeting:true}),false);
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:now-1000,roll:0,isGreeting:true}),false);
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:0,roll:0.95,isGreeting:false}),false);
+});
