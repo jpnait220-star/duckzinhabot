@@ -95,6 +95,14 @@ create table if not exists public.duckzinha_familiarity (
   last_interaction_at timestamptz not null default now(),
   primary key (guild_id, discord_user_id)
 );
+-- Afinidade suave por membro (não guarda conteúdo de ofensas ou elogios).
+-- O escore se recupera com interações gentis e decai em direção a zero com o tempo.
+alter table public.duckzinha_familiarity
+  add column if not exists affinity_score smallint not null default 0
+    check (affinity_score between -5 and 5);
+alter table public.duckzinha_familiarity
+  add column if not exists affinity_updated_at timestamptz;
+
 create index if not exists duckzinha_familiarity_recent_idx
   on public.duckzinha_familiarity(guild_id, last_interaction_at desc);
 alter table public.duckzinha_familiarity enable row level security;
