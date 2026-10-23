@@ -685,6 +685,64 @@ async function handleDuckButton(interaction){
   }
 }
 
+// Teste explícito: reage à última mensagem recente do próprio usuário no canal.
+async function handleReactionTest(interaction){
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
+  const guild=interaction.guild;
+  const channel=interaction.channel;
+  if(!guild||!channel||!publicChannel({guild,channel}))
+    return interaction.editReply('Use este comando em um canal público de texto, não em tickets ou canais privados.');
+  const kind=interaction.options.getString('tipo')||'ola';
+  const botMember=guild.members.me||await guild.members.fetchMe();
+  const perms=channel.permissionsFor(botMember);
+  const canView=Boolean(perms?.has(PermissionFlagsBits.ViewChannel));
+  const canRead=Boolean(perms?.has(PermissionFlagsBits.ReadMessageHistory));
+  const canReact=Boolean(perms?.has(PermissionFlagsBits.AddReactions));
+  const diagnostics=[
+    '🦆 **Teste de reação: '+kind+'**',
+    '• Ver canal: '+(canView?'✔':'✘'),
+    '• Ler histórico: '+(canRead?'✔':'✘'),
+    '• Adicionar reações: '+(canReact?'✔':'✘')
+  ];
+  if(!canView||!canRead||!canReact){
+    diagnostics.push('Dê as permissões faltantes à Duckzinha neste canal/categoria.');
+    return interaction.editReply(diagnostics.join('\n'));
+  }
+  customEmojiCache.delete(guild.id); // Conferir emojis recém-criados.
+  const emojiId=await resolveDuckEmoji(guild,kind);
+  if(!emojiId){
+    const available=[...(customEmojiCache.get(guild.id)?.emojis||[])];
+    const named=available.filter(e=>/duck|riso|fofo|ola|oi|gg|surpresa/i.test(e?.name||''))
+      .slice(0,8).map(e=>e.name);
+    diagnostics.push('• Emoji: ✘ não encontrei `duckzinha_'+kind+'`.');
+    if(named.length)diagnostics.push('• Emojis parecidos: '+named.join(', '));
+    diagnostics.push('Crie o emoji com esse nome no servidor ou configure `DUCK_EMOJI_'+kind.toUpperCase()+'` com o ID.');
+    return interaction.editReply(diagnostics.join('\n'));
+  }
+  diagnostics.push('• Emoji personalizado: ✔ encontrado');
+  let recent;
+  try{recent=await channel.messages.fetch({limit:30});}
+  catch(err){return interaction.editReply(diagnostics.concat('Não consegui ler as mensagens deste canal: '+err.message).join('\n'));}
+  const own=[...recent.values()].find(m=>
+    m.author?.id===interaction.user.id&&Date.now()-m.createdTimestamp<10*60_000);
+  if(!own){
+    diagnostics.push('Envie uma mensagem neste canal (por exemplo, `oi`) e execute `/testarreacao` novamente.');
+    return interaction.editReply(diagnostics.join('\n'));
+  }
+  try{
+    await own.react(emojiId);
+    lastImageReactionAt=Date.now();
+    lastImageByChannel.set(channel.id,lastImageReactionAt);
+    lastImageByUser.set(interaction.user.id,lastImageReactionAt);
+    diagnostics.push('✔ **Consegui reagir à sua última mensagem!**');
+    diagnostics.push('As reações automáticas também dependem do conteúdo e do intervalo antispam.');
+  }catch(err){
+    console.warn('[Duckzinha] Teste de reação: '+err.message);
+    diagnostics.push('✘ O Discord recusou a reação: '+String(err?.message||'erro').slice(0,180));
+  }
+  return interaction.editReply(diagnostics.join('\n'));
+}
+
 client.on(Events.InteractionCreate,async interaction=>{
   if(interaction.isButton()){
     try{await handleDuckButton(interaction);}
@@ -698,6 +756,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   }
   if(!interaction.isChatInputCommand())return;
   try{
+    if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,schedule,localKnowledge,client,clearSession,invalidatePersonality});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
