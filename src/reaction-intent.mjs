@@ -29,9 +29,11 @@ export async function classifyReactionWithAI({
   const payload={
     model,
     messages:[{role:'system',content:prompt},{role:'user',content:'Mensagem: '+input.slice(0,170)}],
-    temperature:0,max_completion_tokens:80,stream:false,
+    temperature:0,max_completion_tokens:512,stream:false,
     ...(model.startsWith('@cf/google/gemma-4-')
-      ?{chat_template_kwargs:{enable_thinking:false}}:{})
+      ?{chat_template_kwargs:{enable_thinking:false}}:{}),
+    ...(model==='@cf/zai-org/glm-4.7-flash'
+      ?{chat_template_kwargs:{enable_thinking:false,clear_thinking:true}}:{})
   };
   try{
     const response=await requestFetch(
@@ -42,7 +44,8 @@ export async function classifyReactionWithAI({
     );
     if(!response.ok)return null;
     const json=await response.json();
-    const output=json?.choices?.[0]?.message?.content??json?.result?.response;
+    const raw=json?.choices?.[0]?.message?.content??json?.result?.response;
+    const output=Array.isArray(raw)?raw.map(part=>typeof part==='string'?part:part?.text||'').join(''):raw;
     return reactionIntentFromOutput(output);
   }catch{return null;}
 }
