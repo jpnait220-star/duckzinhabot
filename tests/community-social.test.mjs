@@ -13,7 +13,7 @@ test('Reações de imagem detectam risadas e vitórias mas evitam situações de
   assert.equal(imageReactionKind('que susto!'),'surpresa');
   assert.equal(imageReactionKind('muito fofo'),'fofo');
   assert.equal(imageReactionKind('ajuda, meu jogo tá com bug KKKK'),null);
-  assert.equal(imageReactionKind('oi galera'),null);
+  assert.equal(imageReactionKind('oi galera'),'ola');
 });
 test('Limites globais e por canal evitam spam automático',()=>{
   const now=1_800_000;
@@ -33,4 +33,14 @@ test('Assistente de ticket orienta a equipe e protege segredos',()=>{
   assert.match(guide,/versão/);
   assert.match(guide,/Aguarde um membro da staff/);
   assert.match(guide,/Nunca envie senhas/);
+});
+
+test('Variações informais e sem acento de saudações',()=>{
+  for(const msg of [
+    'ola','OLÁ','olaaaa','Olááá!!!!','oieeeee','OIIIIII',
+    'eae','e aí pessoal','eaiii','opa','opaaa','SALVEEE',
+    'bom dia','bom diaaa','Boa Tarde!','boa noite',
+    '👋 olá','fala rapaziada','oioi'
+  ])assert.equal(imageReactionKind(msg),'ola',msg);
+  assert.equal(imageReactionKind('oi pode me ajudar? deu erro'),null);
 });
