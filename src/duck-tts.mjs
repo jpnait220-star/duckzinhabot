@@ -1,40 +1,52 @@
 import {EdgeTTS,Constants} from '@andresaya/edge-tts';
 
-// O Edge Read Aloud disponibiliza somente um subconjunto das vozes Azure.
-export const PT_BR_VOICES=Object.freeze([
-  Object.freeze({name:'Francisca',id:'pt-BR-FranciscaNeural',description:'Feminina, natural'}),
-  Object.freeze({name:'Thalita (multilíngue)',id:'pt-BR-ThalitaMultilingualNeural',description:'Feminina, delicada'}),
-  Object.freeze({name:'Antônio',id:'pt-BR-AntonioNeural',description:'Masculina'})
-]);
+// Cinco vozes efetivas do serviço Edge (três do Brasil, duas de Portugal)
+// e presets de tom/velocidade. Presets reutilizam a voz original.
+const rows=[
+  ['Francisca • Natural','pt-BR-FranciscaNeural','pt-BR-FranciscaNeural',12,0,'Brasil • feminina'],
+  ['Francisca • Fofinha','francisca-fofa','pt-BR-FranciscaNeural',35,4,'Brasil • mais aguda'],
+  ['Francisca • Suave','francisca-suave','pt-BR-FranciscaNeural',18,-9,'Brasil • tranquila'],
+  ['Francisca • Animada','francisca-animada','pt-BR-FranciscaNeural',23,12,'Brasil • expressiva'],
+  ['Thalita • Natural','pt-BR-ThalitaMultilingualNeural','pt-BR-ThalitaMultilingualNeural',10,0,'Brasil • feminina'],
+  ['Thalita • Fofinha','thalita-fofa','pt-BR-ThalitaMultilingualNeural',32,5,'Brasil • mais aguda'],
+  ['Thalita • Suave','thalita-suave','pt-BR-ThalitaMultilingualNeural',14,-10,'Brasil • tranquila'],
+  ['Antônio','pt-BR-AntonioNeural','pt-BR-AntonioNeural',0,0,'Brasil • masculino'],
+  ['Raquel • Portugal','pt-PT-RaquelNeural','pt-PT-RaquelNeural',12,0,'Portugal • feminina'],
+  ['Raquel • Fofinha','raquel-fofa','pt-PT-RaquelNeural',31,6,'Portugal • mais aguda'],
+  ['Duarte • Portugal','pt-PT-DuarteNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino']
+];
+export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
+  Object.freeze({name,id,edgeId,pitch,rate,description})));
 export const DEFAULT_VOICE='pt-BR-FranciscaNeural';
-const available=new Set(PT_BR_VOICES.map(voice=>voice.id));
-
-export function validVoice(value){return available.has(value);}
-export function voiceLabel(value){return PT_BR_VOICES.find(voice=>voice.id===value)?.name||'Francisca';}
-export function voiceChoices(){return PT_BR_VOICES.map(voice=>({name:voice.name,value:voice.id}));}
+const voiceMap=new Map(PT_BR_VOICES.map(x=>[x.id,x]));
+export function validVoice(value){return voiceMap.has(value);}
+export function voiceLabel(value){return voiceMap.get(value)?.name||'Francisca • Natural';}
+export function voiceChoices(){return PT_BR_VOICES.map(x=>({name:x.name,value:x.id}));}
 export function edgeSpeechReady(){return true;}
 
-export function edgeVoiceOptions(voice){
-  if(!validVoice(voice))throw Error('Voz inválida para Edge TTS');
+export function edgeVoiceOptions(value){
+  const voice=voiceMap.get(value);
+  if(!voice)throw Error('Voz ou estilo inválido para Edge TTS');
   return {
-    pitch:voice==='pt-BR-AntonioNeural'?'+0Hz':'+12Hz',
-    rate:'+0%',
+    pitch:(voice.pitch>=0?'+':'')+voice.pitch+'Hz',
+    rate:(voice.rate>=0?'+':'')+voice.rate+'%',
     volume:'+0%',
     outputFormat:Constants.OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS,
-    timeout:18000
+    timeout:25000
   };
 }
 
 // Áudio WebM/Opus pronto para StreamType.WebmOpus do @discordjs/voice.
-// Serviço online não oficial, sem chave; pode mudar ou bloquear requisições.
+// É um serviço online não oficial, que pode falhar ou ter o acesso bloqueado.
 export async function synthesizeDuckSpeech({text,voice=DEFAULT_VOICE,ttsFactory=()=>new EdgeTTS()}={}){
-  if(!validVoice(voice))throw Error('Voz pt-BR indisponível no Edge TTS');
-  const content=String(text||'').trim().slice(0,420);
+  const selection=voiceMap.get(voice);
+  if(!selection)throw Error('Voz indisponível no Edge TTS: '+voice);
+  const content=String(text||'').trim().slice(0,340);
   if(!content)throw Error('Texto vazio para TTS');
-  const result=await ttsFactory().generate(content,voice,edgeVoiceOptions(voice));
-  const audio=Buffer.from(result?.audio||[]);
-  if(audio.length<24||audio.length>1024*1024||
+  const generated=await ttsFactory().generate(content,selection.edgeId,edgeVoiceOptions(voice));
+  const audio=Buffer.from(generated?.audio||[]);
+  if(audio.length<24||audio.length>3*1024*1024||
     audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
-    throw Error('Edge TTS não retornou WebM/Opus válido');
+    throw Error('Edge TTS não retornou WebM/Opus válido (formato: '+String(generated?.format||'?')+')');
   return audio;
 }
