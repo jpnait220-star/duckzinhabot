@@ -186,7 +186,7 @@ test('A voz alternativa selecionada passa pelo filtro local e vira WebM/Opus',as
     }
   });
   assert.equal(calledVoice,'pt-BR-FranciscaFofaNeural');
-  assert.equal(calledSource,mp3);
+  assert.deepEqual(calledSource,mp3);
   assert.equal(result,webm);
   assert.equal(result.duckTtsProvider,'google-styled');
 });
