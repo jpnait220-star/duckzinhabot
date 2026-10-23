@@ -366,9 +366,8 @@ function hat(d,type){
   }else if(type==='fone'){
     // O arco fica por cima da cabeça; as conchas nas laterais,
     // sem cobrir rosto, olhos ou bico.
-    d.ellipse(160,117,87,89,OUT);
-    d.ellipse(160,116,80,82,'#b8b0d2');
-    d.ellipse(160,126,75,77,BODY[d.avatarColor||'amarelo']?.[0]||'#ffe26b');
+    // Arco e conchas desenhados sobre a cabeça já renderizada.
+    // O centro fica transparente para preservar as expressões.
     d.line(86,111,99,66,11,'#444761');
     d.line(99,66,160,44,11,'#444761');
     d.line(160,44,219,66,11,'#444761');
