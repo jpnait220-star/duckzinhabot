@@ -65,7 +65,7 @@ export class DuckVoiceVisits{
     // Cada servidor permite só uma call por instância. Atualizar o prazo
     // somente quando alguém menciona Duckzinha no chat da call.
     const last=this.sessions.get(guildId);
-    if(last?.channelId===channel.id && last.connection?.state?.status!==VoiceConnectionStatus.Destroyed){
+    if(last?.channelId===channel.id && last.connection?.state?.status===VoiceConnectionStatus.Ready){
       last.lastMentionAt=this.now();
       this.schedule(last);
       return {ok:true,joined:false,channelId:channel.id};
@@ -93,6 +93,16 @@ export class DuckVoiceVisits{
     const session=this.sessions.get(guildId);
     if(!session)throw Error('Duckzinha não está conectada à call');
     if(!Buffer.isBuffer(audio)||audio.length<24)throw Error('Arquivo TTS inválido');
+    if(session.connection?.state?.status!==VoiceConnectionStatus.Ready){
+      try{
+        await this.waitReady(session.connection,VoiceConnectionStatus.Ready,10000);
+      }catch(error){
+        throw Error('Conexão de voz não ficou pronta ('+
+          String(session.connection?.state?.status||'desconhecido')+'): '+
+          String(error?.message||error).slice(0,100));
+      }
+    }
+    if(this.sessions.get(guildId)!==session)throw Error('A call mudou antes da fala');
     // Nunca iniciar múltiplas falas ao mesmo tempo.
     if((session.pendingSpeech||0)>=2)throw Error('Fila de fala cheia');
     session.pendingSpeech=(session.pendingSpeech||0)+1;
@@ -101,10 +111,13 @@ export class DuckVoiceVisits{
       if(this.sessions.get(guildId)!==session)throw Error('A call mudou antes de reproduzir');
       if(!session.player){
         session.player=createAudioPlayer({
-          behaviors:{noSubscriber:NoSubscriberBehavior.Stop}
+          behaviors:{noSubscriber:NoSubscriberBehavior.Pause}
         });
         session.subscription=session.connection.subscribe(session.player);
-        if(!session.subscription)throw Error('Sem assinatura de áudio na call');
+        if(!session.subscription)throw Error('O Discord não assinou o player de áudio na call');
+        session.player.on('error',error=>{
+          console.warn('[Duckzinha] Player de voz: '+String(error?.message||error));
+        });
       }
       const resource=createAudioResource(Readable.from([audio]),{inputType:StreamType.WebmOpus});
       const player=session.player;
@@ -120,14 +133,25 @@ export class DuckVoiceVisits{
           if(error)reject(error);else resolve(true);
         };
         const onPlaying=()=>{started=true};
-        const onIdle=()=>done(started?null:new Error('Player terminou sem iniciar o áudio'));
+        const onIdle=()=>{
+          if(!started)return done(new Error('Player terminou sem iniciar o áudio'));
+          const duration=resource.playbackDuration;
+          if(duration<200)return done(new Error(
+            'O player iniciou, mas não processou áudio suficiente: '+duration+
+            'ms. Verifique WebM/Opus e dependências da FadeHost.'));
+          session.lastPlaybackMs=duration;
+          console.log('[Duckzinha] Voz: '+duration+
+            'ms de áudio processados na call '+session.channelId+'.');
+          done();
+        };
         const onError=(err)=>done(err);
         player.once(AudioPlayerStatus.Playing,onPlaying);
         player.once(AudioPlayerStatus.Idle,onIdle);
         player.once('error',onError);
         timer=setTimeout(()=>{
+          done(new Error('Reprodução TTS excedeu 40 segundos (status: '+
+            player.state?.status+', conexão: '+session.connection?.state?.status+')'));
           player.stop(true);
-          done(new Error('Reprodução TTS excedeu 40 segundos'));
         },40000);
         timer.unref?.();
         try{player.play(resource);}
