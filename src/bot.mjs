@@ -10,7 +10,8 @@ import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.m
 import {customEmojiEnv,customEmojiId,findCustomEmoji} from './emoji-reactions.mjs';
 import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
-import {commandPayloads,runCommand} from './commands.mjs';
+import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
+import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -40,6 +41,7 @@ if(process.env.TICKET_CATEGORY_ID&&!TICKET_CATEGORY_ID)
 
 const client=new Client({intents:[
   GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent,
+  GatewayIntentBits.GuildVoiceStates,
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
@@ -308,6 +310,61 @@ async function cleanupExpired(){
     for(const item of await store.getExpiredMessages())await removeOwnMessage(item.message_id,item.channel_id);
   }catch(err){console.warn('[Duckzinha] Limpeza persistente: '+err.message)}
 }
+// Pedidos por linguagem natural, sempre iniciados por uma menção explícita.
+async function handleNaturalAction(message,action){
+  if(action.kind==='website'||action.kind==='projetos'){
+    const payload=publicInfoPayload(action.kind,{site:SITE});
+    if(!payload)return false;
+    // Assim como os comandos slash, respostas informativas ficam no canal.
+    await message.reply({...payload,allowedMentions:{parse:[],repliedUser:false}});
+    return true;
+  }
+  if(action.kind!=='music'&&action.kind!=='tts')return false;
+  if(action.kind==='music'&&!action.song){
+    const reply=await message.reply({
+      content:'Qual música você quer? 🎵 Me fala o nome junto com o pedido, por exemplo: @Duckzinha toca Faded.',
+      allowedMentions:{parse:[],repliedUser:false}
+    });
+    void schedule(reply).catch(()=>{});
+    return true;
+  }
+  // O bot NÃO entra na call e NÃO controla outros bots por slash command.
+  // Publica apenas um comando de texto no chat da call da própria pessoa.
+  const member=message.member||await message.guild.members.fetch(message.author.id).catch(()=>null);
+  const voice=member?.voice?.channel;
+  if(!voice||voice.type!==ChannelType.GuildVoice||voice.guildId!==message.guildId){
+    const reply=await message.reply({
+      content:'Aii, você não está em uma call de voz! 🎧 Entre na call e me peça de novo.',
+      allowedMentions:{parse:[],repliedUser:false}
+    });
+    void schedule(reply).catch(()=>{});
+    return true;
+  }
+  const me=message.guild.members.me||await message.guild.members.fetchMe();
+  const permissions=voice.permissionsFor(me);
+  if(!permissions?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages])){
+    const reply=await message.reply({
+      content:'Não tenho permissão para enviar mensagens no chat da sua call. Preciso de **Ver canal** e **Enviar mensagens** lá.',
+      allowedMentions:{parse:[],repliedUser:false}
+    });
+    void schedule(reply).catch(()=>{});
+    return true;
+  }
+  const line=action.kind==='music'?musicBotMessage(action.song):ttsBotMessage();
+  if(!line)return false;
+  await voice.send({content:line,allowedMentions:{parse:[]}});
+  // Não afirmar que outro bot executou: a maioria ignora mensagens de bots.
+  if(message.channelId!==voice.id){
+    const reply=await message.reply({
+      content:'🦆 Enviei `'+line.replaceAll('`','')+'` no chat da sua call (<#'+voice.id+'>). '+
+        'O bot de música/TTS pode ignorar comandos enviados por outros bots; confira lá se funcionou.',
+      allowedMentions:{parse:[],repliedUser:false}
+    });
+    void schedule(reply).catch(()=>{});
+  }
+  return true;
+}
+
 async function communityKnowledge(){
   const rows=await store.loadKnowledge().catch(err=>{console.warn('[Duckzinha] Falha ao ler ensinos: '+err.message);return []});
   const merged={...localKnowledge};
@@ -495,6 +552,20 @@ client.on(Events.MessageCreate,async message=>{
     if(r)void schedule(r).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));return;
   }
   if(question.length<2)return;
+  if(mentioned&&isPublic&&!confirmation){
+    const action=requestedAction(question);
+    if(action){
+      cooldown.set(id,Date.now());
+      try{await handleNaturalAction(message,action);}
+      catch(err){
+        console.warn('[Duckzinha] Pedido por mensagem: '+err.message);
+        const reply=await message.reply({content:'Aii, não consegui concluir esse pedido. Confira minhas permissões ou tente novamente.',
+          allowedMentions:{parse:[],repliedUser:false}}).catch(()=>null);
+        if(reply)void schedule(reply).catch(()=>{});
+      }
+      return;
+    }
+  }
   const requestStarted=Date.now();
   busy.set(id,requestStarted);cooldown.set(id,requestStarted);
   const memoryTask=candidate?persistCandidate(message,candidate)
