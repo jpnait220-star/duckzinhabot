@@ -91,3 +91,14 @@ export class DuckVoiceVisits{
   }
   shutdown(){for(const id of [...this.sessions.keys()])this.stop(id)}
 }
+
+// Texto mais curto e legível para o TTS Bot; a voz não é gerada pela Duckzinha.
+export function voiceReadableText(answer){
+  const clean=String(answer||'')
+    .replace(/\\*\\*|__|~~|\\`/g,'')
+    .replace(/<@!?\\d+>|<@&\\d+>/g,'')
+    .replace(/https?:\\/\\/\\S+/gi,'link no chat')
+    .replace(/[\\p{Extended_Pictographic}\\uFE0F]/gu,'')
+    .replace(/[\\r\\n]+/g,' ').replace(/\\s+/g,' ').trim();
+  return clean.slice(0,420)||'Pode me explicar melhor?';
+}
