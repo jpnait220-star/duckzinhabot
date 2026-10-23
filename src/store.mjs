@@ -67,6 +67,9 @@ export class DuckStore {
     await this.requireResult(this.db.from('duckzinha_memory').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId));
     await this.deleteFamiliarity(discordId);
+    await this.requireResult(this.db.from('duckzinha_avatars').delete()
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
+        console.warn('[Duckzinha] Avatar: '+err.message));
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
       console.warn('[Duckzinha] Fatos pessoais: '+err.message));
@@ -80,6 +83,9 @@ export class DuckStore {
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
       .eq('guild_id',this.guildId)).catch(err=>
       console.warn('[Duckzinha] Resetar preferências: '+err.message));
+    await this.requireResult(this.db.from('duckzinha_avatars').delete()
+      .eq('guild_id',this.guildId)).catch(err=>
+      console.warn('[Duckzinha] Resetar avatares: '+err.message));
   }
   async cleanupConversations() {
     if(!this.db)return;
@@ -127,6 +133,20 @@ export class DuckStore {
       guild_id:this.guildId,features,updated_by:adminId,
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id'}));
+  }
+  async getAvatar(discordId){
+    if(!this.db)return null;
+    const row=await this.requireResult(this.db.from('duckzinha_avatars')
+      .select('avatar').eq('guild_id',this.guildId)
+      .eq('discord_user_id',discordId).maybeSingle());
+    return row?.avatar||null;
+  }
+  async setAvatar(discordId,avatar){
+    if(!this.db)throw Error('Supabase não configurado.');
+    await this.requireResult(this.db.from('duckzinha_avatars').upsert({
+      guild_id:this.guildId,discord_user_id:discordId,avatar,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id,discord_user_id'}));
   }
   async getProfileFacts(discordId) {
     if(!this.db)return [];
