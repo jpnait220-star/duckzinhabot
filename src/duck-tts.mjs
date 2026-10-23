@@ -1,4 +1,5 @@
 import {EdgeTTS,Constants} from '@andresaya/edge-tts';
+import {styleGoogleSpeechMp3} from './google-voice-style.mjs';
 
 // Cinco vozes efetivas do serviço Edge (três do Brasil, duas de Portugal)
 // e presets de tom/velocidade. Presets reutilizam a voz original.
@@ -94,7 +95,7 @@ export async function googleSpeechFallback(text,voice=DEFAULT_VOICE,fetchImpl=fe
 }
 
 export async function synthesizeDuckSpeech({
-  text,voice=DEFAULT_VOICE,ttsFactory,fallbackFetch
+  text,voice=DEFAULT_VOICE,ttsFactory,fallbackFetch,fallbackStyler=styleGoogleSpeechMp3
 }={}){
   const selection=voiceMap.get(voice);
   if(!selection)throw Error('Voz indisponível no Edge TTS: '+voice);
@@ -118,10 +119,23 @@ export async function synthesizeDuckSpeech({
     String(edgeError?.message||edgeError).slice(0,160)+
     '); tentando voz alternativa por HTTPS.');
   try{
-    const audio=await googleSpeechFallback(content,voice,fallbackFetch||fetch);
-    Object.defineProperty(audio,'duckTtsProvider',{value:'google'});
-    console.log('[Duckzinha] Google TTS gerou áudio alternativo MP3 ('+
-      audio.length+' bytes).');
+    const mp3=await googleSpeechFallback(content,voice,fallbackFetch||fetch);
+    let audio=mp3,provider='google';
+    try{
+      audio=await fallbackStyler(mp3,voice);
+      if(!Buffer.isBuffer(audio)||audio.length<24||
+        audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
+        throw Error('Filtro de estilo não retornou WebM/Opus válido');
+      provider='google-styled';
+    }catch(styleError){
+      // Mesmo se o FFmpeg falhar, a Duckzinha ainda pode usar a fala base.
+      console.warn('[Duckzinha] Estilo Google indisponível: '+
+        String(styleError?.message||styleError).slice(0,180)+
+        '. Usando voz Google sem filtro.');
+    }
+    Object.defineProperty(audio,'duckTtsProvider',{value:provider});
+    console.log('[Duckzinha] Voz alternativa ('+provider+'): '+
+      audio.length+' bytes, preset '+selection.name+'.');
     return audio;
   }catch(fallbackError){
     throw Error('Edge TTS: '+String(edgeError?.message||edgeError).slice(0,160)+
