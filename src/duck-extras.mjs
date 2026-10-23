@@ -1,5 +1,5 @@
-import {randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits} from 'discord.js';
+import {DuckQuiz} from './duck-quiz.mjs';
 
 export const MOODS=['auto','animada','calma','curiosa','sonolenta'];
 export const DEFAULT_SETTINGS=Object.freeze({mood:'auto',emotionalVoice:true,specialReactions:true});
@@ -48,22 +48,11 @@ export function expressiveVoice(current,mood,enabled=true){
   return enabled?(emotionMap[current]?.[mood]||current):current;
 }
 
-const QUESTIONS=[
-  {question:'Qual mob deixa cair linhas ao ser derrotado no Minecraft?',options:['Aranha','Ovelha','Galinha'],answer:0},
-  {question:'Qual é o nome do minério vermelho usado em circuitos?',options:['Quartzo','Redstone','Lápis-lazúli'],answer:1},
-  {question:'Qual item é usado para domesticar lobos?',options:['Ossos','Pão','Sementes'],answer:0},
-  {question:'Qual dimensão é acessada com o portal de obsidiana?',options:['End','Nether','Overworld'],answer:1},
-  {question:'Qual é a capital da Bahia?',options:['Salvador','Recife','Fortaleza'],answer:0},
-  {question:'Qual planeta é conhecido como planeta vermelho?',options:['Marte','Vênus','Júpiter'],answer:0},
-  {question:'Quanto é 9 × 8?',options:['63','81','72'],answer:2}
-];
 export class DuckExtras{
   constructor({store}={}){
     this.store=store;
     this.settings={...DEFAULT_SETTINGS};
-    this.gameSessions=new Map();
-    this.gameScore=new Map();
-    this.lastGame=new Map();
+    this.quiz=new DuckQuiz();
     this.lastImage=new Map();
   }
   async load(){
@@ -83,8 +72,9 @@ export class DuckExtras{
     return false;
   }
   mood(text){return moodFromText(text,this.settings.mood);}
-  score(userId){return this.gameScore.get(userId)||0;}
-  resetUser(userId){this.gameScore.delete(userId);this.lastGame.delete(userId);}
+  score(userId){return this.quiz.score(userId);}
+  streak(userId){return this.quiz.activeStreak(userId);}
+  resetUser(userId){this.quiz.resetUser(userId);}
   panelPayload(){
     const s=this.settings;
     return {
@@ -120,41 +110,7 @@ export class DuckExtras{
     p.content+='\n\n'+(saved?'✅ Configuração salva no Supabase.':'⚠️ Ativo apenas até reiniciar (rode a migração SQL).');
     await interaction.update(p);
   }
-  startGame(interaction){
-    const now=Date.now(),user=interaction.user.id;
-    if(now-(this.lastGame.get(user)||0)<12000)
-      return {content:'Espere 12 segundos antes de jogar novamente.',flags:MessageFlags.Ephemeral};
-    this.lastGame.set(user,now);
-    const q=QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-    const id=randomUUID().slice(0,12);
-    this.gameSessions.set(id,{user,question:q,expires:now+90_000});
-    if(this.gameSessions.size>200){
-      for(const [key,s] of this.gameSessions)if(s.expires<now)this.gameSessions.delete(key);
-    }
-    return {
-      content:'🎮 **Quiz da Duckzinha**\n'+q.question+'\nEscolha uma resposta (90 segundos):',
-      components:[new ActionRowBuilder().addComponents(q.options.map((label,index)=>
-        new ButtonBuilder().setCustomId('duckgame:'+id+':'+index).setLabel(label).setStyle(ButtonStyle.Primary)))],
-      flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}
-    };
-  }
-  async gameButton(interaction){
-    const [,id,index]=interaction.customId.split(':');
-    const session=this.gameSessions.get(id);
-    if(!session||session.expires<Date.now()){
-      await interaction.reply({content:'Este quiz expirou. Use /jogo novamente.',flags:MessageFlags.Ephemeral});return;
-    }
-    if(session.user!==interaction.user.id){
-      await interaction.reply({content:'Esse quiz pertence a outra pessoa.',flags:MessageFlags.Ephemeral});return;
-    }
-    this.gameSessions.delete(id);
-    const correct=Number(index)===session.question.answer;
-    if(correct)this.gameScore.set(session.user,this.score(session.user)+1);
-    await interaction.update({
-      content:(correct?'✅ Acertou!':'💛 Não foi dessa vez!')+' Resposta: **'+
-        session.question.options[session.question.answer]+'**.\n'+
-        'Acertos nesta sessão do bot: '+this.score(session.user)+'.',
-      components:[],allowedMentions:{parse:[]}
-    });
-  }
+  startGame(interaction){return this.quiz.start(interaction);}
+
+  async gameButton(interaction){return this.quiz.answer(interaction);}
 }
