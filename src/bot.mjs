@@ -5,6 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
+import {affinitySignal,affinityStyle,nextAffinity} from './affinity.mjs';
 import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.mjs';
 import {customEmojiEnv,customEmojiId,findCustomEmoji} from './emoji-reactions.mjs';
 import {captureCandidate} from './memory-capture.mjs';
@@ -512,7 +513,18 @@ client.on(Events.MessageCreate,async message=>{
     const history=await getHistory(id);
     const memorySaved=await memoryTask;
     const profileFacts=await store.getProfileFacts(id).catch(()=>[]);
-    const friendshipTurns=member?.enabled===false?0:await store.getFamiliarity(id).catch(()=>0);
+    // Só considerar atitudes em mensagens dirigidas à Duckzinha em canal público.
+    // Nada de julgar mensagens entre outros membros nem conteúdo de tickets.
+    const isAffinityEnabled=isPublic&&member?.enabled!==false;
+    const social=isAffinityEnabled
+      ?await store.getSocialState(id).catch(err=>{
+        console.warn('[Duckzinha] Afinidade: '+err.message);
+        return {turns:0,score:0};
+      })
+      :{turns:0,score:0};
+    const toneChange=isAffinityEnabled?affinitySignal(question,{directed:mentioned}):0;
+    const friendshipTurns=social.turns;
+    const affinityScore=nextAffinity(social.score,toneChange);
     const pastResearch=previousResearchNotes(history);
     const extraContext=currentServerContext(message.id);
     const mergedChannelContext=(channelContext.slice(-2500)+'\n'+
@@ -538,6 +550,7 @@ client.on(Events.MessageCreate,async message=>{
           customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           familiarity:member?.enabled===false?'novo por aqui':familiarityLabel(friendshipTurns),
+          affinity:affinityStyle(affinityScore),
           pastResearch,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
         aiAnswered=Boolean(answer);
@@ -572,8 +585,9 @@ client.on(Events.MessageCreate,async message=>{
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
       if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
-      if(isPublic&&member?.enabled!==false)
-        void store.incrementFamiliarity(id).catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
+      if(isAffinityEnabled)
+        void store.incrementFamiliarity(id,{toneChange,score:affinityScore})
+          .catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
       // Never wait for background database writes before releasing the user.
       if((modelReady&&aiAnswered)||(searching&&webFacts?.status==='ok'))
         void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
