@@ -14,6 +14,9 @@ import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech} from './duck-tts.mjs';
+import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
+import {DuckStudio} from './duck-studio.mjs';
+import {runNewCommand} from './duck-features.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -47,6 +50,8 @@ const client=new Client({intents:[
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
+const extras=new DuckExtras({store});
+const studio=new DuckStudio({store,extras,client});
 let selectedVoice=DEFAULT_VOICE;
 const voiceNoticeTimes=new Map();
 async function testDuckVoice(interaction){
@@ -78,7 +83,7 @@ async function testDuckVoice(interaction){
 async function speakDuckReply(guildId,channelId,messageText){
   if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
-  const voiceAtRequest=selectedVoice;
+  const voiceAtRequest=expressiveVoice(selectedVoice,extras.mood(messageText),extras.settings.emotionalVoice);
   try{
     const audio=await synthesizeDuckSpeech({
       text:messageText,voice:voiceAtRequest
@@ -457,6 +462,7 @@ client.once(Events.ClientReady,async me=>{
     return DEFAULT_VOICE;
   });
   console.log('[Duckzinha] Voz escolhida: '+voiceLabel(selectedVoice)+' (Edge TTS online, sem chave).');
+  await extras.load();
   me.user.setActivity('🦆💛 | /ajuda • mencione a Duckzinha',{type:ActivityType.Custom});
   try{
     const guild=await me.guilds.fetch(GUILD_ID);
@@ -703,7 +709,7 @@ client.on(Events.MessageCreate,async message=>{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
           question,history,channelContext:mergedChannelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
-          customPersonality:personality,knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
+          customPersonality:personality+'\n'+moodInstruction(extras.mood(question)),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           familiarity:member?.enabled===false?'novo por aqui':familiarityLabel(friendshipTurns),
           affinity:affinityStyle(affinityScore),
@@ -930,7 +936,11 @@ async function handleReactionTest(interaction){
 
 client.on(Events.InteractionCreate,async interaction=>{
   if(interaction.isButton()){
-    try{await handleDuckButton(interaction);}
+    try{
+      if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
+      if(interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
+      await handleDuckButton(interaction);
+    }
     catch(err){
       console.error('[Duckzinha] Botão: '+err.message);
       const data={content:'Opa, tive um probleminha com esse botão. Tenta novamente! 💛',flags:MessageFlags.Ephemeral};
@@ -942,6 +952,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
+    if(await runNewCommand(interaction,{store,extras,studio,selectedVoice:()=>selectedVoice,findReactionFile}))return;
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
@@ -953,8 +964,8 @@ client.on(Events.InteractionCreate,async interaction=>{
 client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
   if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
 });
-process.once('SIGTERM',()=>{voiceVisits.shutdown();client.destroy();process.exit(0)});
-process.once('SIGINT',()=>{voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGTERM',()=>{studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGINT',()=>{studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
 client.on(Events.ShardDisconnect,(event,shardId)=>
   console.warn('[Duckzinha] Gateway desconectado (shard '+shardId+', código '+event.code+').'));
 client.on(Events.ShardReconnecting,shardId=>
@@ -964,4 +975,5 @@ client.on(Events.ShardResume,shardId=>
 client.on(Events.Error,error=>console.error('[Duckzinha] Discord: '+error.message));
 process.on('unhandledRejection',error=>console.error('[Duckzinha] Erro inesperado: '+String(error?.message||error)));
 
+studio.start();
 await client.login(TOKEN);
