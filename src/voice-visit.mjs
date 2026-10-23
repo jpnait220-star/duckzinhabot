@@ -87,7 +87,8 @@ export class DuckVoiceVisits{
   }
   onBotVoiceState(guildId,channelId){
     const session=this.sessions.get(guildId);
-    if(session&&!channelId)this.stop(guildId);
+    // Uma remoção ou mudança manual de call invalida a sessão.
+    if(session&&channelId!==session.channelId)this.stop(guildId);
   }
   shutdown(){for(const id of [...this.sessions.keys()])this.stop(id)}
 }
