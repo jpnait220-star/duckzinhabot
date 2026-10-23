@@ -1,5 +1,7 @@
+import {Readable} from 'node:stream';
 import {
-  joinVoiceChannel,entersState,VoiceConnectionStatus
+  joinVoiceChannel,entersState,VoiceConnectionStatus,createAudioPlayer,createAudioResource,
+  StreamType,AudioPlayerStatus,NoSubscriberBehavior
 } from '@discordjs/voice';
 import {ChannelType,PermissionFlagsBits} from 'discord.js';
 
@@ -37,6 +39,8 @@ export class DuckVoiceVisits{
     if(!session)return;
     this.sessions.delete(guildId);
     if(session.timer)this.clearTimer(session.timer);
+    try{session.player?.stop?.(true);}catch{/* Player já parou */}
+    try{session.subscription?.unsubscribe?.();}catch{/* Sem assinatura */}
     try{session.connection?.destroy?.();}catch{/* Already destroyed */}
   }
   schedule(session){
@@ -55,7 +59,7 @@ export class DuckVoiceVisits{
     const guildId=message.guildId;
     const me=message.guild.members.me||await message.guild.members.fetchMe();
     const perms=channel.permissionsFor(me);
-    if(!perms?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.Connect])){
+    if(!perms?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.Connect,PermissionFlagsBits.Speak])){
       return {ok:false,reason:'missing-permissions'};
     }
     // Cada servidor permite só uma call por instância. Atualizar o prazo
@@ -72,7 +76,7 @@ export class DuckVoiceVisits{
       connection=this.join({
         channelId:channel.id,guildId,
         adapterCreator:message.guild.voiceAdapterCreator,
-        selfDeaf:true,selfMute:true
+        selfDeaf:true,selfMute:false
       });
       const session={guildId,channelId:channel.id,connection,lastMentionAt:this.now(),timer:null};
       this.sessions.set(guildId,session);
@@ -84,6 +88,48 @@ export class DuckVoiceVisits{
       this.stop(guildId);
       return {ok:false,reason:'join-failed',error:String(error?.message||error).slice(0,160)};
     }
+  }
+  async speak(guildId,audio){
+    const session=this.sessions.get(guildId);
+    if(!session||!Buffer.isBuffer(audio)||audio.length<24)return false;
+    // Nunca iniciar múltiplas falas ao mesmo tempo.
+    if((session.pendingSpeech||0)>=2)return false;
+    session.pendingSpeech=(session.pendingSpeech||0)+1;
+    const previous=session.speechQueue||Promise.resolve();
+    const next=previous.catch(()=>{}).then(async()=>{
+      if(this.sessions.get(guildId)!==session)return false;
+      if(!session.player){
+        session.player=createAudioPlayer({
+          behaviors:{noSubscriber:NoSubscriberBehavior.Pause}
+        });
+        session.subscription=session.connection.subscribe(session.player);
+        if(!session.subscription)throw Error('Sem assinatura de áudio na call');
+      }
+      const resource=createAudioResource(Readable.from(audio),{inputType:StreamType.OggOpus});
+      const player=session.player;
+      return new Promise((resolve,reject)=>{
+        let timer;
+        const done=(error)=>{
+          clearTimeout(timer);
+          player.off(AudioPlayerStatus.Idle,onIdle);
+          player.off('error',onError);
+          if(error)reject(error);else resolve(true);
+        };
+        const onIdle=()=>done();
+        const onError=(err)=>done(err);
+        player.once(AudioPlayerStatus.Idle,onIdle);
+        player.once('error',onError);
+        timer=setTimeout(()=>{
+          player.stop(true);
+          done(new Error('TTS excedeu 40 segundos'));
+        },40000);
+        timer.unref?.();
+        try{player.play(resource);}
+        catch(err){done(err);}
+      });
+    });
+    session.speechQueue=next.catch(()=>{});
+    try{return await next;}finally{session.pendingSpeech--;}
   }
   onBotVoiceState(guildId,channelId){
     const session=this.sessions.get(guildId);
