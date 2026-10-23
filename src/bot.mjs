@@ -12,6 +12,7 @@ import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
+import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -45,6 +46,7 @@ const client=new Client({intents:[
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
+const voiceVisits=new DuckVoiceVisits();
 const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
 
 // Cada botão de fontes tem ID temporário próprio, visível em qualquer resposta pesquisada.
@@ -168,7 +170,7 @@ const CHAT_AGE=48*60*60_000;
 function publicChannel(message){
   const c=message.channel;
   const everyone=message.guild?.roles?.everyone;
-  return Boolean(everyone&&c?.isTextBased?.()&&!c.isThread?.()&&!c.nsfw&&
+  return Boolean(everyone&&(c?.isTextBased?.()||c?.type===ChannelType.GuildVoice)&&!c.isThread?.()&&!c.nsfw&&
     !/(ticket|staff|admin|moder|denuncia|suporte|atendimento|logs?)/i.test(c.name||'')&&
     c.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel));
 }
@@ -491,6 +493,23 @@ client.on(Events.MessageCreate,async message=>{
   // Conserva as mensagens normais de canais públicos somente em RAM.
   const isPublic=addRecent(message);
   const rawQuestion=stripMentions(message.content,client.user.id);
+  // O chat da call só pode chamar a Duckzinha quando o autor participa dessa call.
+  if(mentioned&&message.channel?.type===ChannelType.GuildVoice){
+    if(!voiceMentionContext(message)){
+      // Não entra em call privada ou quando a pessoa está fora dela.
+      return;
+    }
+    const joined=await voiceVisits.mention(message);
+    if(!joined.ok){
+      const reason=joined.reason==='missing-permissions'
+        ?'Preciso das permissões **Ver canal** e **Conectar** nessa call para entrar.'
+        :'Não consegui entrar nessa call agora. Tenta novamente! 💛';
+      const sent=await message.reply({content:reason,
+        allowedMentions:{parse:[],repliedUser:false}}).catch(()=>null);
+      if(sent)void schedule(sent).catch(()=>{});
+      return;
+    }
+  }
   const candidate=isPublic?captureCandidate(rawQuestion,{
     mentioned,isStaff:Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild))
   }):null;
@@ -652,7 +671,7 @@ client.on(Events.MessageCreate,async message=>{
     const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
     const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
     if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
-    const sent=await message.reply({content:answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
+    const sent=await message.reply({content:message.channel?.type===ChannelType.GuildVoice?voiceReadableText(answer):answer.slice(0,1900),components:message.channel?.type===ChannelType.GuildVoice?[]:components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
       if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
@@ -863,6 +882,11 @@ client.on(Events.InteractionCreate,async interaction=>{
     else await interaction.reply(data).catch(()=>{});
   }
 });
+client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
+  if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
+});
+process.once('SIGTERM',()=>{voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGINT',()=>{voiceVisits.shutdown();client.destroy();process.exit(0)});
 client.on(Events.ShardDisconnect,(event,shardId)=>
   console.warn('[Duckzinha] Gateway desconectado (shard '+shardId+', código '+event.code+').'));
 client.on(Events.ShardReconnecting,shardId=>
