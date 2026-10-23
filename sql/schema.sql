@@ -144,3 +144,19 @@ alter table public.duckzinha_avatars enable row level security;
 revoke all on public.duckzinha_avatars from anon,authenticated;
 grant select,insert,update,delete on public.duckzinha_avatars to service_role;
 notify pgrst, 'reload schema';
+
+create table if not exists public.duckzinha_project_updates (
+ id bigint generated always as identity primary key,
+ guild_id text not null,
+ title text not null check(length(title) between 1 and 80),
+ description text not null check(length(description) between 1 and 700),
+ author_id text not null,
+ created_at timestamptz not null default now()
+);
+create index if not exists duckzinha_project_updates_recent
+ on public.duckzinha_project_updates(guild_id,created_at desc);
+alter table public.duckzinha_project_updates enable row level security;
+revoke all on public.duckzinha_project_updates from anon,authenticated;
+grant select,insert,update,delete on public.duckzinha_project_updates to service_role;
+grant usage,select on sequence public.duckzinha_project_updates_id_seq to service_role;
+notify pgrst,'reload schema';
