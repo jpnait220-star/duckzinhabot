@@ -5,6 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
+import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.mjs';
 import {customEmojiEnv,customEmojiId,findCustomEmoji} from './emoji-reactions.mjs';
 import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
@@ -97,6 +98,8 @@ async function resolveDuckEmoji(guild,kind){
 
 // Reações de imagem usam artes fornecidas pelo administrador, nunca imagens geradas automaticamente.
 let lastImageReactionAt=0,replyingWithImage=false;
+let lastAIReactionAnalysisAt=0;
+const lastAIReactionByUser=new Map();
 async function findReactionFile(type){
   if(!['riso','fofo','ola','gg','surpresa'].includes(type))return null;
   for(const extension of ['webp','png','gif']){
@@ -109,7 +112,19 @@ async function findReactionFile(type){
 
 const lastImageByChannel=new Map(),lastImageByUser=new Map();
 async function maybeReactWithDuckEmoji(message,content=message.content){
-  const type=imageReactionKind(content);
+  let type=imageReactionKind(content);
+  if(!type && CF_ACCOUNT && CF_TOKEN && canAnalyzeReactionText(content)){
+    // Usar a IA só para mensagens públicas que as regras locais não entenderam.
+    // Limitar chamadas para não consultar toda mensagem comum do servidor.
+    const now=Date.now(),lastUser=lastAIReactionByUser.get(message.author.id)||0;
+    if(now-lastAIReactionAnalysisAt>=25_000 && now-lastUser>=90_000){
+      lastAIReactionAnalysisAt=now;
+      lastAIReactionByUser.set(message.author.id,now);
+      type=await classifyReactionWithAI({
+        accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,content
+      });
+    }
+  }
   if(!type||replyingWithImage||!maySendImageReaction({
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,
