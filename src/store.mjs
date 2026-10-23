@@ -152,7 +152,7 @@ export class DuckStore {
     if(!this.db)throw Error('Supabase não configurado.');
     await this.requireResult(this.db.from('duckzinha_project_updates').insert({
       guild_id:this.guildId,title:title.slice(0,80),
-      description:description.slice(0,700),author_id:authorId
+      description:description.slice(0,1800),author_id:authorId
     }));
   }
   async listProjectUpdates(){
