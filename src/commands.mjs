@@ -14,6 +14,16 @@ const choice=[
 
 export function commandPayloads(){
   const list=choice.map(([name,description])=>new SlashCommandBuilder().setName(name).setDescription(description).setDMPermission(false).toJSON());
+  list.push(new SlashCommandBuilder().setName('testarreacao')
+    .setDescription('Testar o emoji da Duckzinha na sua última mensagem')
+    .addStringOption(o=>o.setName('tipo').setDescription('Qual reação verificar?')
+      .addChoices(
+        {name:'Olá / acenando',value:'ola'},
+        {name:'Riso',value:'riso'},
+        {name:'Fofura',value:'fofo'},
+        {name:'GG',value:'gg'},
+        {name:'Surpresa',value:'surpresa'}
+      )).setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('amizade')
     .setDescription('Ver o quanto a Duckzinha já conversou com você').setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('duckzinha').setDescription('Memória da Duckzinha')
