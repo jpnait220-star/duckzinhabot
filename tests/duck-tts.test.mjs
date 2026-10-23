@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PermissionFlagsBits,MessageFlags} from 'discord.js';
 import {runCommand,commandPayloads} from '../src/commands.mjs';
+import {googleVoicePreset,googleVoiceFilter} from '../src/google-voice-style.mjs';
 import {
   DEFAULT_VOICE,PT_BR_VOICES,voiceChoices,voiceLabel,validVoice,
   edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech,googleSpeechFallback
@@ -149,4 +150,43 @@ test('Falha HTTP do TTS alternativo não é tratada como áudio',async()=>{
     }),
     /Edge TTS:.*Google TTS HTTP 429/
   );
+});
+
+test('Google TTS alternativo muda tom e velocidade conforme estilo escolhido',()=>{
+  const natural=googleVoicePreset('pt-BR-FranciscaNeural');
+  const cute=googleVoicePreset('pt-BR-FranciscaFofaNeural');
+  const calm=googleVoicePreset('pt-BR-FranciscaSuaveNeural');
+  const male=googleVoicePreset('pt-BR-AntonioNeural');
+  assert.ok(cute.pitch>natural.pitch);
+  assert.ok(cute.speed>natural.speed);
+  assert.ok(calm.speed<natural.speed);
+  assert.ok(male.pitch<natural.pitch);
+  assert.match(googleVoiceFilter('pt-BR-FranciscaFofaNeural'),/asetrate=/);
+  assert.match(googleVoiceFilter('pt-BR-FranciscaFofaNeural'),/atempo=/);
+  assert.notEqual(
+    googleVoiceFilter('pt-BR-FranciscaNeural'),
+    googleVoiceFilter('pt-BR-ThalitaMultilingualNeural')
+  );
+  assert.throws(()=>googleVoiceFilter('inexistente'),/desconhecido/);
+});
+
+test('A voz alternativa selecionada passa pelo filtro local e vira WebM/Opus',async()=>{
+  const mp3=Buffer.concat([Buffer.from('ID3'),Buffer.alloc(256)]);
+  const webm=Buffer.concat([Buffer.from([0x1a,0x45,0xdf,0xa3]),Buffer.alloc(64)]);
+  let calledVoice,calledSource;
+  const result=await synthesizeDuckSpeech({
+    text:'Oi, pessoal!',
+    voice:'pt-BR-FranciscaFofaNeural',
+    ttsFactory:()=>({generate:async()=>{throw Error('Unexpected server response: 200')}}),
+    fallbackFetch:async()=>({ok:true,status:200,arrayBuffer:async()=>mp3}),
+    fallbackStyler:async(input,voice)=>{
+      calledSource=input;
+      calledVoice=voice;
+      return webm;
+    }
+  });
+  assert.equal(calledVoice,'pt-BR-FranciscaFofaNeural');
+  assert.equal(calledSource,mp3);
+  assert.equal(result,webm);
+  assert.equal(result.duckTtsProvider,'google-styled');
 });
