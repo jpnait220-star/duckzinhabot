@@ -101,7 +101,7 @@ export class DuckVoiceVisits{
       if(this.sessions.get(guildId)!==session)throw Error('A call mudou antes de reproduzir');
       if(!session.player){
         session.player=createAudioPlayer({
-          behaviors:{noSubscriber:NoSubscriberBehavior.Pause}
+          behaviors:{noSubscriber:NoSubscriberBehavior.Stop}
         });
         session.subscription=session.connection.subscribe(session.player);
         if(!session.subscription)throw Error('Sem assinatura de áudio na call');
