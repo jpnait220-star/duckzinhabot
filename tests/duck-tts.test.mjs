@@ -87,3 +87,30 @@ test('Erros do Edge TTS são propagados sem fingir áudio',async()=>{
     text:'oi',ttsFactory:()=>({generate:async()=>({audio:Buffer.from('mp3')})})
   }),/WebM\/Opus válido/);
 });
+
+test('Teste de voz mostra feedback privado e restringe a administradores',async()=>{
+  let played=0,feedback='';
+  const makeInteraction=admin=>({
+    inGuild:()=>true,guildId:'g',commandName:'duckzinha',user:{id:'person'},
+    memberPermissions:{has:permission=>admin&&permission===PermissionFlagsBits.Administrator},
+    options:{getSubcommand:()=> 'testevoz'},
+    reply:async data=>{feedback=data.content;return data;},
+    deferReply:async data=>{assert.equal(data.flags,MessageFlags.Ephemeral);},
+    editReply:async message=>{feedback=message;return message;}
+  });
+  const store={guildId:'g',persistent:true};
+  await runCommand(makeInteraction(false),{
+    store,onVoiceTest:async()=>{played++;return 'Falou!';}
+  });
+  assert.equal(played,0);
+  assert.match(feedback,/administradores/);
+  await runCommand(makeInteraction(true),{
+    store,onVoiceTest:async()=>{played++;return 'Reprodução concluída';}
+  });
+  assert.equal(played,1);
+  assert.match(feedback,/Reprodução concluída/);
+  await runCommand(makeInteraction(true),{
+    store,onVoiceTest:async()=>{throw Error('Falha de áudio simulada');}
+  });
+  assert.match(feedback,/Falha de áudio simulada/);
+});
