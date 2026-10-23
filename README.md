@@ -119,3 +119,11 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - Aplique as instruções adicionadas em `sql/schema.sql` no Supabase: nova coluna `features` e tabelas `duckzinha_avatars` e `duckzinha_project_updates`. Nenhuma chave extra é necessária.
 - `/duckzinha apagar-me` apaga também o avatar da pessoa. O site não coleta áudio. **Conversa por voz com reconhecimento de fala ainda NÃO está habilitada**: requer fluxo explícito de consentimento, limite de retenção e serviço de transcrição testado, sem iniciar escuta automática.
 - A personalização do Google TTS altera somente tom e velocidade, e não oferece as vozes neurais do Edge.
+
+
+## Outubro de 2026 • Anúncios, Studio e Quiz Streak
+- `/novidade publicar texto:` agora recebe **um único campo** com o anúncio inteiro, incluindo título, Markdown do Discord (`#`, `**negrito**`, `>`) e quebras de linha. Publica como mensagem normal para preservar cabeçalhos e citações. Até 1.800 caracteres; requer Gerenciar Servidor. A tabela de novidades permite 1.800 caracteres, sem novas variáveis de ambiente.
+- `/jogo quiz` começa uma sequência de acertos: cada resposta correta atualiza **a mesma mensagem privada** com a próxima pergunta; um erro encerra a rodada. O nível sobe a cada três acertos até chegar a Mestre (nível 5). A pessoa tem 90 segundos por pergunta, existem cinco bancos de dificuldade e perguntas não se repetem enquanto houver outras disponíveis naquele nível. `/perfil` mostra o recorde e a sequência atual. Os recordes são temporários e reiniciam quando o processo reinicia.
+- O Studio agora renderiza avatares PNG de **384×384** com gradientes, luz e sombra, acessórios por camada e maior variedade de visuais. Categorias: cores do patinho, fundo, olhos, chapéus e coroas, óculos e máscaras, roupas, punhos/luvas, auras e pets. Há presets Fofo e PvP e sorteio. As personalizações anteriores (`acessorio`) são convertidas para a camada equivalente quando possível.
+- Para atualizar o bot existente na FadeHost, use a branch `asasa`, rode `npm install` se necessário e reinicie. Os comandos slash são recadastrados na inicialização. Rode `npm run check` e `npm test` para conferir os módulos.
+- O site de avatar ainda exige que o Studio esteja acessível por HTTPS público e que `APP_URL` seja reconhecida pelo processo, conforme a configuração já existente do serviço.
