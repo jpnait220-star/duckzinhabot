@@ -109,6 +109,7 @@ export async function synthesizeDuckSpeech({
       audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
       throw Error('Edge TTS não retornou WebM/Opus válido (formato: '+
         String(generated?.format||'?')+')');
+    Object.defineProperty(audio,'duckTtsProvider',{value:'edge'});
     return audio;
   }catch(error){edgeError=error;}
   // Mocks de testes continuam sem chamadas externas, salvo injeção explícita.
@@ -118,6 +119,7 @@ export async function synthesizeDuckSpeech({
     '); tentando voz alternativa por HTTPS.');
   try{
     const audio=await googleSpeechFallback(content,voice,fallbackFetch||fetch);
+    Object.defineProperty(audio,'duckTtsProvider',{value:'google'});
     console.log('[Duckzinha] Google TTS gerou áudio alternativo MP3 ('+
       audio.length+' bytes).');
     return audio;
