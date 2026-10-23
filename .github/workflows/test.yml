@@ -1,0 +1,21 @@
+name: Duckzinha - verificar codigo e funcionalidades
+on:
+  push:
+    branches: [asasa]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: ''
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Verificar sintaxe
+        run: npm run check
+      - name: Testar funcionalidades
+        run: npm test
