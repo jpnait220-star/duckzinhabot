@@ -26,8 +26,8 @@ export function maySendImageReaction({
 }={}){
   if(isGreeting){
     // Um oi pode receber reação imediatamente, mas não repita para cada spam.
-    return now-lastGlobal>=15_000&&now-lastChannel>=30_000&&
-      now-lastUser>=60_000;
+    return now-lastGlobal>=8_000&&now-lastChannel>=12_000&&
+      now-lastUser>=20_000;
   }
   return now-lastGlobal>=5*60_000&&now-lastChannel>=20*60_000&&
     now-lastUser>=2*60_000&&roll<0.12;
