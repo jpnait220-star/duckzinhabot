@@ -48,6 +48,24 @@ const client=new Client({intents:[
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
 let selectedVoice=DEFAULT_VOICE;
+const voiceNoticeTimes=new Map();
+async function testDuckVoice(interaction){
+  const member=await interaction.guild.members.fetch(interaction.user.id);
+  const voice=member?.voice?.channel;
+  if(!voice)return 'Entre numa call de voz e execute /duckzinha testevoz novamente.';
+  const sample={guild:interaction.guild,guildId:interaction.guildId,channel:voice,member,
+    inGuild:()=>true};
+  const joined=await voiceVisits.mention(sample);
+  if(!joined.ok)return 'Não consegui conectar: '+joined.reason+
+    '. Confira as permissões Ver canal, Conectar e Falar.';
+  const sampleText='Oiê! Sou a Duckzinha. Essa é minha voz de teste!'; 
+  const audio=await synthesizeDuckSpeech({text:sampleText,voice:selectedVoice});
+  const played=await voiceVisits.speak(interaction.guildId,audio);
+  if(!played)return 'O áudio foi gerado, mas o player não conseguiu reproduzir. Confira os logs.';
+  return 'Áudio gerado e reprodução concluída na call '+voice.name+
+    ' usando '+voiceLabel(selectedVoice)+'. Se não ouviu, confira o volume da Duckzinha no Discord.';
+}
+
 async function speakDuckReply(guildId,channelId,messageText){
   if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
@@ -57,9 +75,21 @@ async function speakDuckReply(guildId,channelId,messageText){
       text:messageText,voice:voiceAtRequest
     });
     if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
-    await voiceVisits.speak(guildId,audio);
+    const played=await voiceVisits.speak(guildId,audio);
+    if(!played)throw Error('O player de voz não iniciou o áudio');
   }catch(error){
-    console.warn('[Duckzinha] TTS '+voiceLabel(voiceAtRequest)+': '+String(error?.message||error));
+    const reason=String(error?.message||error).slice(0,190);
+    console.warn('[Duckzinha] Falha de voz ('+voiceLabel(voiceAtRequest)+'): '+reason);
+    // Mensagem curta em vez de falhar em silêncio; no máximo uma a cada 2 minutos.
+    if(Date.now()-(voiceNoticeTimes.get(channelId)||0)>120000){
+      voiceNoticeTimes.set(channelId,Date.now());
+      const textChannel=await client.channels.fetch(channelId).catch(()=>null);
+      await textChannel?.send({
+        content:'Não consegui falar agora. Erro: '+reason+
+          '. Um administrador pode usar /duckzinha testevoz para verificar o áudio.',
+        allowedMentions:{parse:[]}
+      }).catch(()=>{});
+    }
   }
 }
 
@@ -898,7 +928,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
-    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},edgeVoiceReady:true});
+    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
     const data={content:'Aii, não consegui fazer isso agora 🥺💛 Tenta de novo daqui a pouquinho!',ephemeral:true};
