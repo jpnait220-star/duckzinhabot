@@ -1,5 +1,6 @@
 import {createClient} from '@supabase/supabase-js';
 import {adjustedAffinity,nextAffinity} from './affinity.mjs';
+import {DEFAULT_VOICE,validVoice} from './duck-tts.mjs';
 
 export class DuckStore {
   constructor({url,serviceKey,guildId}) {
@@ -98,6 +99,21 @@ export class DuckStore {
       guild_id:this.guildId,personality_prompt:prompt.trim(),updated_by:adminId,
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id'}));
+  }
+  async getVoice(){
+    if(!this.db)return DEFAULT_VOICE;
+    const row=await this.requireResult(this.db.from('duckzinha_config')
+      .select('voice_name').eq('guild_id',this.guildId).maybeSingle());
+    return validVoice(row?.voice_name)?row.voice_name:DEFAULT_VOICE;
+  }
+  async setVoice(voiceName,adminId){
+    if(!validVoice(voiceName))throw Error('A voz precisa ser uma das opções pt-BR permitidas.');
+    if(!this.db)throw Error('O Supabase precisa estar configurado para salvar a voz.');
+    await this.requireResult(this.db.from('duckzinha_config').upsert({
+      guild_id:this.guildId,voice_name:voiceName,updated_by:adminId,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id'}));
+    return voiceName;
   }
   async getProfileFacts(discordId) {
     if(!this.db)return [];
