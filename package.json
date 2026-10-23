@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/bot.mjs",
-    "check": "node --check src/bot.mjs && node --check src/store.mjs && node --check src/brain.mjs && node --check src/commands.mjs && node --check src/research.mjs && node --check src/web-research.mjs && node --check src/research-memory.mjs && node --check src/emoji-reactions.mjs && node --check src/community-social.mjs && node --check src/reaction-intent.mjs",
+    "check": "node --check src/bot.mjs && node --check src/store.mjs && node --check src/brain.mjs && node --check src/commands.mjs && node --check src/research.mjs && node --check src/web-research.mjs && node --check src/research-memory.mjs && node --check src/emoji-reactions.mjs && node --check src/community-social.mjs && node --check src/reaction-intent.mjs && node --check src/action-router.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
