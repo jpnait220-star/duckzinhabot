@@ -1,4 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
+import {adjustedAffinity,nextAffinity} from './affinity.mjs';
 
 export class DuckStore {
   constructor({url,serviceKey,guildId}) {
@@ -112,21 +113,31 @@ export class DuckStore {
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id,discord_user_id,fact_key'}));
   }
-  async getFamiliarity(discordId) {
-    if(!this.db)return 0;
+  async getSocialState(discordId) {
+    if(!this.db)return {turns:0,score:0};
     const row=await this.requireResult(this.db.from('duckzinha_familiarity')
-      .select('turns_count').eq('guild_id',this.guildId)
-      .eq('discord_user_id',discordId).maybeSingle());
-    return Math.max(0,Number(row?.turns_count)||0);
+      .select('turns_count,affinity_score,affinity_updated_at')
+      .eq('guild_id',this.guildId).eq('discord_user_id',discordId).maybeSingle());
+    return {turns:Math.max(0,Number(row?.turns_count)||0),
+      score:adjustedAffinity(row?.affinity_score,row?.affinity_updated_at)};
   }
-  async incrementFamiliarity(discordId) {
+  async getFamiliarity(discordId){
+    return (await this.getSocialState(discordId)).turns;
+  }
+  async incrementFamiliarity(discordId,{toneChange=0,score=0}={}) {
     if(!this.db)return 0;
     const current=await this.getFamiliarity(discordId);
     const next=Math.min(100000,current+1);
-    await this.requireResult(this.db.from('duckzinha_familiarity').upsert({
+    const fields={
       guild_id:this.guildId,discord_user_id:discordId,
       turns_count:next,last_interaction_at:new Date().toISOString()
-    },{onConflict:'guild_id,discord_user_id'}));
+    };
+    if(toneChange!==0){
+      fields.affinity_score=nextAffinity(score,0);
+      fields.affinity_updated_at=new Date().toISOString();
+    }
+    await this.requireResult(this.db.from('duckzinha_familiarity').upsert(
+      fields,{onConflict:'guild_id,discord_user_id'}));
     return next;
   }
   async getMember(discordId) {
