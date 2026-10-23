@@ -109,15 +109,20 @@ export class DuckVoiceVisits{
       const resource=createAudioResource(Readable.from([audio]),{inputType:StreamType.WebmOpus});
       const player=session.player;
       return new Promise((resolve,reject)=>{
-        let timer;
+        let timer,started=false,finished=false;
         const done=(error)=>{
+          if(finished)return;
+          finished=true;
           clearTimeout(timer);
+          player.off(AudioPlayerStatus.Playing,onPlaying);
           player.off(AudioPlayerStatus.Idle,onIdle);
           player.off('error',onError);
           if(error)reject(error);else resolve(true);
         };
-        const onIdle=()=>done();
+        const onPlaying=()=>{started=true};
+        const onIdle=()=>done(started?null:new Error('Player terminou sem iniciar o áudio'));
         const onError=(err)=>done(err);
+        player.once(AudioPlayerStatus.Playing,onPlaying);
         player.once(AudioPlayerStatus.Idle,onIdle);
         player.once('error',onError);
         timer=setTimeout(()=>{
