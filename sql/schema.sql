@@ -126,3 +126,9 @@ alter table public.duckzinha_familiarity enable row level security;
 revoke all on public.duckzinha_familiarity from anon, authenticated;
 grant select, insert, update, delete on public.duckzinha_familiarity to service_role;
 notify pgrst, 'reload schema';
+
+-- Atualização opcional: painel de humor e reações (sem novas ENVs).
+-- Não apaga nem altera dados pessoais já existentes.
+alter table public.duckzinha_config
+  add column if not exists features jsonb not null default '{"mood":"auto","emotionalVoice":true,"specialReactions":true}'::jsonb;
+notify pgrst, 'reload schema';
