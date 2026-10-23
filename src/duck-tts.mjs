@@ -2,18 +2,20 @@ import {EdgeTTS,Constants} from '@andresaya/edge-tts';
 
 // Cinco vozes efetivas do serviço Edge (três do Brasil, duas de Portugal)
 // e presets de tom/velocidade. Presets reutilizam a voz original.
+// Os IDs virtuais pt-BR-*Neural são chaves internas de seleção compatíveis com
+// o formato existente no banco, NÃO nomes de modelos Edge; edgeId é o modelo real.
 const rows=[
   ['Francisca • Natural','pt-BR-FranciscaNeural','pt-BR-FranciscaNeural',12,0,'Brasil • feminina'],
-  ['Francisca • Fofinha','francisca-fofa','pt-BR-FranciscaNeural',35,4,'Brasil • mais aguda'],
-  ['Francisca • Suave','francisca-suave','pt-BR-FranciscaNeural',18,-9,'Brasil • tranquila'],
-  ['Francisca • Animada','francisca-animada','pt-BR-FranciscaNeural',23,12,'Brasil • expressiva'],
+  ['Francisca • Fofinha','pt-BR-FranciscaFofaNeural','pt-BR-FranciscaNeural',35,4,'Brasil • mais aguda'],
+  ['Francisca • Suave','pt-BR-FranciscaSuaveNeural','pt-BR-FranciscaNeural',18,-9,'Brasil • tranquila'],
+  ['Francisca • Animada','pt-BR-FranciscaAnimadaNeural','pt-BR-FranciscaNeural',23,12,'Brasil • expressiva'],
   ['Thalita • Natural','pt-BR-ThalitaMultilingualNeural','pt-BR-ThalitaMultilingualNeural',10,0,'Brasil • feminina'],
-  ['Thalita • Fofinha','thalita-fofa','pt-BR-ThalitaMultilingualNeural',32,5,'Brasil • mais aguda'],
-  ['Thalita • Suave','thalita-suave','pt-BR-ThalitaMultilingualNeural',14,-10,'Brasil • tranquila'],
+  ['Thalita • Fofinha','pt-BR-ThalitaFofaNeural','pt-BR-ThalitaMultilingualNeural',32,5,'Brasil • mais aguda'],
+  ['Thalita • Suave','pt-BR-ThalitaSuaveNeural','pt-BR-ThalitaMultilingualNeural',14,-10,'Brasil • tranquila'],
   ['Antônio','pt-BR-AntonioNeural','pt-BR-AntonioNeural',0,0,'Brasil • masculino'],
-  ['Raquel • Portugal','pt-PT-RaquelNeural','pt-PT-RaquelNeural',12,0,'Portugal • feminina'],
-  ['Raquel • Fofinha','raquel-fofa','pt-PT-RaquelNeural',31,6,'Portugal • mais aguda'],
-  ['Duarte • Portugal','pt-PT-DuarteNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino']
+  ['Raquel • Portugal','pt-BR-RaquelPortugalNeural','pt-PT-RaquelNeural',12,0,'Portugal • feminina'],
+  ['Raquel • Fofinha','pt-BR-RaquelFofaNeural','pt-PT-RaquelNeural',31,6,'Portugal • mais aguda'],
+  ['Duarte • Portugal','pt-BR-DuartePortugalNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino']
 ];
 export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
   Object.freeze({name,id,edgeId,pitch,rate,description})));
