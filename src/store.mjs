@@ -115,6 +115,19 @@ export class DuckStore {
     },{onConflict:'guild_id'}));
     return voiceName;
   }
+  async getFeatureSettings(){
+    if(!this.db)return {};
+    const row=await this.requireResult(this.db.from('duckzinha_config')
+      .select('features').eq('guild_id',this.guildId).maybeSingle());
+    return row?.features||{};
+  }
+  async setFeatureSettings(features,adminId){
+    if(!this.db)throw Error('Supabase não configurado.');
+    await this.requireResult(this.db.from('duckzinha_config').upsert({
+      guild_id:this.guildId,features,updated_by:adminId,
+      updated_at:new Date().toISOString()
+    },{onConflict:'guild_id'}));
+  }
   async getProfileFacts(discordId) {
     if(!this.db)return [];
     const rows=await this.requireResult(this.db.from('duckzinha_profile_facts')
