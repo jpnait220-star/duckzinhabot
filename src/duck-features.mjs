@@ -23,9 +23,8 @@ export function newCommands(){
         {name:'Olá',value:'ola'},{name:'Rindo',value:'riso'},{name:'Fofo',value:'fofo'},
         {name:'GG',value:'gg'},{name:'Surpresa',value:'surpresa'})).setDMPermission(false),
     new SlashCommandBuilder().setName('novidade').setDescription('Publicar atualização dos projetos (admin)')
-      .addSubcommand(s=>s.setName('publicar').setDescription('Anunciar novidade neste canal')
-        .addStringOption(o=>o.setName('titulo').setDescription('Título da atualização').setRequired(true).setMaxLength(80))
-        .addStringOption(o=>o.setName('descricao').setDescription('O que mudou').setRequired(true).setMaxLength(700)))
+      .addSubcommand(s=>s.setName('publicar').setDescription('Cole o anúncio pronto com título e descrição juntos')
+        .addStringOption(o=>o.setName('texto').setDescription('Cole tudo, incluindo #, **, > e quebras de linha').setRequired(true).setMaxLength(1800)))
       .setDMPermission(false),
     new SlashCommandBuilder().setName('novidades').setDescription('Mostrar as últimas atualizações publicadas').setDMPermission(false)
   ].map(x=>x.toJSON());
@@ -109,19 +108,24 @@ export async function runNewCommand(interaction,{
     if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)){
       await reply(interaction,'Só a equipe pode anunciar atualizações.');return true;
     }
-    const title=interaction.options.getString('titulo',true).trim();
-    const description=interaction.options.getString('descricao',true).trim();
+    // Um campo: Markdown Discord enviado como texto, sem Embed (Embeds não
+    // renderizam # cabeçalhos e citações exatamente como mensagens normais).
+    const announcement=interaction.options.getString('texto',true).trim();
+    if(!announcement||announcement.length>1800){
+      await reply(interaction,'Cole um anúncio de até 1800 caracteres.');return true;
+    }
+    const title=announcement.split(/\r?\n/)[0]
+      .replace(/^\\s{0,3}#{1,6}\\s*/,'').replace(/[*_~`]/g,'').slice(0,80).trim()||'Novidade';
+    const description=announcement.slice(0,1800);
     const channel=interaction.channel,bot=interaction.guild.members.me||await interaction.guild.members.fetchMe();
-    if(!channel?.permissionsFor(bot)?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks])){
-      await reply(interaction,'Preciso das permissões Ver canal, Enviar mensagens e Inserir links.');return true;
+    if(!channel?.permissionsFor(bot)?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages])){
+      await reply(interaction,'Preciso das permissões Ver canal e Enviar mensagens.');return true;
     }
     if(!store.persistent){await reply(interaction,'Configure o Supabase e aplique a migração SQL antes de publicar novidades.');return true;}
     await interaction.deferReply({flags});
     try{
       await store.addProjectUpdate(title,description,interaction.user.id);
-      await channel.send({embeds:[new EmbedBuilder().setColor(0xffd75b)
-        .setTitle('📣 '+title).setDescription(description)
-        .setFooter({text:'Duckzinha • Novidade dos projetos'})],allowedMentions:{parse:[]}});
+      await channel.send({content:announcement,allowedMentions:{parse:[]}});
       await interaction.editReply('Atualização publicada e guardada! 💛');
     }catch(err){await interaction.editReply('Falha ao publicar: '+String(err.message).slice(0,190));}
     return true;
