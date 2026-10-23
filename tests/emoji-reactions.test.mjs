@@ -44,3 +44,10 @@ test('Saudações respondem mais rápido mas seguem antispam por usuário',()=>{
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:now-1000,roll:0,isGreeting:true}),false);
   assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:0,roll:0.95,isGreeting:false}),false);
 });
+
+test('50% de chance em reações não relacionadas a saudações',()=>{
+  const now=1_800_000;
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:0,roll:0.49}),true);
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:0,lastUser:0,roll:0.50}),false);
+  assert.equal(maySendImageReaction({now,lastGlobal:0,lastChannel:now-1_000,lastUser:0,roll:0.49}),false);
+});
