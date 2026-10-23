@@ -33,6 +33,7 @@ export function commandPayloads(){
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
     .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
+    .addSubcommand(x=>x.setName('testevoz').setDescription('Testar o áudio da Duckzinha na sua call (admin)'))
     .addSubcommand(x=>x.setName('voice').setDescription('Escolher a voz brasileira da Duckzinha (admin)')
       .addStringOption(o=>o.setName('nome').setDescription('Selecione uma voz pt-BR').setRequired(true)
         .addChoices(...voiceChoices())))
@@ -71,7 +72,7 @@ export function publicInfoPayload(kind,{site}={}){
   return null;
 }
 
-export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,edgeVoiceReady=true}){
+export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,onVoiceTest,edgeVoiceReady=true}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
   const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
@@ -121,6 +122,19 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
   }
   if(cmd==='duckzinha'){
     const sub=interaction.options.getSubcommand();
+    if(sub==='testevoz'){
+      if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
+        return respond('Somente administradores podem testar minha voz.',true);
+      if(typeof onVoiceTest!=='function')return respond('Teste de voz indisponível neste momento.',true);
+      await interaction.deferReply({flags:MessageFlags.Ephemeral});
+      try{
+        const result=await onVoiceTest(interaction);
+        return interaction.editReply(String(result).slice(0,1600));
+      }catch(err){
+        return interaction.editReply('Não consegui reproduzir a voz: '+String(err?.message||err).slice(0,350)+
+          '. Verifique permissões, libs de áudio e o acesso do host ao Edge TTS.');
+      }
+    }
     if(sub==='voice'){
       // Não bloquear /apagar-me para membros: permissões são verificadas só neste subcomando.
       if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
