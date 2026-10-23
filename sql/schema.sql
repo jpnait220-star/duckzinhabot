@@ -132,3 +132,15 @@ notify pgrst, 'reload schema';
 alter table public.duckzinha_config
   add column if not exists features jsonb not null default '{"mood":"auto","emotionalVoice":true,"specialReactions":true}'::jsonb;
 notify pgrst, 'reload schema';
+
+create table if not exists public.duckzinha_avatars (
+ guild_id text not null,
+ discord_user_id text not null,
+ avatar jsonb not null default '{}'::jsonb,
+ updated_at timestamptz not null default now(),
+ primary key(guild_id,discord_user_id)
+);
+alter table public.duckzinha_avatars enable row level security;
+revoke all on public.duckzinha_avatars from anon,authenticated;
+grant select,insert,update,delete on public.duckzinha_avatars to service_role;
+notify pgrst, 'reload schema';
