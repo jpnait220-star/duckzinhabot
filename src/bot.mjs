@@ -13,7 +13,7 @@ import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from '.
 import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
-import {DEFAULT_VOICE,voiceLabel,azureSpeechReady,synthesizeDuckSpeech} from './duck-tts.mjs';
+import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech} from './duck-tts.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -47,17 +47,14 @@ const client=new Client({intents:[
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
-const SPEECH_KEY=process.env.AZURE_SPEECH_KEY?.trim()||'';
-const SPEECH_REGION=process.env.AZURE_SPEECH_REGION?.trim().toLowerCase()||'';
-const SPEECH_READY=azureSpeechReady({key:SPEECH_KEY,region:SPEECH_REGION});
 let selectedVoice=DEFAULT_VOICE;
 async function speakDuckReply(guildId,channelId,messageText){
-  if(!SPEECH_READY||!voiceVisits.sessions.has(guildId))return;
+  if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
   const voiceAtRequest=selectedVoice;
   try{
     const audio=await synthesizeDuckSpeech({
-      text:messageText,voice:voiceAtRequest,key:SPEECH_KEY,region:SPEECH_REGION
+      text:messageText,voice:voiceAtRequest
     });
     if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
     await voiceVisits.speak(guildId,audio);
@@ -420,8 +417,7 @@ client.once(Events.ClientReady,async me=>{
     console.warn('[Duckzinha] Voz salva indisponível: '+err.message);
     return DEFAULT_VOICE;
   });
-  console.log('[Duckzinha] Voz escolhida: '+voiceLabel(selectedVoice)+
-    (SPEECH_READY?' (Azure Speech pronto).':' (somente texto; configure Azure Speech).'));
+  console.log('[Duckzinha] Voz escolhida: '+voiceLabel(selectedVoice)+' (Edge TTS online, sem chave).');
   me.user.setActivity('🦆💛 | /ajuda • mencione a Duckzinha',{type:ActivityType.Custom});
   try{
     const guild=await me.guilds.fetch(GUILD_ID);
@@ -902,7 +898,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
-    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},azureVoiceReady:SPEECH_READY});
+    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
     const data={content:'Aii, não consegui fazer isso agora 🥺💛 Tenta de novo daqui a pouquinho!',ephemeral:true};
