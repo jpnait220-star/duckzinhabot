@@ -38,17 +38,91 @@ export function edgeVoiceOptions(value){
   };
 }
 
-// Áudio WebM/Opus pronto para StreamType.WebmOpus do @discordjs/voice.
-// É um serviço online não oficial, que pode falhar ou ter o acesso bloqueado.
-export async function synthesizeDuckSpeech({text,voice=DEFAULT_VOICE,ttsFactory=()=>new EdgeTTS()}={}){
+// O Edge gera WebM/Opus diretamente, sem transcodificação.
+// Se sua conexão WebSocket for recusada (ex.: HTTP 200 em vez de 101),
+// tentamos o Google Tradutor TTS por HTTPS (MP3), sem tokens ou novas ENVs.
+// Ambos os serviços são não oficiais: podem falhar ou limitar o acesso.
+function splitSpeech(text,max=180){
+  const chunks=[];
+  let current='';
+  for(const word of text.split(/\s+/)){
+    if(!word)continue;
+    if(word.length>max){
+      if(current){chunks.push(current);current='';}
+      for(let i=0;i<word.length;i+=max)chunks.push(word.slice(i,i+max));
+      continue;
+    }
+    if(current&&current.length+1+word.length>max){
+      chunks.push(current);
+      current=word;
+    }else current+=(current?' ':'')+word;
+  }
+  if(current)chunks.push(current);
+  return chunks;
+}
+
+function looksLikeMp3(bytes){
+  return bytes.length>128&&(
+    bytes.subarray(0,3).toString('ascii')==='ID3'||
+    (bytes[0]===0xff&&(bytes[1]&0xe0)===0xe0)
+  );
+}
+
+export async function googleSpeechFallback(text,voice=DEFAULT_VOICE,fetchImpl=fetch){
+  const locale=voiceMap.get(voice)?.edgeId.startsWith('pt-PT-')?'pt-PT':'pt-BR';
+  const fragments=[];
+  for(const chunk of splitSpeech(text)){
+    const url=new URL('https://translate.google.com/translate_tts');
+    url.search=new URLSearchParams({
+      ie:'UTF-8',client:'tw-ob',tl:locale,q:chunk
+    }).toString();
+    const response=await fetchImpl(url.toString(),{
+      headers:{'User-Agent':'Mozilla/5.0','Accept':'audio/mpeg,*/*'},
+      signal:AbortSignal.timeout(12000)
+    });
+    if(!response.ok)throw Error('Google TTS HTTP '+response.status);
+    const bytes=Buffer.from(await response.arrayBuffer());
+    if(!looksLikeMp3(bytes)||bytes.length>1024*1024){
+      throw Error('Google TTS devolveu resposta sem áudio MP3 (HTTP '+response.status+')');
+    }
+    fragments.push(bytes);
+  }
+  const audio=Buffer.concat(fragments);
+  if(!looksLikeMp3(audio)||audio.length>3*1024*1024)
+    throw Error('Google TTS retornou arquivo inválido ou muito grande');
+  return audio;
+}
+
+export async function synthesizeDuckSpeech({
+  text,voice=DEFAULT_VOICE,ttsFactory,fallbackFetch
+}={}){
   const selection=voiceMap.get(voice);
   if(!selection)throw Error('Voz indisponível no Edge TTS: '+voice);
   const content=String(text||'').trim().slice(0,340);
   if(!content)throw Error('Texto vazio para TTS');
-  const generated=await ttsFactory().generate(content,selection.edgeId,edgeVoiceOptions(voice));
-  const audio=Buffer.from(generated?.audio||[]);
-  if(audio.length<24||audio.length>3*1024*1024||
-    audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
-    throw Error('Edge TTS não retornou WebM/Opus válido (formato: '+String(generated?.format||'?')+')');
-  return audio;
+  let edgeError;
+  try{
+    const tts=ttsFactory?ttsFactory():new EdgeTTS();
+    const generated=await tts.generate(content,selection.edgeId,edgeVoiceOptions(voice));
+    const audio=Buffer.from(generated?.audio||[]);
+    if(audio.length<24||audio.length>3*1024*1024||
+      audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
+      throw Error('Edge TTS não retornou WebM/Opus válido (formato: '+
+        String(generated?.format||'?')+')');
+    return audio;
+  }catch(error){edgeError=error;}
+  // Mocks de testes continuam sem chamadas externas, salvo injeção explícita.
+  if(ttsFactory&&!fallbackFetch)throw edgeError;
+  console.warn('[Duckzinha] Edge TTS indisponível ('+
+    String(edgeError?.message||edgeError).slice(0,160)+
+    '); tentando voz alternativa por HTTPS.');
+  try{
+    const audio=await googleSpeechFallback(content,voice,fallbackFetch||fetch);
+    console.log('[Duckzinha] Google TTS gerou áudio alternativo MP3 ('+
+      audio.length+' bytes).');
+    return audio;
+  }catch(fallbackError){
+    throw Error('Edge TTS: '+String(edgeError?.message||edgeError).slice(0,160)+
+      ' | Google TTS: '+String(fallbackError?.message||fallbackError).slice(0,160));
+  }
 }
