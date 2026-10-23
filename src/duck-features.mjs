@@ -115,7 +115,7 @@ export async function runNewCommand(interaction,{
       await reply(interaction,'Cole um anúncio de até 1800 caracteres.');return true;
     }
     const title=announcement.split(/\r?\n/)[0]
-      .replace(/^\\s{0,3}#{1,6}\\s*/,'').replace(/[*_~`]/g,'').slice(0,80).trim()||'Novidade';
+      .replace(/^\s{0,3}#{1,6}\s*/,'').replace(/[*_~`]/g,'').slice(0,80).trim()||'Novidade';
     const description=announcement.slice(0,1800);
     const channel=interaction.channel,bot=interaction.guild.members.me||await interaction.guild.members.fetchMe();
     if(!channel?.permissionsFor(bot)?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages])){
