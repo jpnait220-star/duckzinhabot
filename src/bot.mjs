@@ -620,7 +620,12 @@ client.on(Events.MessageCreate,async message=>{
   }
   if(!question){
     const r=await message.reply({content:'Oiee! 🦆💛 Me conta sua dúvida depois de me mencionar! Quer ver meus comandos? Usa `/ajuda` ✨',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
-    if(r)void schedule(r).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));return;
+    if(r){
+      if(message.channel?.type===ChannelType.GuildVoice)
+        void speakDuckReply(message.guildId,message.channelId,'Oiee! Pode falar comigo, estou aqui para ajudar!');
+      void schedule(r).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
+    }
+    return;
   }
   if(question.length<2)return;
   if(mentioned&&isPublic&&!confirmation){
