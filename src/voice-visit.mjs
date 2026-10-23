@@ -119,7 +119,15 @@ export class DuckVoiceVisits{
           console.warn('[Duckzinha] Player de voz: '+String(error?.message||error));
         });
       }
-      const resource=createAudioResource(Readable.from([audio]),{inputType:StreamType.WebmOpus});
+      const webm=audio[0]===0x1a&&audio[1]===0x45&&audio[2]===0xdf&&audio[3]===0xa3;
+      const mp3=audio.subarray(0,3).toString('ascii')==='ID3'||
+        (audio[0]===0xff&&(audio[1]&0xe0)===0xe0);
+      if(!webm&&!mp3)throw Error('TTS retornou áudio com formato desconhecido');
+      // MP3 alternativo precisa de FFmpeg + Opus; WebM/Opus do Edge é direto.
+      const resource=createAudioResource(Readable.from([audio]),{
+        inputType:webm?StreamType.WebmOpus:StreamType.Arbitrary
+      });
+      console.log('[Duckzinha] Fonte de áudio: '+(webm?'Edge WebM/Opus':'HTTPS MP3 (FFmpeg)')+'.');
       const player=session.player;
       return new Promise((resolve,reject)=>{
         let timer,started=false,finished=false;
