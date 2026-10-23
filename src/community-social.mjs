@@ -30,7 +30,7 @@ export function maySendImageReaction({
       now-lastUser>=20_000;
   }
   return now-lastGlobal>=5*60_000&&now-lastChannel>=20*60_000&&
-    now-lastUser>=2*60_000&&roll<0.12;
+    now-lastUser>=2*60_000&&roll<0.50;
 }
 
 export function ticketGuide(){
