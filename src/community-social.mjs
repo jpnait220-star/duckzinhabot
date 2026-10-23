@@ -12,7 +12,7 @@ export function imageReactionKind(message){
   if(/\b(ajuda|urgente|erro|bug|problema|triste|socorro|medo|ansiedade|morreu|doente|chorei)\b/.test(text))return null;
   // Cumprimentos naturais: com/sem acento, alongados, gírias e pontuação.
   const cleaned=text.replace(/^[^a-z0-9]+/,'').replace(/\s+/g,' ').trim();
-  if(/^(?:o+i+(?:e+)?|o+la+|opa+|e\s*a[iye]+|ea+e+|salve+|fala+|bom+d+i+a+|boa+\s+tarde+|boa+\s+noite+|oi\s*galera|hey+|hello+|hi+)(?:[^a-z0-9]|$)/.test(cleaned))return 'ola';
+  if(/^(?:o+i+(?:e+)?|(?:oi){2,}|o+la+|opa+|e\s*a[iye]+|ea+e+|salve+|fala+|bo+m+\s+d+i+a+|boa+\s+tarde+|boa+\s+noite+|oi\s*galera|hey+|hello+|hi+)(?:[^a-z0-9]|$)/.test(cleaned))return 'ola';
   if(/(?:\b(?:kkkk+|rsrs+|hahaha+|hehehe+|mds kkk|morri de rir)\b|😂|🤣)/.test(text))return 'riso';
   if(/(?:\b(?:gg|ganhamos|vencemos|conseguimos|boa demais|w demais)\b|🎉|🏆)/.test(text))return 'gg';
   if(/(?:\b(?:que susto|nao acredito|eita|caraca|meu deus)\b|😱|😮)/.test(text))return 'surpresa';
