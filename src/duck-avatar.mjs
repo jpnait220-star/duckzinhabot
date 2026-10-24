@@ -8,7 +8,7 @@ export const COLORS=Object.freeze({
   chapeu:['nenhum','bone','coroa','fone','laco','touca','coelho','sombrero','chines','cartola','tiara','natal'],
   rosto:['nenhum','oculos','escuros','visor','monoculo'],
   roupa:['nenhuma','moletom','cachecol','jaqueta','kimono','capa','uniforme','sueter','terno','armadura','praia'],
-  maos:['nenhuma','luvas_boxe','garras','punhos_gelo','punhos_fogo','punhos_corrompidos','luvas_brancas'],
+  maos:['nenhuma','garras','punhos_gelo','punhos_fogo','punhos_corrompidos'],
   aura:['nenhuma','brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'],
   pet:['nenhum','fantasma','estrela','mini_pato','ceifador','borboleta'],
   olhos:['normal','feliz','sonolento','piscando','determinado']
@@ -537,12 +537,7 @@ function handGear(d,type){
   if(type==='nenhuma')return;
   const positions=[[86,220],[232,220]];
   for(const [x,y] of positions){
-    if(type==='luvas_boxe'){
-      d.ellipse(x,y,26,28,OUT);d.ellipse(x,y-4,22,23,'#e86170');
-      d.ellipse(x-7,y-11,10,7,'#ff98a0',.75);d.line(x-17,y+17,x+17,y+17,7,'#fcd5d4');
-      d.line(x-18,y+15,x+18,y+15,2,'#a53e63');
-      d.ellipse(x-7,y-15,6,4,WHITE,.35);
-    }else if(type==='garras'){
+    if(type==='garras'){
       d.ellipse(x,y,23,23,OUT);d.ellipse(x,y,19,19,'#636b84');
       for(let i=-1;i<=1;i++){
         d.polygon([[x+i*11-4,y-7],[x+i*11+4,y-7],[x+i*12,y-40]],'#a4b8d9');
@@ -567,12 +562,7 @@ function handGear(d,type){
       for(let k=0;k<4;k++)star(d,x+(k*13)%35-14,y-20+(k*19)%37,6,'#d19cff');
       d.ellipse(x,y,15,14,'#572a9a',.3);
       star(d,x,y,9,'#e6b2ff',.75);
-    }else if(type==='luvas_brancas'){
-      d.ellipse(x,y,24,24,OUT);d.ellipse(x,y,20,20,'#f8f4f7');
-      d.line(x-12,y-1,x+13,y-1,2,'#cbd4e6');
-      d.ellipse(x-7,y-10,8,5,WHITE,.65);
-      d.line(x-13,y+11,x+12,y+11,2,'#e6dce8');
-    }
+
   }
 }
 const crcTable=Uint32Array.from({length:256},(_,n)=>{
