@@ -144,3 +144,9 @@ export function sourceDetails(results) {
     return (i+1)+'. **'+title+'**\n<'+url+'>';
   }).join('\n\n').slice(0,1800);
 }
+
+// Conversa no chat de voz usa o mesmo fluxo de consentimento de pesquisa
+// dos canais de texto. Não pesquisar automaticamente só por ser uma call.
+export function offerSearchControls({shouldOffer=false,isVoiceChat=false,searching=false,mentioned=false}={}){
+  return Boolean(shouldOffer||(isVoiceChat&&!searching&&mentioned));
+}
