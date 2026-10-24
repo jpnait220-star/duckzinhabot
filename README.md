@@ -213,3 +213,11 @@ alterada, já que esse código não está neste repositório.
 recompensas e emblemas. Não exige novas variáveis de ambiente na FadeHost.
 Os antigos dados de RPG continuam guardados em tabelas não utilizadas,
 apenas para preservar históricos até que a exclusão seja solicitada.
+
+
+## Coinflip com vídeo detalhado (cara e coroa)
+- Em `/coinflip jogador:@membro`, depois que a outra pessoa aceita, cada uma das **3 rodadas** recebe um arquivo **MP4 reproduzível no Discord**, com uma moeda dourada detalhada: bordas chanfradas e serrilhadas, um **pato em relevo na cara** e uma **coroa com pedras na coroa**, iluminação, sombras, brilho, partículas, giro, quique e revelação do resultado.
+- Cada clipe contém **som sincronizado dentro do próprio vídeo** (H.264 + AAC), incluindo movimento da moeda e toque da queda. A animação dura cerca de 3,4 s. Os resultados e a pontuação também aparecem em texto acessível.
+- O renderizador usa o `ffmpeg-static` **já instalado**, gera tudo na FadeHost sem API externa, sem ENV nova e sem imagens compradas. Renderizações de cara e coroa são reutilizadas em cache na memória para evitar recomputação a cada rodada. Se o FFmpeg não conseguir gerar MP4, o bot recorre ao MP3 antigo sem encerrar a partida.
+- **O coinflip não aposta moedas:** ninguém tem moedas retiradas nem recebidas de acordo com o sorteio; o sistema separado de emblemas e recompensas diárias continua igual.
+- Há testes que verificam quadros diferentes, as duas faces, efeitos de áudio e a presença de faixas de vídeo e som nos MP4 reais. Para visualizar, inicie um desafio após atualizar o bot pela branch `asasa` na FadeHost.
