@@ -10,7 +10,7 @@ const listNames=ids=>ids.slice(0,25).map(id=>'<@'+id+'>').join(', ')+
   (ids.length>25?' e mais '+(ids.length-25)+' participantes':'');
 export function publicQuestionText(round){
   const level=levelForStreak(round.number-1);
-  return '🦆 **QUIZ DA GALERA — RODADA '+round.number+'**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+'**\n'+
     '⭐ Dificuldade: **'+LEVEL_NAMES[level-1]+' ('+level+'/5)**\n'+
     '🔥 Sequência em jogo: **'+(round.number-1)+'**\n'+
     (round.number===1?'👥 **Todos podem entrar nesta rodada!**':
@@ -21,7 +21,7 @@ export function publicQuestionText(round){
 }
 export function publicResultText(round,winners,{last=false}={}){
   const level=levelForStreak(round.number-1);
-  return '🦆 **QUIZ DA GALERA — RODADA '+round.number+' ENCERRADA**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+' ENCERRADA**\n'+
     '⭐ Nível: **'+LEVEL_NAMES[level-1]+'**\n'+
     '📚 '+round.question.text+'\n'+
     '✅ Resposta correta: **'+round.question.choices[round.question.right]+'**\n\n'+
@@ -75,7 +75,7 @@ export class DuckPublicQuiz {
       console.error('[Duckzinha] Quiz público: '+String(error?.message||error)));},this.roundMs);
     round.timer?.unref?.();
   }
-  async start(interaction){
+  async start(interaction,{championship=false}={}){
     const key=this.key(interaction.guildId,interaction.channelId);
     if(this.rooms.has(key)){
       await interaction.reply(privateReply('🦆 Já existe um quiz público neste canal! Use os botões da pergunta atual.'));
@@ -85,7 +85,7 @@ export class DuckPublicQuiz {
       await interaction.reply(privateReply('Use /jogo quiz num canal de texto.'));
       return false;
     }
-    const room={key,channel:interaction.channel,nextNumber:1,used:[],current:null,timer:null};
+    const room={key,channel:interaction.channel,nextNumber:1,used:[],current:null,timer:null,championship};
     this.rooms.set(key,room);
     const round=this.makeRound(room);
     room.current=round;
@@ -145,7 +145,7 @@ export class DuckPublicQuiz {
     if(round.timer!=null)this.clearTimer(round.timer);
     const winners=[...round.answers].filter(([,choice])=>choice===round.question.right).map(([user])=>user);
     for(const user of winners)if(round.number>this.score(user))this.best.set(user,round.number);
-    const last=round.number>=this.maxRounds;
+    const last=round.number>=(room.championship?6:this.maxRounds);
     try{
       await round.message.edit({content:publicResultText(round,winners,{last}),
         components:[],allowedMentions:{parse:[]}});
