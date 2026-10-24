@@ -1,11 +1,12 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,AttachmentBuilder,MessageFlags} from 'discord.js';
 import {coinMp3} from './duck-coinflip-audio.mjs';
+import {coinflipVideo} from './duck-coinflip-video.mjs';
 
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export class DuckCoinflip{
-  constructor({randomSide=()=>randomInt(2),now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
-    this.randomSide=randomSide;this.now=now;this.sleep=sleep;
+  constructor({randomSide=()=>randomInt(2),now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),renderVideo=coinflipVideo}={}){
+    this.randomSide=randomSide;this.now=now;this.sleep=sleep;this.renderVideo=renderVideo;
     this.games=new Map();this.players=new Map();this.cooldowns=new Map();
   }
   stop(game){
@@ -34,7 +35,7 @@ export class DuckCoinflip{
     try{
       await interaction.reply({content:'🦆 **DESAFIO DE CARA OU COROA**\n'+
         '<@'+host+'> escolheu **CARA** e desafiou <@'+other.id+'> (**COROA**).\n'+
-        'Serão **3 rodadas**, com uma moeda de pato e som em MP3!\n'+
+        'Serão **3 rodadas**, com um vídeo da moeda de pato girando em 3D e som sincronizado!\n'+
         '🎮 Apenas uma disputa divertida: **ninguém aposta ou perde moedas**.\n'+
         '⏳ O convite expira em 60 segundos.',
         components:[buttons],allowedMentions:{users:[host,other.id]}});
@@ -86,12 +87,23 @@ export class DuckCoinflip{
         '👑 <@'+game.guest+'> (Coroa): **'+tails+'** ponto(s)';
       let file=[];
       try{
-        file=[new AttachmentBuilder(await coinMp3(side),{
-          name:'pato-moeda-'+side+'-rodada-'+round+'.mp3'
+        const video=await this.renderVideo(side);
+        file=[new AttachmentBuilder(video,{
+          name:'duckzinha-coinflip-'+side+'-rodada-'+round+'.mp4',
+          description:'Animação da moeda de pato girando em 3D com som e resultado '+side
         })];
-      }catch(err){console.warn('[Duckzinha] Efeito MP3: '+String(err.message||err));}
+      }catch(err){
+        console.warn('[Duckzinha] Vídeo indisponível, usando MP3: '+String(err.message||err));
+        try{
+          file=[new AttachmentBuilder(await coinMp3(side),{
+            name:'pato-moeda-'+side+'-rodada-'+round+'.mp3'
+          })];
+        }catch(error){console.warn('[Duckzinha] Efeito MP3: '+String(error.message||error));}
+      }
+      if(game.closed)return;
       await game.channel.send({content:message,files:file,allowedMentions:{parse:[]}});
-      if(round<3)await this.sleep(1750);
+      // O próprio MP4 contém a animação e o áudio. Não enviar dois anexos por rodada.
+      if(round<3)await this.sleep(700);
     }
     if(game.closed)return;
     const winner=heads>tails?game.host:game.guest;
