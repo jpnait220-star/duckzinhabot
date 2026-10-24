@@ -38,6 +38,6 @@ export function ticketGuide(){
     '• Conte o que aconteceu e o que você esperava que acontecesse.\n'+
     '• Diga em qual projeto, jogo ou versão ocorreu.\n'+
     '• Copie a mensagem de erro, se houver, e explique o que já tentou.\n'+
-    '• Se ajudar, envie uma captura de tela sem dados pessoais.\n\n'+
-    '🔒 Nunca envie senhas, tokens, códigos de verificação ou dados de pagamento. Aguarde um membro da staff responder.';
+    '• Se puder, envie um print mostrando o erro ou o problema.\n\n'+
+    '💬 **Tudo pronto!** Com essas informações, nossa equipe consegue entender melhor a situação e continuar o atendimento por aqui.';
 }
