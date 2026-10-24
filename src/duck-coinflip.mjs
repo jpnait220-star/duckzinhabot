@@ -1,12 +1,12 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,AttachmentBuilder,MessageFlags} from 'discord.js';
-import {coinMp3} from './duck-coinflip-audio.mjs';
-import {coinflipVideo} from './duck-coinflip-video.mjs';
+import {coinflipGif} from './duck-coinflip-gif.mjs';
+import {COIN_VIDEO} from './duck-coinflip-video.mjs';
 
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export class DuckCoinflip{
-  constructor({randomSide=()=>randomInt(2),now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),renderVideo=coinflipVideo}={}){
-    this.randomSide=randomSide;this.now=now;this.sleep=sleep;this.renderVideo=renderVideo;
+  constructor({randomSide=()=>randomInt(2),now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms)),renderGif=coinflipGif}={}){
+    this.randomSide=randomSide;this.now=now;this.sleep=sleep;this.renderGif=renderGif;
     this.games=new Map();this.players=new Map();this.cooldowns=new Map();
   }
   stop(game){
@@ -35,7 +35,7 @@ export class DuckCoinflip{
     try{
       await interaction.reply({content:'🦆 **DESAFIO DE CARA OU COROA**\n'+
         '<@'+host+'> escolheu **CARA** e desafiou <@'+other.id+'> (**COROA**).\n'+
-        'Serão **3 rodadas**, com um vídeo da moeda de pato girando em 3D e som sincronizado!\n'+
+        'Serão **3 rodadas**, com um GIF da moeda de pato girando em 3D!\n'+
         '🎮 Apenas uma disputa divertida: **ninguém aposta ou perde moedas**.\n'+
         '⏳ O convite expira em 60 segundos.',
         components:[buttons],allowedMentions:{users:[host,other.id]}});
@@ -65,53 +65,65 @@ export class DuckCoinflip{
       return interaction.update({content:'🦆 Desafio recusado. Nenhuma moeda foi movimentada.',
         components:[],allowedMentions:{parse:[]}});
     }
-    await interaction.update({content:'🪙 **Coinflip aceito!** A moeda de pato vai girar três vezes...',
+    await interaction.update({content:'🪙 **Coinflip aceito!** Preparando a moeda de pato...',
       components:[],allowedMentions:{parse:[]}});
     void this.run(game).catch(async err=>{
       console.warn('[Duckzinha] Coinflip: '+String(err?.message||err));
-      await game.channel.send({content:'Coinflip interrompido por erro de áudio ou mensagem. Ninguém perdeu moedas.',
-        allowedMentions:{parse:[]}}).catch(()=>{});
+      await game.message?.edit({content:'Coinflip interrompido por erro na animação ou mensagem. Ninguém perdeu moedas.',
+        attachments:[],components:[],allowedMentions:{parse:[]}}).catch(()=>{});
       this.stop(game);
     });
   }
   async run(game){
     let heads=0,tails=0;
-    for(let round=1;round<=3;round++){
+    const roundCount=3;
+    for(let round=1;round<=roundCount;round++){
       if(game.closed)return;
-      const side=this.randomSide()===0?'cara':'coroa';
-      if(side==='cara')heads++;else tails++;
-      const label=side==='cara'?'🦆 **CARA**':'👑 **COROA**';
-      const message='🪙 **MOEDA DE PATO • RODADA '+round+'/3**\n'+
-        'A moeda girou e caiu em '+label+'!\n\n'+
-        '🦆 <@'+game.host+'> (Cara): **'+heads+'** ponto(s)\n'+
-        '👑 <@'+game.guest+'> (Coroa): **'+tails+'** ponto(s)';
-      let file=[];
-      try{
-        const video=await this.renderVideo(side);
-        file=[new AttachmentBuilder(video,{
-          name:'duckzinha-coinflip-'+side+'-rodada-'+round+'.mp4',
-          description:'Animação da moeda de pato girando em 3D com som e resultado '+side
-        })];
-      }catch(err){
-        console.warn('[Duckzinha] Vídeo indisponível, usando MP3: '+String(err.message||err));
-        try{
-          file=[new AttachmentBuilder(await coinMp3(side),{
-            name:'pato-moeda-'+side+'-rodada-'+round+'.mp3'
-          })];
-        }catch(error){console.warn('[Duckzinha] Efeito MP3: '+String(error.message||error));}
+      // Aguardamos 3 segundos ANTES de começar cada giro.
+      for(let seconds=3;seconds>=1;seconds--){
+        if(game.closed)return;
+        await game.message.edit({
+          content:'🪙 **COINFLIP • RODADA '+round+'/3**\n'+
+            'A moeda vai girar em **'+seconds+'**...'+
+            '\n\n🦆 <@'+game.host+'>: **'+heads+'** • 👑 <@'+game.guest+'>: **'+tails+'**',
+          components:[],attachments:[],allowedMentions:{parse:[]}
+        });
+        await this.sleep(1000);
       }
       if(game.closed)return;
-      await game.channel.send({content:message,files:file,allowedMentions:{parse:[]}});
-      // O próprio MP4 contém a animação e o áudio. Não enviar dois anexos por rodada.
-      if(round<3)await this.sleep(700);
+      const side=this.randomSide()===0?'cara':'coroa';
+      const label=side==='cara'?'🦆 **CARA**':'👑 **COROA**';
+      let files=[];
+      try{
+        const gif=await this.renderGif(side);
+        files=[new AttachmentBuilder(gif,{
+          name:'duckzinha-coinflip-'+side+'-rodada-'+round+'.gif',
+          description:'Moeda de pato girando, resultado '+side
+        })];
+      }catch(err){
+        console.warn('[Duckzinha] GIF indisponível: '+String(err?.message||err));
+      }
+      if(game.closed)return;
+      if(side==='cara')heads++;else tails++;
+      await game.message.edit({
+        content:'🪙 **MOEDA DE PATO • RODADA '+round+'/3**\n'+
+          'Resultado: '+label+'!\n\n'+
+          '🦆 <@'+game.host+'> (Cara): **'+heads+'** ponto(s)\n'+
+          '👑 <@'+game.guest+'> (Coroa): **'+tails+'** ponto(s)',
+        files,attachments:[],components:[],allowedMentions:{parse:[]}
+      });
+      // Não interromper o GIF enquanto a moeda ainda gira.
+      await this.sleep(Math.ceil(COIN_VIDEO.seconds*1000));
     }
     if(game.closed)return;
     const winner=heads>tails?game.host:game.guest;
-    await game.channel.send({content:'🏆 **RESULTADO DO COINFLIP (MELHOR DE 3)**\n'+
-      '🦆 Cara: **'+heads+'** × **'+tails+'** :Coroa 👑\n'+
-      '🎉 **Venceu <@'+winner+'>!**\n'+
-      '💛 Nenhuma moeda foi apostada, transferida ou perdida.',
-      allowedMentions:{parse:[]}});
+    await game.message.edit({
+      content:'🏆 **RESULTADO DO COINFLIP (MELHOR DE 3)**\n'+
+        '🦆 Cara: **'+heads+'** × **'+tails+'** Coroa 👑\n'+
+        '🎉 **Venceu <@'+winner+'>!**\n'+
+        '💛 Nenhuma moeda foi apostada, transferida ou perdida.',
+      attachments:[],components:[],allowedMentions:{parse:[]}
+    });
     this.stop(game);
   }
 }
