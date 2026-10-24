@@ -217,11 +217,14 @@ export async function runNewCommand(interaction,{
     if(!channel?.permissionsFor(bot)?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages])){
       await reply(interaction,'Preciso das permissões Ver canal e Enviar mensagens.');return true;
     }
+    if(!channel.permissionsFor(bot)?.has(PermissionFlagsBits.MentionEveryone)){
+      await reply(interaction,'Para avisar @everyone, preciso da permissão Mencionar @everyone neste canal.');return true;
+    }
     if(!store.persistent){await reply(interaction,'Configure o Supabase e aplique a migração SQL antes de publicar novidades.');return true;}
     await interaction.deferReply({flags});
     try{
       await store.addProjectUpdate(title,description,interaction.user.id);
-      await channel.send({content:announcement,allowedMentions:{parse:[]}});
+      await channel.send({content:'@everyone\n\n'+announcement,allowedMentions:{parse:['everyone']}});
       await interaction.editReply('Atualização publicada e guardada! 💛');
     }catch(err){await interaction.editReply('Falha ao publicar: '+String(err.message).slice(0,190));}
     return true;
