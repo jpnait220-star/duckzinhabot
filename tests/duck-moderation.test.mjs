@@ -88,6 +88,21 @@ test('admin pode desbanir por ID e aplicar ou remover timeout',async()=>{
  assert.deepEqual(calls[1].slice(0,2),['timeout',1200000]);
  assert.deepEqual(calls[2].slice(0,2),['timeout',null]);
 });
+test('desbana pelo username do Discord, não pelo nome exibido',async()=>{
+ const x=fixture();
+ await x.run(null,'desbana @usuarioLegal');
+ assert.equal(x.calls[0]?.[0],'unban');
+ assert.equal(x.calls[0]?.[1],targetId);
+ const y=fixture();
+ await y.run(null,'desbana Pessoa Legal');
+ assert.equal(y.calls.length,0);
+ assert.match(y.sent[0].content,/username do Discord/);
+ const z=fixture();
+ await z.run(null,'desbana nomeinventado');
+ assert.equal(z.calls.length,0);
+ assert.match(z.sent[0].content,/username exato/);
+});
+
 test('punição bloqueia administradores, hierarquia e castigos acima do limite',async()=>{
  let x=fixture({canBan:false});
  await x.run(null,'bana <@'+targetId+'>');
