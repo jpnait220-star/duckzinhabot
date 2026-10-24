@@ -38,7 +38,7 @@ export class DuckCommunity{
  }
  async economy(interaction){
    if(!this.store?.persistent)return interaction.reply(priv('As moedas precisam do Supabase configurado.'));
-   const sub=interaction.options.getSubcommand();
+   const sub=interaction.commandName==='moedas'?'saldo':'afk';
    if(sub==='saldo'){
      const n=await this.store.getBalance(interaction.user.id);
      return interaction.reply(priv('🪙 Você tem '+n+' moedas de pato. São pontos do bot, sem valor real ou apostas.'));
