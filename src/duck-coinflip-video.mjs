@@ -13,6 +13,13 @@ const clip=(x,min=0,max=255)=>Math.max(min,Math.min(max,x));
 const smooth=t=>{t=clip(t,0,1);return t*t*(3-2*t)};
 const mix=(a,b,t)=>a+(b-a)*t;
 const GOLD=[237,181,60];
+function textWidth(value,size=2,spacing=1){
+ const chars=String(value).length;
+ return chars?(chars*5+(chars-1)*spacing)*size:0;
+}
+function drawCenteredText(d,value,y,size=2,color=[255,244,199]){
+ d.text(value,Math.round((W-textWidth(value,size))/2),y,size,color);
+}
 const FONT={
  'A':['01110','10001','10001','11111','10001','10001','10001'],
  'B':['11110','10001','11110','10001','10001','10001','11110'],
@@ -143,21 +150,24 @@ function makeTexture(side){
   d.star(cx+Math.cos(a)*94,cy+Math.sin(a)*94,i%3===0?4:2.6,SH,.7);
  }
  if(side==='cara'){
-  // Pato em relevo: cabeça, topete, olhos, bico, asas e penas.
-  d.circle(128,121,47,45,D,.2);
-  d.circle(128,116,48,44,SH,.44);
-  d.circle(129,119,43,41,GOLD,.92);
-  d.circle(111,89,16,10,SH,.8);d.circle(138,87,16,11,SH,.7);
-  d.circle(111,115,7.3,9,INK,.95);d.circle(146,115,7.3,9,INK,.95);
-  d.circle(113,112,2.9,3.6,SH,.98);d.circle(148,112,2.9,3.6,SH,.98);
-  d.circle(104,130,8,4,[243,161,102],.56);
-  d.circle(153,130,8,4,[243,161,102],.56);
-  d.circle(128,142,27,15,D,.46);
-  d.circle(128,138,29,14,[245,155,65],.95);
-  d.circle(121,132,13,4,SH,.6);
-  d.circle(90,157,20,8,EM,.5);d.circle(167,157,20,8,EM,.5);
-  d.line(88,158,106,163,D,3,.45);d.line(169,158,149,164,D,3,.45);
-  d.text('DUCK',103,180,3,D);
+  // Face limpa e simétrica do pato gravada no metal dourado.
+  d.circle(128,120,48,46,D,.30);
+  d.circle(128,115,46,44,SH,.65);
+  d.circle(128,118,41,40,GOLD,.98);
+  // Dois olhos simétricos, com brilho centralizado.
+  for(const x of [112,144]){
+    d.circle(x,115,7,9,INK,.96);
+    d.circle(x-2,112,2.5,3,SH,1);
+  }
+  // Bico único, centralizado e contornado.
+  d.circle(128,142,29,16,D,.65);
+  d.circle(128,138,26,13,[245,158,63],1);
+  d.circle(122,134,8,3,SH,.70);
+  d.line(105,143,151,143,EM,1.2,.62);
+  // Pequenas bochechas; sem asas duplicadas ou deformadas.
+  d.circle(98,132,6,4,[240,156,96],.58);
+  d.circle(158,132,6,4,[240,156,96],.58);
+  d.text('DUCK',Math.round((N-textWidth('DUCK',3))/2),178,3,D);
  }else{
   // Coroa real de pato com pedras lapidadas e contornos de ouro.
   d.polygon([[79,156],[73,105],[94,127],[112,78],[130,118],[153,78],
@@ -174,7 +184,7 @@ function makeTexture(side){
   }
   d.circle(130,88,9,10,D,.8);d.circle(130,84,6,7,[238,82,72],1);
   d.circle(131,81,2,3,SH,.9);
-  d.text('COROA',87,180,3,D);
+  d.text('COROA',Math.round((N-textWidth('COROA',3))/2),180,3,D);
  }
  return d.buf;
 }
@@ -204,8 +214,8 @@ function background(time){
  d.circle(256,252,138,10,[14,10,23],.7);
  d.line(36,264,476,264,[201,149,74],1,.3);
  d.line(75,274,438,274,[119,92,70],1,.23);
- d.text('DUCKZINHA COINFLIP',147,13,3,[243,216,146]);
- d.text('3 RODADAS',215,39,2,[151,172,209]);
+ drawCenteredText(d,'DUCKZINHA COINFLIP',13,3,[243,216,146]);
+ drawCenteredText(d,'3 RODADAS',39,2,[151,172,209]);
  return d;
 }
 
@@ -280,8 +290,7 @@ function renderFrame(side,frame,{width=W,height=H,fps=FPS}={}){
   const label=side==='cara'?'CARA':'COROA';
   const s=smooth((t-.78)/.12);
   const color=side==='cara'?[251,205,104]:[182,216,255];
-  const xx=(W-label.length*27)/2;
-  d.text(label,xx,258,4,color);
+  drawCenteredText(d,label,258,4,color);
   d.line(176,248,338,248,color,2,s*.7);
  }
  return d.buf;
