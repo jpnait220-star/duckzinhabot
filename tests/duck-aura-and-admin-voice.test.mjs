@@ -31,11 +31,11 @@ test('render do avatar ignora luvas salvas em perfis antigos',()=>{
     assert.deepEqual(renderAvatar({maos:name,aura:'gelo'}),renderAvatar({maos:'nenhuma',aura:'gelo'}));
   }
   assert.ok(COLORS.maos.every(v=>!v.startsWith('luvas_')));
-  assert.ok(COLORS.maos.includes('punhos_corrompidos'));
+  assert.deepEqual(COLORS.maos,['nenhuma','garras']);
 });
 
-test('as sete auras têm renderização própria e são distintas entre si',()=>{
-  const styles=['brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'];
+test('as auras disponíveis têm renderização própria e são distintas entre si',()=>{
+  const styles=['brilho','coracoes','fogo','gelo','eletrica','dinheiro'];
   const pngs=styles.map(aura=>renderAvatar({aura,maos:'nenhuma',pet:'nenhum'}));
   assert.equal(new Set(pngs.map(x=>x.toString('base64'))).size,styles.length);
   for(const p of pngs){
