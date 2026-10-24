@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
-import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,AttachmentBuilder} from 'discord.js';
+import {renderBattleScene} from './duck-battle-scene.mjs';
 import {MOVES,TYPES,normalizedPet,calculateHit,maxHP,hpBar} from './duck-battle-data.mjs';
 
 const hidden=text=>({content:text,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
@@ -18,6 +19,11 @@ function controls(arena){
     new ButtonBuilder().setCustomId('duckbattle:'+arena.id+':forfeit')
       .setLabel('Desistir').setStyle(ButtonStyle.Danger));
   return [row];
+}
+function battleArt(b,scene='turn'){
+  try{return [new AttachmentBuilder(renderBattleScene({players:b.players,turn:b.turn,
+    movesTaken:b.movesTaken,scene}),{name:'duckzinha-arena.png'})];}
+  catch(err){console.warn('[Duckzinha] Arte da batalha: '+err.message);return [];}
 }
 function battleText(b){
   const [a,z]=b.players;
@@ -111,10 +117,12 @@ export class DuckBattleArena{
         }
         await interaction.deferUpdate();
         const pets=await Promise.all([b.challenger,b.target].map(id=>this.store.getDuck(id)));
+         const avatars=await Promise.all([b.challenger,b.target].map(id=>
+           this.store.getAvatar(id).catch(()=>null)));
         if(b.phase==='ended')return;
         b.players=[b.challenger,b.target].map((id,i)=>{
           const pet=normalizedPet(pets[i]),max=maxHP(pet.level);
-          return {id,pet,hp:max,max,shield:false};
+          return {id,pet,avatar:avatars[i],hp:max,max,shield:false};
         });
         b.phase='playing';b.movesTaken=0;b.turn=0;
         b.log='Desafio aceito! '+tag(b.challenger)+' começa.';
@@ -169,7 +177,7 @@ export class DuckBattleArena{
           battleText({...b,turn:b.turn,log:b.log})+
           '\n\n'+(reward?'⭐ Vencedor: +12 XP • Adversário: +5 XP.':'Partida muito curta: sem XP.')+
           '\n💛 Sem apostas.';
-        await interaction.update({content:result.slice(0,1950),components:[],allowedMentions:{parse:[]}});
+        await interaction.update({content:result.slice(0,1950),files:battleArt(b,'victory'),components:[],allowedMentions:{parse:[]}});
         if(reward){
           void Promise.allSettled([
             this.store.awardDuckBattleXp(current.id,'batalha:'+b.id,12),
@@ -189,7 +197,7 @@ export class DuckBattleArena{
       }
       b.turn=1-b.turn;
       this.setDeadline(b,90_000,async()=>this.timeout(b));
-      await interaction.update({content:battleText(b),components:controls(b),allowedMentions:{parse:[]}});
+      await interaction.update({content:battleText(b),files:battleArt(b),components:controls(b),allowedMentions:{parse:[]}});
     }finally{b.locked=false;}
   }
   async timeout(b){
