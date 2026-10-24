@@ -75,7 +75,7 @@ export function formatModerationDuration(ms){
   return Math.round(n/1000)+' segundo(s)';
 }
 export async function sendModerationLog({message,store,action,target,reason,durationMs}){
-  if(!store?.persistent)return {ok:false,reason:'Banco de configuração indisponível.'};
+  if(!store?.persistent)return {ok:true,configured:false};
   let config;
   try{config=await store.getFeatureSettings();}
   catch(error){return {ok:false,reason:'Não foi possível ler o canal de logs: '+String(error?.message||error)};}
