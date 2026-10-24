@@ -1,4 +1,5 @@
 import {PermissionFlagsBits} from 'discord.js';
+import {sendModerationLog} from './duck-moderation-log.mjs';
 
 const ADMIN=PermissionFlagsBits.Administrator;
 const BAN=PermissionFlagsBits.BanMembers;
@@ -86,25 +87,60 @@ async function resolveMember(message,action,botId){
   const selected=selectExact(unique.values());
   return selected.ok?{ok:true,member:selected.user}:selected;
 }
+// Desbana pelo username único do Discord, jamais pelo nome de exibição/apelido.
 async function resolveBanned(message,action,botId){
   const ids=targetMentions(message,botId);
   if(ids.length>1)return {ok:false,message:'Indique apenas uma pessoa para desbanir.'};
-  const target=ids[0]||cleanTarget(action.tail,action.kind);
-  if(!target)return {ok:false,message:'Para desbanir, informe o ID ou nome exato do usuário banido.'};
+  let target=ids[0]||cleanTarget(action.tail,action.kind);
+  if(!target)return {ok:false,message:'Informe o @username do Discord ou o ID do usuário banido.'};
   if(SNOWFLAKE.test(target)){
     const ban=await message.guild.bans.fetch(target).catch(()=>null);
     return ban?{ok:true,ban}:{ok:false,message:'Esse ID não consta como banido.'};
   }
-  if(target.length>64||/[<>@\r\n]/.test(target))
-    return {ok:false,message:'Nome inválido. Use o ID da pessoa banida.'};
-  let bans;
-  try{bans=await message.guild.bans.fetch({limit:1000});}
-  catch{return {ok:false,message:'Não consegui consultar os banidos. Confira a permissão Banir Membros.'};}
-  const selected=selectExact([...bans.values()].filter(b=>userMatches(b.user,target)));
-  return selected.ok?{ok:true,ban:selected.user}:selected;
+  // "@nome" digitado é aceito, sem exigir que a pessoa banida esteja no servidor.
+  target=target.replace(/^@/,'').trim().toLowerCase();
+  if(!/^[a-z0-9_.]{2,32}$/.test(target))
+    return {ok:false,message:'Informe o username do Discord (ex.: usuario.legal), não o apelido exibido.'};
+  let after;
+  const matches=new Map();
+  try{
+    // API do Discord pagina a lista de bans. Evita usar apelidos ou coincidências parciais.
+    for(let page=0;page<20;page++){
+      const options=after?{limit:1000,after}:{limit:1000};
+      const bans=await message.guild.bans.fetch(options);
+      const records=[...bans.values()];
+      for(const ban of records){
+        if(String(ban.user?.username||'').toLowerCase()===target)
+          matches.set(ban.user.id,ban);
+      }
+      if(records.length<1000)break;
+      const lastId=records.at(-1)?.user?.id;
+      if(!lastId||lastId===after)break;
+      after=lastId;
+    }
+  }catch(error){
+    return {ok:false,message:'Não consegui consultar os bans: '+String(error?.message||error).slice(0,100)};
+  }
+  const selected=selectExact(matches.values());
+  return selected.ok?{ok:true,ban:selected.user}:
+    {ok:false,message:matches.size
+      ?'Nome ambíguo na lista de banidos; use o ID.'
+      :'Não achei o username exato nos bans consultados. Confira o @username (não nome de exibição), ou use o ID.'};
 }
-export async function handleModerationRequest(message,action,{botId}={}){
+export async function handleModerationRequest(message,action,{botId,store}={}){
   const respond=content=>message.reply({content,allowedMentions:{parse:[],repliedUser:false}});
+  const niceName=user=>String(user?.username||'usuario').replace(/[@*_~`<>\\]/g,'').slice(0,32);
+  const success=async (content,{target,reason,durationMs}={})=>{
+    let note='';
+    try{
+      const log=await sendModerationLog({message,store,action:action.kind,target,reason,durationMs});
+      if(!log.ok)note='\n\n⚠️ *A ação funcionou, mas não consegui registrar no canal de logs.*';
+    }catch(error){
+      console.warn('[Duckzinha] Falha ao enviar modlog: '+String(error?.message||error));
+      note='\n\n⚠️ *A ação funcionou, mas não consegui registrar no canal de logs.*';
+    }
+    return respond(content+note);
+  };
   if(!message.inGuild?.()||!message.guild||message.author?.bot)return;
   if(!action||!['ban','unban','timeout','untimeout'].includes(action.kind))return;
   if(!message.member?.permissions?.has(ADMIN))
@@ -130,11 +166,15 @@ export async function handleModerationRequest(message,action,{botId}={}){
       if(member.bannable!==true)
         return respond('⚠️ Não posso banir esse membro. Confira a hierarquia dos cargos.');
       await member.ban({reason,deleteMessageSeconds:0});
-      return respond('🔨 **Membro banido**\nUsuário: **'+target.username+'** (ID: '+id+').');
+      return success('## 🔨 Membro banido!\n'+
+        '🦆 **'+niceName(target)+'** foi de ban, bobão! 👀\n'+
+        '✨ Punição aplicada com sucesso.',{target,reason});
     }
     if(action.kind==='unban'){
       await message.guild.bans.remove(id,reason);
-      return respond('✅ **Banimento removido**\nUsuário: **'+target.username+'** (ID: '+id+').');
+      return success('## ✅ Banimento removido!\n'+
+        '🦆 **'+niceName(target)+'** pode voltar ao servidor. Nada de bagunça, hein? 😁',
+        {target,reason});
     }
     if(member.moderatable!==true)
       return respond('⚠️ Não posso castigar esse membro. Confira a hierarquia dos cargos.');
@@ -144,10 +184,15 @@ export async function handleModerationRequest(message,action,{botId}={}){
         return respond('⚠️ O castigo deve durar entre 1 segundo e 28 dias.');
       const ms=duration?.ms||10*60*1000;
       await member.timeout(ms,reason);
-      return respond('🔇 **Castigo aplicado**\nUsuário: **'+target.username+'**.\nDuração: **'+(duration?.source||'10 minutos')+'**.');
+      return success('## 🔇 Castigo aplicado!\n'+
+        '🦆 **'+niceName(target)+'** foi para o cantinho do pensamento, bobão! 🤭\n'+
+        '⏳ **Duração:** '+(duration?.source||'10 minutos')+'.',
+        {target,reason,durationMs:ms});
     }
     await member.timeout(null,reason);
-    return respond('🔊 **Castigo removido**\nUsuário: **'+target.username+'**.');
+    return success('## 🔊 Castigo removido!\n'+
+      '🦆 **'+niceName(target)+'** já pode falar novamente. Se comporta! 😊',
+      {target,reason});
   }catch(error){
     console.warn('[Duckzinha] Moderação ('+action.kind+'): '+String(error?.message||error));
     return respond('⚠️ Não consegui executar essa ação. Confira permissões e hierarquia dos cargos.');
