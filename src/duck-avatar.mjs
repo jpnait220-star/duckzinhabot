@@ -562,7 +562,7 @@ function handGear(d,type){
       for(let k=0;k<4;k++)star(d,x+(k*13)%35-14,y-20+(k*19)%37,6,'#d19cff');
       d.ellipse(x,y,15,14,'#572a9a',.3);
       star(d,x,y,9,'#e6b2ff',.75);
-
+    }
   }
 }
 const crcTable=Uint32Array.from({length:256},(_,n)=>{
