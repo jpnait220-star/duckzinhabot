@@ -938,7 +938,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(interaction.isButton()){
     try{
       if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
-      if(interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
+      if(interaction.customId.startsWith('duckpublic:')||interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
       await handleDuckButton(interaction);
     }
     catch(err){
@@ -964,8 +964,8 @@ client.on(Events.InteractionCreate,async interaction=>{
 client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
   if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
 });
-process.once('SIGTERM',()=>{studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
-process.once('SIGINT',()=>{studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGTERM',()=>{extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGINT',()=>{extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
 client.on(Events.ShardDisconnect,(event,shardId)=>
   console.warn('[Duckzinha] Gateway desconectado (shard '+shardId+', código '+event.code+').'));
 client.on(Events.ShardReconnecting,shardId=>
