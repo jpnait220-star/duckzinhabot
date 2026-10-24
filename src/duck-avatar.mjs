@@ -1,5 +1,6 @@
 import {deflateSync} from 'node:zlib';
 import {drawAuraBehind,drawAuraAccent} from './duck-aura-details.mjs';
+import {POSES,POSITION,SIZE,DETAIL_COLORS,DETAIL_HEX,poseEffects,transformPainter} from './duck-poses.mjs';
 
 // O avatar é desenhado no servidor, sem imagens externas ou pacotes nativos.
 // Cada cosmético ocupa uma camada própria para permitir combinações.
@@ -12,11 +13,13 @@ export const COLORS=Object.freeze({
   maos:['nenhuma','garras','punhos_gelo','punhos_fogo','punhos_corrompidos'],
   aura:['nenhuma','brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'],
   pet:['nenhum','fantasma','estrela','mini_pato','ceifador','borboleta'],
-  olhos:['normal','feliz','sonolento','piscando','determinado']
+  olhos:['normal','feliz','sonolento','piscando','determinado'],
+  pose:POSES,tamanho:SIZE,posicao:POSITION,cor_detalhe:DETAIL_COLORS
 });
 export const DEFAULT_AVATAR=Object.freeze({
   corpo:'amarelo',fundo:'ceu',chapeu:'nenhum',rosto:'nenhum',
-  roupa:'moletom',maos:'nenhuma',aura:'brilho',pet:'nenhum',olhos:'normal'
+  roupa:'moletom',maos:'nenhuma',aura:'brilho',pet:'nenhum',olhos:'normal',
+  pose:'normal',tamanho:'normal',posicao:'centro',cor_detalhe:'original'
 });
 const legacyAccessory={oculos:['rosto','oculos'],coroa:['chapeu','coroa'],bone:['chapeu','bone'],
   fone:['chapeu','fone'],laco:['chapeu','laco']};
@@ -290,7 +293,9 @@ function garment(d,a){
     praia:['#8bd6ef','#4aa0cb']
   };
   if(outfit==='nenhuma'||outfit==='cachecol')return;
-  const [base,shade]=fabric[outfit]||fabric.moletom;
+  const [natural,shadow]=fabric[outfit]||fabric.moletom;
+  const base=DETAIL_HEX[a.cor_detalhe]||natural;
+  const shade=a.cor_detalhe==='original'?shadow:OUT;
   d.ellipse(160,229,94,80,OUT);
   d.ellipse(160,225,87,74,shade);
   d.ellipse(159,214,82,63,base);
@@ -587,8 +592,10 @@ function encodePng(pixels){
 }
 export function renderAvatar(data={}){
   const a=normalizeAvatar(data),d=drawSurface();
-  backdrop(d,a);aura(d,a);drawAuraBehind(d,a);petBehind(d,a.pet);duck(d,a);
-  faceGear(d,a.rosto);hat(d,a.chapeu);handGear(d,a.maos);drawAuraAccent(d,a);
+  backdrop(d,a);aura(d,a);drawAuraBehind(d,a);
+  const p=transformPainter(d,a);
+  petBehind(p,a.pet);duck(p,a);poseEffects(p,a);
+  faceGear(p,a.rosto);hat(p,a.chapeu);handGear(p,a.maos);drawAuraAccent(d,a);
   // Brilhos de primeiro plano, evitando poluir o rosto.
   d.ellipse(36,289,3,3,'#ffffff',.72);
   d.ellipse(281,129,3,3,'#ffffff',.57);
