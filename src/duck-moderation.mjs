@@ -14,7 +14,7 @@ export function parseModerationRequest(content,botId){
   const normalized=text.replace(/^duckzinha[,! ]*/i,'')
     .replace(/^por\s+favor[,! ]*/i,'')
     .replace(/^(?:pode|poderia)\s+(?:me\s+)?/i,'').trim();
-  const m=/^(desban(?:a|ir|e)?|unban|ban(?:a|e|ir)?|desmut(?:a|ar|e)?|unmute|tir(?:a|ar)\s+(?:o\s+)?castigo|remov(?:a|er)\s+(?:o\s+)?castigo|retir(?:a|ar)\s+(?:o\s+)?castigo|castig(?:a|ar|ue)|mut(?:a|ar|e)|mute|silenci(?:a|ar))\b\s*(.*)$/iu.exec(normalized);
+  const m=/^(desban(?:a|ir|e)?|unban|ban(?:a|e|ir)?|desmut(?:a|ar|e)?|unmute|tir(?:a|ar)\s+(?:o\s+)?castigo|remov(?:a|e|er)\s+(?:o\s+)?castigo|retir(?:a|ar)\s+(?:o\s+)?castigo|castig(?:a|ar|ue)|mut(?:a|ar|e)|mute|silenci(?:a|ar))\b\s*(.*)$/iu.exec(normalized);
   if(!m)return null;
   const verb=m[1].toLowerCase();
   const kind=/^(desban|unban)/.test(verb)?'unban':
@@ -27,7 +27,7 @@ function normalizeName(value){
     .toLocaleLowerCase('pt-BR');
 }
 export function parseDuration(text){
-  const m=/(?:^|\s)(?:por|durante)?\s*(\d{1,4})\s*(segundos?|segs?|s|minutos?|mins?|min|m|horas?|hrs?|h|dias?|d)\b/iu.exec(String(text||''));
+  const m=/(?:^|\s)(?:por|durante)?\s*(\d{1,9})\s*(segundos?|segs?|s|minutos?|mins?|min|m|horas?|hrs?|h|dias?|d)\b/iu.exec(String(text||''));
   if(!m)return null;
   const n=Number(m[1]),unit=m[2].toLowerCase();
   const mult=/^(?:s|seg)/.test(unit)?1000:/^(?:m|min)/.test(unit)?60000:/^(?:h|hora)/.test(unit)?3600000:86400000;
@@ -37,7 +37,7 @@ function cleanTarget(tail,kind){
   let text=String(tail||'').replace(/^\s*(?:o|a|ao|aos|usu[aá]rio|usu[aá]ria|membro|jogador|jogadora|player)\b\s*/iu,'').trim();
   text=text.split(/\s+(?:por\s+motivo\s+de|motivo\s*[:=]|porque)\s*/iu)[0].trim();
   if(kind==='timeout'){
-    text=text.replace(/\s+(?:por|durante)?\s*\d{1,4}\s*(?:segundos?|segs?|s|minutos?|mins?|min|m|horas?|hrs?|h|dias?|d)\b.*$/iu,'');
+    text=text.replace(/\s+(?:por|durante)?\s*\d{1,9}\s*(?:segundos?|segs?|s|minutos?|mins?|min|m|horas?|hrs?|h|dias?|d)\b.*$/iu,'');
   }
   return text.trim();
 }
