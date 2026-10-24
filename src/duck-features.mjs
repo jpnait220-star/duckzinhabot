@@ -14,7 +14,9 @@ export function newCommands(){
     new SlashCommandBuilder().setName('perfil').setDescription('Meu perfil visual de comunidade')
       .addUserOption(o=>o.setName('usuario').setDescription('Outro membro').setRequired(false)).setDMPermission(false),
     new SlashCommandBuilder().setName('jogo').setDescription('Brinque com os minigames da Duckzinha')
-      .addSubcommand(s=>s.setName('quiz').setDescription('Responda um quiz de conhecimentos')).setDMPermission(false),
+      .addSubcommand(s=>s.setName('quiz').setDescription('Iniciar quiz público para todos do canal'))
+      .addSubcommand(s=>s.setName('parar').setDescription('Encerrar quiz deste canal (moderação)'))
+      .setDMPermission(false),
     new SlashCommandBuilder().setName('falar').setDescription('Gerar uma mensagem de áudio com a voz da Duckzinha')
       .addStringOption(o=>o.setName('texto').setDescription('Texto a ser falado').setRequired(true).setMinLength(1).setMaxLength(250))
       .setDMPermission(false),
@@ -54,7 +56,15 @@ export async function runNewCommand(interaction,{
     return true;
   }
   if(name==='jogo'){
-    return Boolean(await interaction.reply(extras.startGame(interaction)).then(()=>true));
+    const sub=interaction.options.getSubcommand();
+    if(sub==='parar'){
+      if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages))
+        await reply(interaction,'Apenas a moderação pode encerrar o quiz.');
+      else await extras.stopGame(interaction);
+      return true;
+    }
+    await extras.startGame(interaction);
+    return true;
   }
   if(name==='ver'||name==='perfil'){
     const memberUser=name==='ver'
