@@ -224,7 +224,7 @@ export async function runNewCommand(interaction,{
     await interaction.deferReply({flags});
     try{
       await store.addProjectUpdate(title,description,interaction.user.id);
-      await channel.send({content:'@everyone\n\n'+announcement,allowedMentions:{parse:['everyone']}});
+      await channel.send({content:announcement+'\n\n@everyone',allowedMentions:{parse:['everyone']}});
       await interaction.editReply('Atualização publicada e guardada! 💛');
     }catch(err){await interaction.editReply('Falha ao publicar: '+String(err.message).slice(0,190));}
     return true;
