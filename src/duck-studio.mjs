@@ -51,19 +51,18 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <div><label for="corpo">Cor do patinho</label><select id="corpo"></select></div>
  <div><label for="olhos">Expressão dos olhos</label><select id="olhos"></select></div>
  <div><label for="fundo">Fundo do avatar</label><select id="fundo"></select></div>
- <div class="subsection">🎭 Poses e enquadramento</div>
- <div><label for="pose">Pose do pato</label><select id="pose"></select></div>
- <div><label for="tamanho">Tamanho</label><select id="tamanho"></select></div>
- <div><label for="posicao">Posição</label><select id="posicao"></select></div>
- <div><label for="cor_detalhe">Cor da roupa</label><select id="cor_detalhe"></select></div>
- <div class="subsection">🧢 Cosméticos • combine à vontade</div>
+ <div class="subsection">👕 Roupas e enquadramento</div>
+  <div><label for="tamanho">Tamanho</label><select id="tamanho"></select></div>
+  <div><label for="cor_detalhe">Cor da roupa e detalhes</label><select id="cor_detalhe"></select></div>
+  <div><label for="camada_roupa">Roupa em relação às asas</label><select id="camada_roupa"></select></div>
+  <div class="subsection">🧢 Cosméticos • combine à vontade</div>
  <div><label for="chapeu">Chapéus e coroas</label><select id="chapeu"></select></div>
  <div><label for="rosto">Acessórios do rosto</label><select id="rosto"></select></div>
  <div><label for="roupa">Roupas</label><select id="roupa"></select></div>
- <div><label for="maos">Garras e punhos elementais</label><select id="maos"></select></div>
+ <div><label for="maos">Garras</label><select id="maos"></select></div>
  <div><label for="aura">Auras e efeitos</label><select id="aura"></select></div>
  <div><label for="pet">Mascote companheiro</label><select id="pet"></select></div>
- </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button><button id="cute" class="secondary">🐰 Fofo</button><button id="combat" class="secondary">⚔️ PvP</button></div>
+ </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button></div>
  <p id="status" role="status" class="notice"></p>
  <div class="subsection">🎒 Inventário de conjuntos salvos</div>
  <div class="actions"><select id="slot" aria-label="Escolha conjunto" style="max-width:180px">
@@ -97,19 +96,15 @@ const pretty={ceu:'Céu limpo',lilas:'Lilás',menta:'Menta',por_do_sol:'Pôr do 
   sombrero:'Sombrero',chines:'Chapéu chinês',cartola:'Cartola',tiara:'Tiara',
   natal:'Gorro de Natal',moletom:'Moletom',nenhum:'Nenhum',nenhuma:'Nenhuma',
   sonolento:'Sonolento',piscando:'Piscando',determinado:'Determinado',
-  cachecol:'Cachecol',jaqueta:'Jaqueta',kimono:'Quimono',capa:'Capa real',
+  cachecol:'Cachecol',jaqueta:'Jaqueta',kimono:'Quimono',
   uniforme:'Uniforme',sueter:'Suéter',terno:'Terno elegante',armadura:'Armadura',
   praia:'Roupa de praia',garras:'Garras Spring',
-  punhos_gelo:'Punhos de gelo',punhos_fogo:'Punhos de fogo',
-  punhos_corrompidos:'Punhos corrompidos',
-  brilho:'Brilho delicado',estrelas:'Estrelas',coracoes:'Corações',
+  
+  brilho:'Luz suave',coracoes:'Corações',
   fogo:'Fogo',gelo:'Gelo',eletrica:'Eletricidade',dinheiro:'Dinheiro',
   fantasma:'Ghost Pet',estrela:'Pet estrela',mini_pato:'Mini patinho',
   ceifador:'Pet ceifador',borboleta:'Borboleta',
-  acenando:'Acenando',dormindo:'Dormindo',comemorando:'Comemorando',
-  coracao:'Segurando coração',de_lado:'Olhando de lado',
-  pequeno:'Pequeno',grande:'Grande',esquerda:'Esquerda',direita:'Direita',
-  centro:'Centro',original:'Original',dourado:'Dourado',vermelho:'Vermelho'};
+  acima:'Por cima das asas',abaixo:'Por baixo das asas',original:'Original',dourado:'Dourado',vermelho:'Vermelho'};
 const $=id=>document.getElementById(id);
 for(const [k,opts] of Object.entries(names))for(const v of opts)$ (k).add(new Option(pretty[v]||v[0].toUpperCase()+v.slice(1),v));
 for(const v of ['auto','animada','calma','curiosa','sonolenta'])$('mood').add(new Option(v[0].toUpperCase()+v.slice(1),v));
@@ -207,9 +202,6 @@ $('applyBotAvatar').onclick=async()=>{
  catch(e){$('botStatus').textContent=e.message;}
 };
 $('random').onclick=()=>{for(const [k,opts] of Object.entries(names))$(k).value=opts[Math.floor(Math.random()*opts.length)];preview();};
-function preset(values){for(const [k,v] of Object.entries(values))if($(k))$(k).value=v;preview();}
-$('cute').onclick=()=>preset({corpo:'creme',fundo:'rosa',chapeu:'coelho',rosto:'nenhum',roupa:'moletom',maos:'nenhuma',aura:'coracoes',pet:'mini_pato',olhos:'feliz'});
-$('combat').onclick=()=>preset({corpo:'amarelo',fundo:'neon',chapeu:'bone',rosto:'visor',roupa:'armadura',maos:'punhos_corrompidos',aura:'eletrica',pet:'ceifador',olhos:'determinado'});
 function tab(admin){$('avatarPane').classList.toggle('hidden',admin);$('adminPane').classList.toggle('hidden',!admin);$('avatarTab').classList.toggle('active',!admin);$('adminTab').classList.toggle('active',admin);}
 $('avatarTab').onclick=()=>tab(false);
 $('adminTab').onclick=()=>{if(current?.admin)tab(true);};
