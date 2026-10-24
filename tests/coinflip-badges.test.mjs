@@ -36,7 +36,8 @@ test('efeitos de moeda geram WAV PCM diferentes por lado e MP3 válido',async()=
 
 test('a partida de três rodadas é de quem aceita e não debita moedas',async()=>{
  const messages=[];
- const games=new DuckCoinflip({randomSide:(()=>{let n=0;return ()=>[0,1,0][n++];})(),sleep:async()=>{}});
+ const games=new DuckCoinflip({randomSide:(()=>{let n=0;return ()=>[0,1,0][n++];})(),sleep:async()=>{},
+   renderVideo:async side=>Buffer.concat([Buffer.from([0,0,0,24]),Buffer.from('ftypisom'),Buffer.from(side)])});
  const interaction={
   user:{id:'111111111111111111'},guildId:'333333333333333333',
   guild:{members:{fetch:async()=>({})}},
@@ -65,6 +66,12 @@ test('a partida de três rodadas é de quem aceita e não debita moedas',async()
  for(let i=0;i<60&&!messages.some(x=>/RESULTADO DO COINFLIP/.test(x.content));i++)
    await new Promise(resolve=>setTimeout(resolve,10));
  assert.equal(messages.filter(x=>/RODADA \d\/3/.test(x.content)).length,3);
+ const videos=messages.filter(x=>/RODADA \d\/3/.test(x.content));
+ assert.equal(videos.every(x=>x.files?.length===1&&x.files[0]?.name.endsWith('.mp4')),true);
+ assert.ok(videos[0].files[0].name.includes('-cara-'));
+ assert.ok(videos[1].files[0].name.includes('-coroa-'));
+ assert.ok(videos[2].files[0].name.includes('-cara-'));
+ assert.equal(videos.every(x=>!x.content.includes('apostou')),true);
  assert.match(messages.at(-1).content,/\*\*2\*\* × \*\*1\*\*/);
  assert.match(messages.at(-1).content,/Nenhuma moeda foi apostada/);
  assert.equal(games.games.size,0);
