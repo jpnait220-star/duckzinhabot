@@ -119,13 +119,14 @@ function sourcesButton(results){
       .setLabel('Ver fontes').setEmoji('📚').setStyle(ButtonStyle.Secondary)
   )};
 }
-function unknownButtons(userId){
-  return new ActionRowBuilder().addComponents(
+function unknownButtons(userId,{searchOnly=false}={}){
+  const search=new ButtonBuilder().setCustomId('duck:search:'+userId).setLabel('Pesquisar')
+    .setEmoji('🔎').setStyle(ButtonStyle.Primary);
+  return new ActionRowBuilder().addComponents(searchOnly?[search]:[
     new ButtonBuilder().setCustomId('duck:explain:'+userId).setLabel('Eu explico')
       .setEmoji('💬').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('duck:search:'+userId).setLabel('Pesquisar')
-      .setEmoji('🔎').setStyle(ButtonStyle.Primary)
-  );
+    search
+  ]);
 }
 function pruneSourceCache(){
   const now=Date.now();
@@ -737,15 +738,19 @@ client.on(Events.MessageCreate,async message=>{
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
     answer=helpWithTicket(question,answer);
-    const shouldOffer=!searching&&((aiAnswered&&uncertainty(answer))||
-      (!aiAnswered&&Boolean(researchTopic(question))));
-    if(shouldOffer)answer='Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
-    const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
-    // Disponibiliza o botão no chat da call sem executar pesquisas automaticamente.
-    // Apenas quem perguntou pode clicar; a validação ocorre em handleDuckButton.
     const isVoiceChat=message.channel?.type===ChannelType.GuildVoice;
-    const offerSearch=offerSearchControls({shouldOffer,isVoiceChat,searching,mentioned});
-    const components=offerSearch?[unknownButtons(id)]:(sources?[sources.row]:[]);
+    // Oferecer pesquisa somente quando a resposta é incerta (inclusive no
+    // modo básico, sem IA), ou quando não houve resposta e o assunto é factual.
+    const shouldOffer=!searching&&(uncertainty(answer)||
+      (!aiAnswered&&Boolean(researchTopic(question))));
+    if(shouldOffer)answer=isVoiceChat
+      ?'Aii, não sei ao certo o que é isso! 🦆💛 Quer que eu pesquise? Clique em **Pesquisar**.'
+      :'Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
+    const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
+    // No chat da call aparece somente Pesquisar e apenas quando não souber.
+    // Quem fez a pergunta autoriza a busca; outras menções não ativam botões.
+    const offerSearch=offerSearchControls({shouldOffer,searching});
+    const components=offerSearch?[unknownButtons(id,{searchOnly:isVoiceChat})]:(sources?[sources.row]:[]);
     if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
     const voiceText=isVoiceChat?voiceReadableText(answer):null;
     const sent=await message.reply({content:voiceText||answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
