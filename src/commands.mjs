@@ -2,6 +2,7 @@ import {EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 
 import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
 import {newCommands} from './duck-features.mjs';
+import {contextCommands} from './duck-message-menu.mjs';
 
 const gold=0xf7d65b;
 const choice=[
@@ -52,7 +53,7 @@ export function commandPayloads(){
     .addSubcommand(s=>s.setName('apagar').setDescription('Apagar um assunto da memória da comunidade')
       .addStringOption(o=>o.setName('assunto').setDescription('Nome do assunto').setRequired(true)))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON());
-  list.push(...newCommands());
+  list.push(...newCommands(),...contextCommands());
   return list;
 }
 
@@ -174,7 +175,9 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
       const topic=interaction.options.getString('assunto',true).toLowerCase().trim();
       const answer=interaction.options.getString('texto',true).trim();
       if(!/^[\p{L}\p{N} _-]{2,50}$/u.test(topic))return respond('Use um assunto simples, sem símbolos estranhos.',true);
-      await store.teach(topic,answer);return respond('📚 Aaa, aprendi **'+topic+'**! Agora posso explicar isso quando me mencionarem 💛',true);
+      await store.teach(topic,answer);
+      void store.awardCoins(interaction.user.id,'ensino:comando:'+interaction.id,'ensino',8,40).catch(()=>{});
+      return respond('📚 Aaa, aprendi **'+topic+'**! Agora posso explicar isso quando me mencionarem 💛',true);
     }
     const sub=interaction.options.getSubcommand();
     if(sub==='apagar'){
