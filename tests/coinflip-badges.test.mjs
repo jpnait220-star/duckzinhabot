@@ -4,7 +4,7 @@ import {MessageFlags,PermissionFlagsBits} from 'discord.js';
 import {newCommands,runNewCommand} from '../src/duck-features.mjs';
 import {DuckCoinflip} from '../src/duck-coinflip.mjs';
 import {coinMp3,coinPcm} from '../src/duck-coinflip-audio.mjs';
-import {BADGES,safeBadgeRole,badgePanel,dailyPanel,DuckBadgeShop}
+import {BADGES,safeBadgeRole,badgePanel,dailyPanel,publishedPanel,DuckBadgeShop}
   from '../src/duck-badges.mjs';
 
 test('RPG removido; coinflip sem campo de aposta, transferências e loja disponíveis',()=>{
@@ -109,13 +109,18 @@ test('painéis de loja e diário usam IDs permanentes nos botões',()=>{
  assert.match(shop.content,/cargo exclusivo/);
  assert.match(shop.content,/Loja de Emblemas/);
  assert.doesNotMatch(shop.content,/LOJA DE EMBLEMAS DA DUCKZINHA/i);
- assert.match(shop.content,/^@everyone/);
- assert.deepEqual(shop.allowedMentions,{parse:['everyone']});
+ assert.doesNotMatch(shop.content,/@everyone/);
+ assert.deepEqual(shop.allowedMentions,{parse:[]});
  assert.equal(dailyPanel().components[0].components[0].data.custom_id,'duckdaily:claim');
  assert.match(dailyPanel().content,/20 moedas/);
  assert.match(dailyPanel().content,/Recompensa Diária/);
- assert.match(dailyPanel().content,/^@everyone/);
- assert.deepEqual(dailyPanel().allowedMentions,{parse:['everyone']});
+ assert.doesNotMatch(dailyPanel().content,/@everyone/);
+ assert.deepEqual(dailyPanel().allowedMentions,{parse:[]});
+ const onPublish=publishedPanel(shop);
+ assert.match(onPublish.content,/^@everyone\n\n/);
+ assert.deepEqual(onPublish.allowedMentions,{parse:['everyone']});
+ assert.equal(onPublish.components[0].components[0].data.custom_id,'duckbadge:bronze');
+ assert.equal(publishedPanel(dailyPanel()).allowedMentions.parse[0],'everyone');
  assert.equal(Object.keys(BADGES).length,4);
 });
 
