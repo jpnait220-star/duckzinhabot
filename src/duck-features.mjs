@@ -18,8 +18,9 @@ export function newCommands(){
       .addSubcommand(s=>s.setName('quiz').setDescription('Iniciar quiz público para todos do canal'))
       .addSubcommand(s=>s.setName('parar').setDescription('Encerrar quiz deste canal (moderação)'))
       .setDMPermission(false),
-    new SlashCommandBuilder().setName('falar').setDescription('Gerar uma mensagem de áudio com a voz da Duckzinha')
+    new SlashCommandBuilder().setName('falar').setDescription('Enviar mensagem de voz da Duckzinha (somente admin)')
       .addStringOption(o=>o.setName('texto').setDescription('Texto a ser falado').setRequired(true).setMinLength(1).setMaxLength(250))
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .setDMPermission(false),
     new SlashCommandBuilder().setName('reacao').setDescription('Enviar uma reação ilustrada da Duckzinha')
       .addStringOption(o=>o.setName('tipo').setDescription('Reação').setRequired(true).addChoices(
@@ -87,6 +88,12 @@ export async function runNewCommand(interaction,{
     return true;
   }
   if(name==='falar'){
+    // Defense-in-depth: mesmo que alguém exiba o slash command por cache/permissões,
+    // nunca gerar, enviar ou consumir cooldown se não for administrador.
+    if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)){
+      await reply(interaction,'🔒 Apenas administradores podem usar /falar.');
+      return true;
+    }
     const now=Date.now(),prev=lastVoice.get(interaction.user.id)||0;
     if(now-prev<20000){await reply(interaction,'Espere 20 segundos antes de enviar outro áudio.');return true;}
     const text=interaction.options.getString('texto',true).trim();
