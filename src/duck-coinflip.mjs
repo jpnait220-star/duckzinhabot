@@ -33,17 +33,19 @@ export class DuckCoinflip{
       new ButtonBuilder().setCustomId('duckcoin:'+game.id+':no').setLabel('Recusar').setStyle(ButtonStyle.Secondary)
     );
     try{
-      await interaction.reply({content:'🦆 **DESAFIO DE CARA OU COROA**\n'+
-        '<@'+host+'> escolheu **CARA** e desafiou <@'+other.id+'> (**COROA**).\n'+
-        'Serão **3 rodadas**, com um GIF da moeda de pato girando em 3D!\n'+
-        '🎮 Apenas uma disputa divertida: **ninguém aposta ou perde moedas**.\n'+
-        '⏳ O convite expira em 60 segundos.',
+      await interaction.reply({content:'## 🪙 Duckzinha • Cara ou Coroa\n'+
+        '**Um novo desafio foi lançado!**\n\n'+
+        '🦆 **CARA**  ·  <@'+host+'>\n'+
+        '👑 **COROA**  ·  <@'+other.id+'>\n\n'+
+        '🎯 **Melhor de 3 rodadas**\n'+
+        '⏳ **60 segundos** para aceitar\n\n'+
+        '*✨ É só pela diversão: ninguém aposta nem perde moedas.*',
         components:[buttons],allowedMentions:{users:[host,other.id]}});
       game.message=await interaction.fetchReply();
       const timer=setTimeout(async()=>{
         if(game.closed||game.stage!=='invite')return;
         this.stop(game);
-        await game.message.edit({content:'⌛ Convite do coinflip expirado.',
+        await game.message.edit({content:'⌛ **Convite encerrado**\nO tempo para aceitar o desafio terminou.',
           components:[],allowedMentions:{parse:[]}}).catch(()=>{});
       },60000);
       timer.unref?.();game.timer=timer;
@@ -62,14 +64,14 @@ export class DuckCoinflip{
     if(game.timer)clearTimeout(game.timer);
     if(action==='no'){
       this.stop(game);
-      return interaction.update({content:'🦆 Desafio recusado. Nenhuma moeda foi movimentada.',
+      return interaction.update({content:'🦆 **Desafio recusado**\nA partida foi cancelada. Até a próxima!',
         components:[],allowedMentions:{parse:[]}});
     }
-    await interaction.update({content:'🪙 **Coinflip aceito!** Preparando a moeda de pato...',
+    await interaction.update({content:'## 🪙 Duckzinha • Cara ou Coroa\n✨ **Desafio aceito!** Preparando a primeira rodada...',
       components:[],allowedMentions:{parse:[]}});
     void this.run(game).catch(async err=>{
       console.warn('[Duckzinha] Coinflip: '+String(err?.message||err));
-      await game.message?.edit({content:'Coinflip interrompido por erro na animação ou mensagem. Ninguém perdeu moedas.',
+      await game.message?.edit({content:'⚠️ **Coinflip interrompido**\nHouve um problema ao atualizar a partida. Nenhuma moeda foi movimentada.',
         attachments:[],components:[],allowedMentions:{parse:[]}}).catch(()=>{});
       this.stop(game);
     });
@@ -83,9 +85,12 @@ export class DuckCoinflip{
       for(let seconds=3;seconds>=1;seconds--){
         if(game.closed)return;
         await game.message.edit({
-          content:'🪙 **COINFLIP • RODADA '+round+'/3**\n'+
-            'A moeda vai girar em **'+seconds+'**...'+
-            '\n\n🦆 <@'+game.host+'>: **'+heads+'** • 👑 <@'+game.guest+'>: **'+tails+'**',
+          content:'## 🪙 Duckzinha • Cara ou Coroa\n'+
+            '**RODADA '+round+'/3**\n\n'+
+            '⏳ A moeda vai girar em **'+seconds+'**...\n\n'+
+            '**PLACAR ATUAL**\n'+
+            '🦆 Cara · <@'+game.host+'>  **'+heads+'**\n'+
+            '👑 Coroa · <@'+game.guest+'>  **'+tails+'**',
           components:[],attachments:[],allowedMentions:{parse:[]}
         });
         await this.sleep(1000);
@@ -106,10 +111,11 @@ export class DuckCoinflip{
       if(game.closed)return;
       if(side==='cara')heads++;else tails++;
       await game.message.edit({
-        content:'🪙 **MOEDA DE PATO • RODADA '+round+'/3**\n'+
-          'Resultado: '+label+'!\n\n'+
-          '🦆 <@'+game.host+'> (Cara): **'+heads+'** ponto(s)\n'+
-          '👑 <@'+game.guest+'> (Coroa): **'+tails+'** ponto(s)',
+        content:'## 🪙 Duckzinha • Cara ou Coroa\n'+
+          '**RODADA '+round+'/3**  ·  '+label+'\n\n'+
+          '**PLACAR**\n'+
+          '🦆 Cara · <@'+game.host+'>  **'+heads+'**\n'+
+          '👑 Coroa · <@'+game.guest+'>  **'+tails+'**',
         files,attachments:[],components:[],allowedMentions:{parse:[]}
       });
       // Não interromper o GIF enquanto a moeda ainda gira.
@@ -118,10 +124,11 @@ export class DuckCoinflip{
     if(game.closed)return;
     const winner=heads>tails?game.host:game.guest;
     await game.message.edit({
-      content:'🏆 **RESULTADO DO COINFLIP (MELHOR DE 3)**\n'+
-        '🦆 Cara: **'+heads+'** × **'+tails+'** Coroa 👑\n'+
-        '🎉 **Venceu <@'+winner+'>!**\n'+
-        '💛 Nenhuma moeda foi apostada, transferida ou perdida.',
+      content:'## 🏆 Duckzinha • Vitória!\n'+
+        '🎉 **<@'+winner+'> venceu o desafio!**\n\n'+
+        '**PLACAR FINAL · MELHOR DE 3**\n'+
+        '🦆 Cara: **'+heads+'** × **'+tails+'** :Coroa 👑\n\n'+
+        '✨ Partida encerrada! Nenhuma moeda foi apostada ou perdida.',
       attachments:[],components:[],allowedMentions:{parse:[]}
     });
     this.stop(game);
