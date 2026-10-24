@@ -105,11 +105,11 @@ export function renderProfileCard({name='Pato',avatar={},coins=0,streak=0,title=
    if(pos>W-22)break;
   }
  };
- letters('DUCKZINHA STUDIO',353,38,2,[252,211,104]);
- letters(name.slice(0,17),350,104,4,[255,252,240]);
- letters('TITULO: '+title,352,169,2,[214,205,238]);
- letters('MOEDAS: '+Math.max(0,Number(coins)||0),352,211,3,[255,223,141]);
- letters('QUIZ: '+Math.max(0,Number(streak)||0),352,253,3,[175,234,250]);
+ letters('DUCKZINHA STUDIO',302,38,2,[252,211,104]);
+ letters(name.slice(0,17),304,104,4,[255,252,240]);
+ letters('TITULO: '+title,304,169,2,[214,205,238]);
+ letters('MOEDAS: '+Math.max(0,Number(coins)||0),304,211,3,[255,223,141]);
+ letters('QUIZ: '+Math.max(0,Number(streak)||0),304,253,3,[175,234,250]);
  square(352,306,324,2,[100,90,124]);
  letters('DUCKZINCOMMUNITY',353,322,2,[161,159,191]);
  return encode(buffer,W,H);
