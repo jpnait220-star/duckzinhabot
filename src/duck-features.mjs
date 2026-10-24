@@ -3,6 +3,7 @@ import {renderAvatar} from './duck-avatar.mjs';
 import {voiceReadableText} from './voice-visit.mjs';
 import {synthesizeDuckSpeech} from './duck-tts.mjs';
 import {expressiveVoice} from './duck-extras.mjs';
+import {convertToVoiceMessage,sendNativeVoice} from './duck-voice-message.mjs';
 
 export function newCommands(){
   return [
@@ -91,15 +92,16 @@ export async function runNewCommand(interaction,{
     const text=interaction.options.getString('texto',true).trim();
     if(!text||/@everyone|@here|<@!?\d+>/.test(text)){await reply(interaction,'Use texto normal, sem menções.');return true;}
     lastVoice.set(interaction.user.id,now);
-    await interaction.deferReply();
+    await interaction.deferReply({flags:MessageFlags.Ephemeral});
     try{
       const selected=expressiveVoice(selectedVoice(),extras.mood(text),extras.settings.emotionalVoice);
       const audio=await synthesizeDuckSpeech({text:voiceReadableText(text),voice:selected});
-      const ext=audio[0]===0x1a?'webm':'mp3';
-      await interaction.editReply({content:'🎤 Duckzinha: '+text.slice(0,250),
-        files:[new AttachmentBuilder(audio,{name:'duckzinha-falando.'+ext})],allowedMentions:{parse:[]}});
+      const converted=await convertToVoiceMessage(audio);
+      await sendNativeVoice(interaction,converted);
+      await interaction.editReply('🎤 Mensagem de voz da Duckzinha enviada no chat! 💛');
     }catch(err){
-      await interaction.editReply('Não consegui produzir áudio agora: '+String(err.message).slice(0,180));
+      await interaction.editReply('Não consegui enviar a mensagem de voz nativa: '+
+        String(err.message).slice(0,185));
     }
     return true;
   }
