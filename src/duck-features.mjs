@@ -5,7 +5,6 @@ import {synthesizeDuckSpeech} from './duck-tts.mjs';
 import {expressiveVoice} from './duck-extras.mjs';
 import {convertToVoiceMessage,sendNativeVoice} from './duck-voice-message.mjs';
 import {renderProfileCard} from './duck-profile-card.mjs';
-import {TYPES,SHOP} from './duck-battle-data.mjs';
 import {animatedDuckReaction} from './duck-animated-reactions.mjs';
 export {runMessageMenu} from './duck-message-menu.mjs';
 
@@ -42,8 +41,6 @@ export function newCommands(){
     new SlashCommandBuilder().setName('card').setDescription('Cartão de perfil da comunidade em PNG')
       .addUserOption(x=>x.setName('usuario').setDescription('Membro (opcional)')).setDMPermission(false),
     new SlashCommandBuilder().setName('inventario').setDescription('Mostra seus cinco conjuntos de cosméticos salvos').setDMPermission(false),
-    new SlashCommandBuilder().setName('batalha').setDescription('Desafiar alguém no RPG de patinhos por turnos, sem apostas')
-      .addUserOption(x=>x.setName('pessoa').setDescription('Pessoa a desafiar').setRequired(true)).setDMPermission(false),
     new SlashCommandBuilder().setName('minigame').setDescription('Iniciar um jogo curto para todos do canal')
       .addStringOption(x=>x.setName('tipo').setDescription('Escolha o minigame').addChoices(
         {name:'Aleatório',value:'aleatorio'},
@@ -56,26 +53,25 @@ export function newCommands(){
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
       .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
         .addChoices({name:'Iniciar',value:'iniciar'},{name:'Resgatar',value:'resgatar'})).setDMPermission(false),
-    new SlashCommandBuilder().setName('pato').setDescription('Gerencie seu pato de batalha, nível, itens e golpes')
-      .addSubcommand(s=>s.setName('perfil').setDescription('Ver o pato de um jogador')
-        .addUserOption(o=>o.setName('usuario').setDescription('Pessoa (opcional)')))
-      .addSubcommand(s=>s.setName('tipo').setDescription('Escolher tipo do pato (primeira vez grátis)')
-        .addStringOption(o=>o.setName('elemento').setDescription('Elemento do seu pato').setRequired(true)
-          .addChoices(...Object.entries(TYPES).map(([value,t])=>({name:t.emoji+' '+t.name,value})))))
-      .addSubcommand(s=>s.setName('golpes').setDescription('Ver seus ataques e inventário'))
-      .addSubcommand(s=>s.setName('loja').setDescription('Listar ração, TMs e itens de evolução'))
-      .addSubcommand(s=>s.setName('comprar').setDescription('Comprar item usando moedas de pato')
-        .addStringOption(o=>o.setName('item').setDescription('Item da loja').setRequired(true)
-          .addChoices(...Object.entries(SHOP).map(([value,t])=>({name:t.name,value})))))
-      .addSubcommand(s=>s.setName('usar').setDescription('Alimentar seu pato para subir de nível')
-        .addStringOption(o=>o.setName('item').setDescription('Ração do inventário').setRequired(true)
-          .addChoices({name:'Ração Estelar',value:'racao'},{name:'Super Ração',value:'super_racao'})))
-      .addSubcommand(s=>s.setName('tm').setDescription('Substituir um golpe com uma TM comprada')
-        .addStringOption(o=>o.setName('item').setDescription('TM do seu inventário').setRequired(true)
-          .addChoices(...Object.entries(SHOP).filter(([,v])=>v.kind==='tm')
-            .map(([value,t])=>({name:t.name,value}))))
-        .addIntegerOption(o=>o.setName('slot').setDescription('Posição do golpe a substituir (1, 2 ou 3)')
-          .setRequired(true).setMinValue(1).setMaxValue(3)))
+    new SlashCommandBuilder().setName('coinflip').setDescription('Caro ou coroa com 3 rodadas, sem apostas')
+      .addUserOption(o=>o.setName('jogador').setDescription('Pessoa para desafiar').setRequired(true)).setDMPermission(false),
+    new SlashCommandBuilder().setName('enviar').setDescription('Enviar moedas de pato a outro membro')
+      .addUserOption(o=>o.setName('jogador').setDescription('Quem vai receber').setRequired(true))
+      .addIntegerOption(o=>o.setName('valor').setDescription('Quantidade de moedas (1–500)').setRequired(true)
+        .setMinValue(1).setMaxValue(500)).setDMPermission(false),
+    new SlashCommandBuilder().setName('emblema').setDescription('Loja de emblemas com cargos especiais')
+      .addSubcommand(o=>o.setName('loja').setDescription('Consultar emblemas disponíveis'))
+      .addSubcommand(o=>o.setName('publicar').setDescription('Publicar painel da loja aqui (admin)'))
+      .addSubcommand(o=>o.setName('configurar').setDescription('Configurar emblema, cargo e preço (admin)')
+        .addStringOption(x=>x.setName('tipo').setDescription('Qual emblema?').setRequired(true)
+          .addChoices({name:'Bronze',value:'bronze'},{name:'Prata',value:'prata'},
+            {name:'Ouro',value:'ouro'},{name:'Diamante',value:'diamante'}))
+        .addRoleOption(x=>x.setName('cargo').setDescription('Cargo concedido ao comprar').setRequired(true))
+        .addIntegerOption(x=>x.setName('preco').setDescription('Preço em moedas')
+          .setRequired(true).setMinValue(1).setMaxValue(100000)))
+      .setDMPermission(false),
+    new SlashCommandBuilder().setName('diario').setDescription('Painel de recompensa de 20 moedas diárias')
+      .addSubcommand(x=>x.setName('publicar').setDescription('Publicar botão de recompensa diária aqui (admin)'))
       .setDMPermission(false),
     new SlashCommandBuilder().setName('campeonato').setDescription('Campeonato público de quiz')
       .addSubcommand(s=>s.setName('iniciar').setDescription('Começar campeonato para todos'))
@@ -92,7 +88,7 @@ export async function runNewCommand(interaction,{
 }={}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return false;
   const name=interaction.commandName;
-  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','batalha','minigame','moedas','afk','campeonato','pato'].includes(name))return false;
+  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','coinflip','enviar','emblema','diario','minigame','moedas','afk','campeonato'].includes(name))return false;
   if(name==='avatar'||name==='painel'){
     const isAdmin=Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
     if(name==='painel'&&!isAdmin){await reply(interaction,'Este painel é só para administradores.');return true;}
@@ -106,10 +102,12 @@ export async function runNewCommand(interaction,{
     }
     return true;
   }
-  if(name==='pato'){await community.pato(interaction);return true;}
+  if(name==='coinflip'){await community.coinFlip(interaction);return true;}
+  if(name==='enviar'){await community.transfer(interaction);return true;}
+  if(name==='emblema'){await community.badgeCommand(interaction);return true;}
+  if(name==='diario'){await community.dailyCommand(interaction);return true;}
   if(name==='moedas'||name==='afk'){await community.economy(interaction);return true;}
   if(name==='minigame'){await community.game(interaction);return true;}
-  if(name==='batalha'){await community.challenge(interaction);return true;}
   if(name==='campeonato'){await extras.startGame(interaction,{championship:true});return true;}
   if(name==='inventario'){
     const items=await store.getLoadouts(interaction.user.id);
