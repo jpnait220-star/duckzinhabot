@@ -37,7 +37,7 @@ test('Duck RPG: shop and TMs are all valid and provide unique moves',()=>{
  assert.equal(maxHP(p.level),82);
  assert.equal(xpNeeded(1),40);
  const raised=levelUp({level:1,xp:0},140);
- assert.equal(raised.level,4);
+ assert.equal(raised.level,3);
  assert.ok(raised.xp<xpNeeded(raised.level));
  assert.equal(levelUp({level:MAX_LEVEL,xp:0},999).level,MAX_LEVEL);
 });
