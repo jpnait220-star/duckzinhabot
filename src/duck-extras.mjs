@@ -120,7 +120,7 @@ export class DuckExtras{
     p.content+='\n\n'+(saved?'✅ Configuração salva no Supabase.':'⚠️ Ativo apenas até reiniciar (rode a migração SQL).');
     await interaction.update(p);
   }
-  startGame(interaction){return this.quiz.start(interaction);}
+  startGame(interaction,options){return this.quiz.start(interaction,options);}
   stopGame(interaction){return this.quiz.stop(interaction);}
   shutdown(){this.quiz.shutdown();}
 
