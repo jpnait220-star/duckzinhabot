@@ -8,13 +8,22 @@ const PRESETS={
   'pt-BR-FranciscaFofaNeural':[1.27,1.09],
   'pt-BR-FranciscaSuaveNeural':[1.08,0.87],
   'pt-BR-FranciscaAnimadaNeural':[1.18,1.20],
+  'pt-BR-FranciscaBemAnimadaNeural':[1.23,1.28],
+  'pt-BR-FranciscaSuperAnimadaNeural':[1.31,1.38],
+  'pt-BR-FranciscaFofaAnimadaNeural':[1.34,1.24],
   'pt-BR-ThalitaMultilingualNeural':[0.98,0.98],
   'pt-BR-ThalitaFofaNeural':[1.21,1.12],
   'pt-BR-ThalitaSuaveNeural':[0.94,0.88],
+  'pt-BR-ThalitaAnimadaNeural':[1.12,1.20],
+  'pt-BR-ThalitaSuperAnimadaNeural':[1.21,1.32],
   'pt-BR-AntonioNeural':[0.78,0.93],
+  'pt-BR-AntonioAnimadoNeural':[0.88,1.16],
   'pt-BR-RaquelPortugalNeural':[1.07,0.97],
   'pt-BR-RaquelFofaNeural':[1.24,1.10],
-  'pt-BR-DuartePortugalNeural':[0.77,0.92]
+  'pt-BR-RaquelAnimadaNeural':[1.15,1.19],
+  'pt-BR-RaquelSuperAnimadaNeural':[1.23,1.29],
+  'pt-BR-DuartePortugalNeural':[0.77,0.92],
+  'pt-BR-DuarteAnimadoNeural':[0.86,1.15]
 };
 export function googleVoicePreset(voice){
   const item=PRESETS[voice];
