@@ -741,13 +741,17 @@ client.on(Events.MessageCreate,async message=>{
       (!aiAnswered&&Boolean(researchTopic(question))));
     if(shouldOffer)answer='Aii, ainda não tenho certeza sobre isso! 🦆💛 **Você quer me explicar ou prefere que eu pesquise na internet?**';
     const sources=searching&&webFacts?.status==='ok'?sourcesButton(webFacts.results):null;
-    const components=shouldOffer?[unknownButtons(id)]:(sources?[sources.row]:[]);
+    // Disponibiliza o botão no chat da call sem executar pesquisas automaticamente.
+    // Apenas quem perguntou pode clicar; a validação ocorre em handleDuckButton.
+    const isVoiceChat=message.channel?.type===ChannelType.GuildVoice;
+    const offerSearch=shouldOffer||(isVoiceChat&&!searching&&mentioned);
+    const components=offerSearch?[unknownButtons(id)]:(sources?[sources.row]:[]);
     if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
-    const voiceText=message.channel?.type===ChannelType.GuildVoice?voiceReadableText(answer):null;
-    const sent=await message.reply({content:voiceText||answer.slice(0,1900),components:voiceText?[]:components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
+    const voiceText=isVoiceChat?voiceReadableText(answer):null;
+    const sent=await message.reply({content:voiceText||answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
-      if(shouldOffer)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
+      if(offerSearch)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
       if(isAffinityEnabled)
         void store.incrementFamiliarity(id,{toneChange,score:affinityScore})
           .catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
@@ -861,8 +865,10 @@ async function handleDuckButton(interaction){
     webFacts.results.slice(0,2).map(item=>item.title+': '+item.summary).join(' ');
   const sources=sourcesButton(webFacts.results);
   const text=safeResponse(answer)||'Encontrei algumas fontes. Confira no botão abaixo!';
+  const voiceReply=interaction.channel?.type===ChannelType.GuildVoice;
+  const answerForChat=voiceReply?voiceReadableText(text).slice(0,1700):text.slice(0,1700);
   const sent=await interaction.message.reply({
-    content:text.slice(0,1700),
+    content:answerForChat,
     components:[sources.row],
     allowedMentions:{repliedUser:false,parse:[]}
   }).catch(err=>{console.warn('[Duckzinha] Falha ao enviar resultado pesquisado: '+err.message);return null});
@@ -871,6 +877,7 @@ async function handleDuckButton(interaction){
     await addHistory(interaction.user.id,question,text,webFacts.results)
       .catch(err=>console.warn('[Duckzinha] Histórico da pesquisa pelo botão: '+err.message));
     void schedule(sent).catch(()=>{});
+    if(voiceReply)void speakDuckReply(interaction.guildId,interaction.channelId,answerForChat);
     await interaction.editReply('Pesquisei e respondi no canal! 💛 Clique em **Ver fontes** para conferir os sites.');
   }else{
     researchSources.delete(sources.id);
