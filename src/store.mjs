@@ -70,6 +70,9 @@ export class DuckStore {
     await this.requireResult(this.db.from('duckzinha_avatars').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
         console.warn('[Duckzinha] Avatar: '+err.message));
+    for(const table of ['duckzinha_wallets','duckzinha_coin_events','duckzinha_afk','duckzinha_loadouts'])
+      await this.requireResult(this.db.from(table).delete().eq('guild_id',this.guildId)
+        .eq('discord_user_id',discordId)).catch(err=>console.warn('[Duckzinha] Privacidade: '+err.message));
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
       console.warn('[Duckzinha] Fatos pessoais: '+err.message));
@@ -133,6 +136,38 @@ export class DuckStore {
       guild_id:this.guildId,features,updated_by:adminId,
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id'}));
+  }
+  async getBalance(user){
+    if(!this.db)return 0;
+    const row=await this.requireResult(this.db.from('duckzinha_wallets').select('coins')
+      .eq('guild_id',this.guildId).eq('discord_user_id',user).maybeSingle());
+    return Number(row?.coins)||0;
+  }
+  async awardCoins(user,key,kind,amount,limit){
+    if(!this.db)return 0;
+    return await this.requireResult(this.db.rpc('duckzinha_award_coins',{
+      p_guild:this.guildId,p_user:user,p_key:key,p_kind:kind,p_coins:amount,p_daily_limit:limit
+    }));
+  }
+  async startAfk(user){
+    if(!this.db)return false;
+    return await this.requireResult(this.db.rpc('duckzinha_start_afk',{p_guild:this.guildId,p_user:user}));
+  }
+  async claimAfk(user){
+    if(!this.db)return {ok:false,reason:'none'};
+    return await this.requireResult(this.db.rpc('duckzinha_claim_afk',{p_guild:this.guildId,p_user:user}));
+  }
+  async getLoadouts(user){
+    if(!this.db)return [];
+    return await this.requireResult(this.db.from('duckzinha_loadouts')
+      .select('slot,avatar').eq('guild_id',this.guildId).eq('discord_user_id',user).order('slot'))||[];
+  }
+  async saveLoadout(user,slot,avatar){
+    if(!this.db)throw Error('Supabase indisponível.');
+    if(!Number.isInteger(slot)||slot<1||slot>5)throw Error('Slot inválido.');
+    await this.requireResult(this.db.from('duckzinha_loadouts').upsert({
+      guild_id:this.guildId,discord_user_id:user,slot,avatar,updated_at:new Date().toISOString()
+    },{onConflict:'guild_id,discord_user_id,slot'}));
   }
   async getAvatar(discordId){
     if(!this.db)return null;
