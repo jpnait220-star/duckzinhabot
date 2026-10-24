@@ -75,7 +75,9 @@ export class DuckExtras{
     this.settings=next;
     try{
       if(this.store?.persistent){
-        await this.store.setFeatureSettings(next,adminId);
+        // Preservar opções de outros painéis (como o canal de logs).
+        const existing=await this.store.getFeatureSettings();
+        await this.store.setFeatureSettings({...existing,...next},adminId);
         return true;
       }
     }catch(err){console.warn('[Duckzinha] Painel: configurações apenas em RAM ('+err.message+')');}
