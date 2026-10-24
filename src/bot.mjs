@@ -16,7 +16,8 @@ import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-vis
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech} from './duck-tts.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
-import {runNewCommand} from './duck-features.mjs';
+import {runNewCommand,runMessageMenu} from './duck-features.mjs';
+import {DuckCommunity,naturalTeaching} from './duck-community.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -52,6 +53,7 @@ const client=new Client({intents:[
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
 const extras=new DuckExtras({store});
 const studio=new DuckStudio({store,extras,client});
+const community=new DuckCommunity({store,extras});
 let selectedVoice=DEFAULT_VOICE;
 const voiceNoticeTimes=new Map();
 async function testDuckVoice(interaction){
@@ -578,6 +580,7 @@ client.on(Events.MessageCreate,async message=>{
       return;
     }
   }
+  const plainTeaching=mentioned&&isPublic?naturalTeaching(rawQuestion):null;
   const candidate=isPublic?captureCandidate(rawQuestion,{
     mentioned,isStaff:Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild))
   }):null;
@@ -591,6 +594,23 @@ client.on(Events.MessageCreate,async message=>{
     Date.now()-pending.at<10*60_000&&
     (mentioned||message.reference?.messageId===pending.promptId||
       Date.now()-pending.at<90_000));
+  if(plainTeaching&&store.persistent){
+    const staff=Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild));
+    const user=await store.getMember(id).catch(()=>null);
+    if(user?.enabled===false)return;
+    if(plainTeaching.kind==='server'&&!staff){
+      const sent=await message.reply({content:'🦆 Para adicionar conhecimento oficial da comunidade, peça à equipe. Posso lembrar suas preferências pessoais quando você pedir.',allowedMentions:{parse:[]}}).catch(()=>null);
+      if(sent)void schedule(sent);return;
+    }
+    try{
+      if(plainTeaching.kind==='server')await store.teach(plainTeaching.topic,plainTeaching.value);
+      else await store.saveProfileFact(id,'lembrete',plainTeaching.value);
+      await community.awardTeach(id,message.id);
+      const notice=await message.reply({content:'🧠 Aprendi e salvei: **'+plainTeaching.value.slice(0,165)+'**. Obrigada! 💛',allowedMentions:{parse:[]}}).catch(()=>null);
+      if(notice)void schedule(notice);
+    }catch(err){console.warn('[Duckzinha] Ensino natural: '+err.message);}
+    return;
+  }
   if(!mentioned&&!confirmation&&!explaining){
     if(candidate){
       try{
@@ -761,10 +781,11 @@ client.on(Events.MessageCreate,async message=>{
         void store.incrementFamiliarity(id,{toneChange,score:affinityScore})
           .catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
       // Never wait for background database writes before releasing the user.
-      if((modelReady&&aiAnswered)||(searching&&webFacts?.status==='ok'))
+      if(member?.enabled!==false)
         void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
           .catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
       void schedule(sent).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
+      if(isPublic&&member?.enabled!==false)void community.awardTalk(id,message.id);
       if(voiceText)void speakDuckReply(message.guildId,message.channelId,voiceText);
       console.log('[Duckzinha] Resposta enviada ao Discord.');
     }
@@ -951,6 +972,8 @@ client.on(Events.InteractionCreate,async interaction=>{
     try{
       if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
       if(interaction.customId.startsWith('duckpublic:')||interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
+      if(interaction.customId.startsWith('duckbattle:'))return await community.battleButton(interaction);
+      if(interaction.customId.startsWith('duckmini:'))return await community.gameButton(interaction);
       await handleDuckButton(interaction);
     }
     catch(err){
@@ -964,7 +987,8 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
-    if(await runNewCommand(interaction,{store,extras,studio,selectedVoice:()=>selectedVoice,findReactionFile}))return;
+    if(interaction.isMessageContextMenuCommand?.())return;
+    if(await runNewCommand(interaction,{store,extras,studio,community,selectedVoice:()=>selectedVoice,findReactionFile}))return;
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
