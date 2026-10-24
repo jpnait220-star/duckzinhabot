@@ -972,7 +972,9 @@ client.on(Events.InteractionCreate,async interaction=>{
     try{
       if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
       if(interaction.customId.startsWith('duckpublic:')||interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
-      if(interaction.customId.startsWith('duckbattle:'))return await community.battleButton(interaction);
+      if(interaction.customId.startsWith('duckcoin:'))return await community.coinButton(interaction);
+      if(interaction.customId.startsWith('duckbadge:'))return await community.badgeButton(interaction);
+      if(interaction.customId.startsWith('duckdaily:'))return await community.dailyButton(interaction);
       if(interaction.customId.startsWith('duckmini:'))return await community.gameButton(interaction);
       await handleDuckButton(interaction);
     }
