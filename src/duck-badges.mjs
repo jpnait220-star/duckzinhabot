@@ -36,7 +36,7 @@ export async function validatedRole(interaction,roleId){
  return role;
 }
 export function badgePanel(items){
- const content='🏷️ **LOJA DE EMBLEMAS DA DUCKZINHA**\n\n'+
+ const content='@everyone\n\n## 🏷️ Loja de Emblemas\n'+
    items.map(x=>(BADGES[x.badge_key]?.emoji||'🏷️')+' **'+x.label+'** • '+
      x.price+' 🪙\nCargo: <@&'+x.role_id+'>').join('\n\n')+
    '\n\n🛍️ **Compre seu emblema e receba um cargo exclusivo!**\n'+
@@ -46,17 +46,18 @@ export function badgePanel(items){
    new ButtonBuilder().setCustomId('duckbadge:'+x.badge_key)
      .setLabel(x.label.slice(0,55)).setEmoji(BADGES[x.badge_key]?.emoji||'🏷️')
      .setStyle(ButtonStyle.Primary)));
- return {content,components:[row],allowedMentions:{parse:[]}};
+ return {content,components:[row],allowedMentions:{parse:['everyone']}};
 }
 export const dailyPanel=()=>({
- content:'🪙 **MOEDAS DIÁRIAS DA DUCKZINHA**\n'+
-   'Clique abaixo para ganhar **20 moedas de pato por dia**!\n'+
-   'A recompensa reinicia à meia-noite no horário de Brasília/Salvador (Bahia).\n'+
-   '💛 Moedas servem para comprar emblemas, sem apostas.',
+ content:'@everyone\n\n## 🪙 Recompensa Diária\n'+
+   '🎁 **20 moedas** para resgatar todos os dias!\n\n'+
+   '⏰ Disponível novamente à meia-noite (horário da Bahia).\n'+
+   '🏷️ Use suas moedas na Loja de Emblemas.\n\n'+
+   '✨ Clique no botão abaixo para resgatar as suas.',
  components:[new ActionRowBuilder().addComponents(
    new ButtonBuilder().setCustomId('duckdaily:claim').setLabel('Resgatar 20 moedas')
      .setEmoji('🪙').setStyle(ButtonStyle.Success)
- )],allowedMentions:{parse:[]}
+ )],allowedMentions:{parse:['everyone']}
 });
 export class DuckBadgeShop{
  constructor({store}={}){this.store=store;}
@@ -72,6 +73,8 @@ export class DuckBadgeShop{
    if(!interaction.channel.permissionsFor(me)?.has(
      [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages]))
      return interaction.reply(hidden('Preciso de acesso para publicar nesse canal.'));
+   if(!interaction.channel.permissionsFor(me)?.has(PermissionFlagsBits.MentionEveryone))
+     return interaction.reply(hidden('Para avisar @everyone, preciso da permissão Mencionar @everyone neste canal.'));
    for(const item of items){
      try{await validatedRole(interaction,item.role_id);}
      catch(err){return interaction.reply(hidden('Erro no emblema '+item.label+': '+err.message));}
@@ -141,6 +144,8 @@ export class DuckBadgeShop{
    if(!interaction.channel.permissionsFor(me)?.has(
      [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages]))
      return interaction.reply(hidden('Preciso de permissão para publicar mensagens aqui.'));
+   if(!interaction.channel.permissionsFor(me)?.has(PermissionFlagsBits.MentionEveryone))
+     return interaction.reply(hidden('Para avisar @everyone, preciso da permissão Mencionar @everyone neste canal.'));
    await interaction.channel.send(dailyPanel());
    return interaction.reply(hidden('✅ Painel de 20 moedas diárias publicado!'));
  }
