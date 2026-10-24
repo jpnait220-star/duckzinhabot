@@ -65,7 +65,7 @@ test('a partida de três rodadas é de quem aceita e não debita moedas',async()
  for(let i=0;i<60&&!messages.some(x=>/RESULTADO DO COINFLIP/.test(x.content));i++)
    await new Promise(resolve=>setTimeout(resolve,10));
  assert.equal(messages.filter(x=>/RODADA \d\/3/.test(x.content)).length,3);
- assert.match(messages.at(-1).content,/2 × \*\*1/);
+ assert.match(messages.at(-1).content,/\*\*2\*\* × \*\*1\*\*/);
  assert.match(messages.at(-1).content,/Nenhuma moeda foi apostada/);
  assert.equal(games.games.size,0);
  assert.equal(games.players.size,0);
