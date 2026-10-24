@@ -1,5 +1,6 @@
 import {AttachmentBuilder,EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 'discord.js';
 import {renderAvatar} from './duck-avatar.mjs';
+import {configureModerationLogs} from './duck-moderation-log.mjs';
 import {voiceReadableText} from './voice-visit.mjs';
 import {synthesizeDuckSpeech} from './duck-tts.mjs';
 import {expressiveVoice} from './duck-extras.mjs';
@@ -53,6 +54,13 @@ export function newCommands(){
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
       .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
         .addChoices({name:'Iniciar',value:'iniciar'},{name:'Resgatar',value:'resgatar'})).setDMPermission(false),
+    new SlashCommandBuilder().setName('modlog').setDescription('Configurar logs de banimentos e castigos (admin)')
+      .addSubcommand(x=>x.setName('configurar').setDescription('Escolher canal que receberá os registros')
+        .addChannelOption(o=>o.setName('canal').setDescription('Canal de texto dos logs')
+          .addChannelTypes(0,5).setRequired(true)))
+      .addSubcommand(x=>x.setName('ver').setDescription('Consultar o canal atual'))
+      .addSubcommand(x=>x.setName('desativar').setDescription('Parar de registrar as punições'))
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false),
     new SlashCommandBuilder().setName('coinflip').setDescription('Caro ou coroa com 3 rodadas, sem apostas')
       .addUserOption(o=>o.setName('jogador').setDescription('Pessoa para desafiar').setRequired(true)).setDMPermission(false),
     new SlashCommandBuilder().setName('enviar').setDescription('Enviar moedas de pato a outro membro')
@@ -88,7 +96,7 @@ export async function runNewCommand(interaction,{
 }={}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return false;
   const name=interaction.commandName;
-  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','coinflip','enviar','emblema','diario','minigame','moedas','afk','campeonato'].includes(name))return false;
+  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','coinflip','enviar','emblema','diario','minigame','moedas','afk','campeonato','modlog'].includes(name))return false;
   if(name==='avatar'||name==='painel'){
     const isAdmin=Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
     if(name==='painel'&&!isAdmin){await reply(interaction,'Este painel é só para administradores.');return true;}
@@ -102,6 +110,7 @@ export async function runNewCommand(interaction,{
     }
     return true;
   }
+  if(name==='modlog'){await configureModerationLogs(interaction,{store});return true;}
   if(name==='coinflip'){await community.coinFlip(interaction);return true;}
   if(name==='enviar'){await community.transfer(interaction);return true;}
   if(name==='emblema'){await community.badgeCommand(interaction);return true;}
