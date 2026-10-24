@@ -221,3 +221,15 @@ apenas para preservar históricos até que a exclusão seja solicitada.
 - O renderizador usa o `ffmpeg-static` **já instalado**, gera tudo na FadeHost sem API externa, sem ENV nova e sem imagens compradas. Renderizações de cara e coroa são reutilizadas em cache na memória para evitar recomputação a cada rodada. Se o FFmpeg não conseguir gerar MP4, o bot recorre ao MP3 antigo sem encerrar a partida.
 - **O coinflip não aposta moedas:** ninguém tem moedas retiradas nem recebidas de acordo com o sorteio; o sistema separado de emblemas e recompensas diárias continua igual.
 - Há testes que verificam quadros diferentes, as duas faces, efeitos de áudio e a presença de faixas de vídeo e som nos MP4 reais. Para visualizar, inicie um desafio após atualizar o bot pela branch `asasa` na FadeHost.
+
+
+## 🛡️ Moderação por menção e canal de logs
+
+- Apenas membros com permissão **Administrador** podem solicitar punições por menção à Duckzinha. A bot também precisa das permissões **Banir Membros** ou **Moderar Membros** e de hierarquia suficiente.
+- Exemplos: @Duckzinha bana @usuario motivo: spam, @Duckzinha desbana @usuario.legal, @Duckzinha desbana 123456789012345678, @Duckzinha castiga @usuario por 10 minutos, @Duckzinha tira o castigo @usuario.
+- **Desbanir pelo nome** procura o **username real do Discord** na lista de banidos, sem usar nome de exibição nem apelido do servidor. O ID também funciona. A identificação é exata, nunca por aproximação.
+- As respostas públicas da Duckzinha são curtas e descontraídas (com o tom de "bobão" quando adequado). O registro no canal de logs é objetivo e inclui username, ID, administrador, ação, motivo, duração do castigo quando aplicável e data/hora.
+- Como administrador, crie um canal de texto privado **#ban-logs**, conceda à Duckzinha acesso de leitura, envio e links e use **/modlog configurar canal:#ban-logs**.
+- **/modlog ver** consulta o destino, **/modlog desativar** encerra os registros. O canal é salvo nas configurações existentes do Supabase e permanece após reiniciar, sem nova ENV nem migração SQL.
+- Os logs deste recurso são enviados nas ações executadas **pela própria Duckzinha**, não em banimentos manuais de outros moderadores. Não enviam @everyone.
+- Se o canal de logs ficar sem permissão, o comando de moderação já realizado não é desfeito: a Duckzinha avisa que o registro não foi enviado. Os logs dependem de um canal válido e de Supabase configurado.
