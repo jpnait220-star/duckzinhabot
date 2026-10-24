@@ -3,21 +3,22 @@ import assert from 'node:assert/strict';
 import {PermissionFlagsBits,MessageFlags} from 'discord.js';
 import {runCommand,commandPayloads} from '../src/commands.mjs';
 import {googleVoicePreset,googleVoiceFilter} from '../src/google-voice-style.mjs';
+import {expressiveVoice} from '../src/duck-extras.mjs';
 import {
   DEFAULT_VOICE,PT_BR_VOICES,voiceChoices,voiceLabel,validVoice,
   edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech,googleSpeechFallback
 } from '../src/duck-tts.mjs';
 
-test('Onze escolhas (cinco vozes base) aparecem no /duckzinha voice nome',()=>{
-  assert.equal(PT_BR_VOICES.length,11);
-  assert.equal(voiceChoices().length,11);
+test('Vinte estilos (cinco vozes-base) aparecem no /duckzinha voice nome',()=>{
+  assert.equal(PT_BR_VOICES.length,20);
+  assert.equal(voiceChoices().length,20);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
   assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca • Natural');
   assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
     .options.find(x=>x.name==='voice').options[0].choices;
-  assert.equal(choices.length,11);
+  assert.equal(choices.length,20);
   assert.ok(choices.some(x=>x.value==='pt-BR-FranciscaNeural'));
   assert.ok(choices.some(x=>x.value==='pt-BR-AntonioNeural'));
   assert.ok(choices.some(x=>x.name.includes('Portugal')));
@@ -189,4 +190,86 @@ test('A voz alternativa selecionada passa pelo filtro local e vira WebM/Opus',as
   assert.deepEqual(calledSource,mp3);
   assert.equal(result,webm);
   assert.equal(result.duckTtsProvider,'google-styled');
+});
+
+
+const NEW_ANIMATED=[
+  ['pt-BR-FranciscaBemAnimadaNeural','pt-BR-FranciscaNeural'],
+  ['pt-BR-FranciscaSuperAnimadaNeural','pt-BR-FranciscaNeural'],
+  ['pt-BR-FranciscaFofaAnimadaNeural','pt-BR-FranciscaNeural'],
+  ['pt-BR-ThalitaAnimadaNeural','pt-BR-ThalitaMultilingualNeural'],
+  ['pt-BR-ThalitaSuperAnimadaNeural','pt-BR-ThalitaMultilingualNeural'],
+  ['pt-BR-RaquelAnimadaNeural','pt-PT-RaquelNeural'],
+  ['pt-BR-RaquelSuperAnimadaNeural','pt-PT-RaquelNeural'],
+  ['pt-BR-AntonioAnimadoNeural','pt-BR-AntonioNeural'],
+  ['pt-BR-DuarteAnimadoNeural','pt-PT-DuarteNeural']
+];
+
+test('Novos estilos animados são únicos, selecionáveis e têm ajustes diferentes',()=>{
+  const choiceValues=voiceChoices().map(x=>x.value);
+  assert.equal(choiceValues.length,new Set(choiceValues).size);
+  assert.ok(choiceValues.length<=25,'Discord aceita no máximo 25 opções estáticas');
+  for(const [id,edgeId] of NEW_ANIMATED){
+    assert.equal(validVoice(id),true,id);
+    const found=PT_BR_VOICES.find(x=>x.id===id);
+    assert.equal(found.edgeId,edgeId,id);
+    assert.match(found.name,/Animad/);
+    assert.ok(googleVoicePreset(id).speed>1.08,id);
+    assert.ok(googleVoicePreset(id).pitch>0,id);
+    assert.match(edgeVoiceOptions(id).rate,/^\+[0-9]+%$/);
+  }
+  assert.ok(googleVoicePreset('pt-BR-FranciscaSuperAnimadaNeural').speed>
+    googleVoicePreset('pt-BR-FranciscaBemAnimadaNeural').speed);
+  assert.ok(googleVoicePreset('pt-BR-ThalitaSuperAnimadaNeural').speed>
+    googleVoicePreset('pt-BR-ThalitaAnimadaNeural').speed);
+  assert.notEqual(
+    googleVoiceFilter('pt-BR-RaquelSuperAnimadaNeural'),
+    googleVoiceFilter('pt-BR-RaquelAnimadaNeural')
+  );
+});
+
+test('Humor animado muda vozes naturais sem sobrescrever estilo escolhido explicitamente',()=>{
+  assert.equal(expressiveVoice('pt-BR-ThalitaMultilingualNeural','animada'),
+    'pt-BR-ThalitaAnimadaNeural');
+  assert.equal(expressiveVoice('pt-BR-RaquelPortugalNeural','animada'),
+    'pt-BR-RaquelAnimadaNeural');
+  assert.equal(expressiveVoice('pt-BR-AntonioNeural','animada'),
+    'pt-BR-AntonioAnimadoNeural');
+  assert.equal(expressiveVoice('pt-BR-DuartePortugalNeural','animada'),
+    'pt-BR-DuarteAnimadoNeural');
+  assert.equal(expressiveVoice('pt-BR-FranciscaSuperAnimadaNeural','calma'),
+    'pt-BR-FranciscaSuperAnimadaNeural');
+  assert.equal(expressiveVoice('pt-BR-FranciscaNeural','animada',false),
+    'pt-BR-FranciscaNeural');
+});
+
+test('Os novos estilos usam Edge real e Google localizados com o preset escolhido',async()=>{
+  const fakeAudio=Buffer.concat([Buffer.from([0x1a,0x45,0xdf,0xa3]),Buffer.alloc(64)]);
+  let call;
+  const audio=await synthesizeDuckSpeech({
+    text:'Que legal!',voice:'pt-BR-FranciscaSuperAnimadaNeural',
+    ttsFactory:()=>({generate:async(text,voice,options)=>{
+      call={text,voice,options};
+      return {audio:fakeAudio};
+    }})
+  });
+  assert.equal(audio.duckTtsProvider,'edge');
+  assert.equal(call.voice,'pt-BR-FranciscaNeural');
+  assert.equal(call.options.rate,'+28%');
+  let language='',appliedId='';
+  const styled=await synthesizeDuckSpeech({
+    text:'Vamos!',voice:'pt-BR-RaquelAnimadaNeural',
+    ttsFactory:()=>({generate:async()=>{throw Error('Edge indisponível')}}),
+    fallbackFetch:async url=>{
+      language=new URL(url).searchParams.get('tl');
+      return {ok:true,status:200,arrayBuffer:async()=>Buffer.concat([Buffer.from('ID3'),Buffer.alloc(200)])};
+    },
+    fallbackStyler:async(mp3,id)=>{
+      appliedId=id;
+      return Buffer.concat([Buffer.from([0x1a,0x45,0xdf,0xa3]),Buffer.alloc(64)]);
+    }
+  });
+  assert.equal(language,'pt-PT');
+  assert.equal(appliedId,'pt-BR-RaquelAnimadaNeural');
+  assert.equal(styled.duckTtsProvider,'google-styled');
 });
