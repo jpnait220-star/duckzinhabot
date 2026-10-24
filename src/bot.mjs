@@ -12,6 +12,7 @@ import {captureCandidate} from './memory-capture.mjs';
 import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from './community-events.mjs';
 import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
+import {parseModerationRequest,handleModerationRequest} from './duck-moderation.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech} from './duck-tts.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
@@ -563,6 +564,20 @@ client.on(Events.MessageCreate,async message=>{
   // Conserva as mensagens normais de canais públicos somente em RAM.
   const isPublic=addRecent(message);
   const rawQuestion=stripMentions(message.content,client.user.id);
+  // Moderação natural: ação explícita, com permissão Administrador confirmada
+  // pelo Discord. Nunca passar ordens de punição para a IA interpretar.
+  if(mentioned){
+    const moderation=parseModerationRequest(message.content,client.user.id);
+    if(moderation){
+      try{await handleModerationRequest(message,moderation,{botId:client.user.id});}
+      catch(err){
+        console.warn('[Duckzinha] Falha na moderação: '+String(err?.message||err));
+        await message.reply({content:'⚠️ Não consegui concluir a ação de moderação.',
+          allowedMentions:{parse:[],repliedUser:false}}).catch(()=>{});
+      }
+      return;
+    }
+  }
   // O chat da call só pode chamar a Duckzinha quando o autor participa dessa call.
   if(mentioned&&message.channel?.type===ChannelType.GuildVoice){
     if(!voiceMentionContext(message)){
