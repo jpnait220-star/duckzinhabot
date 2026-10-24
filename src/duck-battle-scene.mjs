@@ -32,7 +32,7 @@ function oval(p,x,y,rx,ry,c){
 function sprite(p,avatar,x,y,w,{facingBack=false}={}){
  // Os sprites partem do mesmo renderizador do /avatar e mantêm as personalizações.
  const a=normalizeAvatar(avatar);
- const src=avatarPixels(a);
+ const src=avatarPixels(a,{transparent:true,backView:facingBack});
  const scale=w/src.w,h=Math.round(src.h*scale);
  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
    const sx=Math.min(src.w-1,Math.floor(i/scale)),sy=Math.min(src.h-1,Math.floor(j/scale));
@@ -40,10 +40,10 @@ function sprite(p,avatar,x,y,w,{facingBack=false}={}){
    // usa os próprios retratos quadrados com borda de carta consistente.
    const k=(sy*src.w+sx)*4;
    const c=[src.pixels[k],src.pixels[k+1],src.pixels[k+2]];
-   paint(p,x+i,y+j,c);
+   if(src.pixels[k+3]>20)paint(p,x+i,y+j,c);
  }
  // Indicador discreto de posição, sem alterar roupas ou rosto do jogador.
- if(facingBack){block(p,x+6,y+h-13,w-12,6,[77,61,108]);}
+
 }
 function bar(p,x,y,w,value,max){
  block(p,x-2,y-2,w+4,20,[20,23,36]);block(p,x,y,w,16,[76,70,95]);
