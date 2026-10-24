@@ -106,7 +106,7 @@ test('painéis de loja e diário usam IDs permanentes nos botões',()=>{
  assert.equal(shop.components.length,1);
  assert.equal(shop.components[0].components[0].data.custom_id,'duckbadge:bronze');
  assert.equal(shop.components[0].components[1].data.custom_id,'duckbadge:ouro');
- assert.match(shop.content,/canais exclusivos/);
+ assert.match(shop.content,/cargo exclusivo/);
  assert.match(shop.content,/Loja de Emblemas/);
  assert.doesNotMatch(shop.content,/LOJA DE EMBLEMAS DA DUCKZINHA/i);
  assert.match(shop.content,/^@everyone/);
