@@ -23,6 +23,10 @@ export function newCommands(){
       .setDMPermission(false),
     new SlashCommandBuilder().setName('falar').setDescription('Enviar mensagem de voz da Duckzinha (somente admin)')
       .addStringOption(o=>o.setName('texto').setDescription('Texto a ser falado').setRequired(true).setMinLength(1).setMaxLength(250))
+      .addStringOption(o=>o.setName('expressao').setDescription('Como a Duckzinha deve falar')
+       .addChoices({name:'Automática',value:'auto'},{name:'Animada',value:'animada'},
+         {name:'Calma',value:'calma'},{name:'Curiosa',value:'curiosa'},
+         {name:'Sonolenta',value:'sonolenta'}))
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .setDMPermission(false),
     new SlashCommandBuilder().setName('reacao').setDescription('Enviar uma reação ilustrada da Duckzinha')
@@ -147,7 +151,8 @@ export async function runNewCommand(interaction,{
     lastVoice.set(interaction.user.id,now);
     await interaction.deferReply({flags:MessageFlags.Ephemeral});
     try{
-      const selected=expressiveVoice(selectedVoice(),extras.mood(text),extras.settings.emotionalVoice);
+      const emotion=interaction.options.getString('expressao');
+      const selected=expressiveVoice(selectedVoice(),emotion&&emotion!=='auto'?emotion:extras.mood(text),extras.settings.emotionalVoice);
       const audio=await synthesizeDuckSpeech({text:voiceReadableText(text),voice:selected});
       const converted=await convertToVoiceMessage(audio);
       await sendNativeVoice(interaction,converted);
