@@ -62,7 +62,7 @@ export const dailyPanel=()=>({
 // Apenas a publicação feita por um administrador avisa o servidor todo.
 // Painéis isolados, respostas a botões, consultas e atualizações não mencionam @everyone.
 export function publishedPanel(panel){
- return {...panel,content:'@everyone\\n\\n'+panel.content,
+ return {...panel,content:'@everyone\n\n'+panel.content,
    allowedMentions:{parse:['everyone']}};
 }
 export class DuckBadgeShop{
