@@ -38,10 +38,20 @@ const emotionMap={
     curiosa:'pt-BR-FranciscaFofaNeural'
   },
   'pt-BR-ThalitaMultilingualNeural':{
-    animada:'pt-BR-ThalitaFofaNeural',
+    animada:'pt-BR-ThalitaAnimadaNeural',
     calma:'pt-BR-ThalitaSuaveNeural',
     sonolenta:'pt-BR-ThalitaSuaveNeural',
     curiosa:'pt-BR-ThalitaFofaNeural'
+  },
+  'pt-BR-RaquelPortugalNeural':{
+    animada:'pt-BR-RaquelAnimadaNeural',
+    curiosa:'pt-BR-RaquelFofaNeural'
+  },
+  'pt-BR-AntonioNeural':{
+    animada:'pt-BR-AntonioAnimadoNeural'
+  },
+  'pt-BR-DuartePortugalNeural':{
+    animada:'pt-BR-DuarteAnimadoNeural'
   }
 };
 export function expressiveVoice(current,mood,enabled=true){
