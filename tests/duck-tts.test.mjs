@@ -9,16 +9,16 @@ import {
   edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech,googleSpeechFallback
 } from '../src/duck-tts.mjs';
 
-test('Vinte estilos (cinco vozes-base) aparecem no /duckzinha voice nome',()=>{
-  assert.equal(PT_BR_VOICES.length,20);
-  assert.equal(voiceChoices().length,20);
+test('Vinte e cinco estilos de voz aparecem no /duckzinha voice nome',()=>{
+  assert.equal(PT_BR_VOICES.length,25);
+  assert.equal(voiceChoices().length,25);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
   assert.equal(voiceLabel(DEFAULT_VOICE),'Francisca • Natural');
   assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
     .options.find(x=>x.name==='voice').options[0].choices;
-  assert.equal(choices.length,20);
+  assert.equal(choices.length,25);
   assert.ok(choices.some(x=>x.value==='pt-BR-FranciscaNeural'));
   assert.ok(choices.some(x=>x.value==='pt-BR-AntonioNeural'));
   assert.ok(choices.some(x=>x.name.includes('Portugal')));
