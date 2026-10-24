@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DuckPublicQuiz,levelForStreak} from '../src/duck-public-quiz.mjs';
+import {DuckPublicQuiz} from '../src/duck-public-quiz.mjs';
+import {levelForStreak} from '../src/duck-quiz.mjs';
 import {MessageFlags,PermissionFlagsBits} from 'discord.js';
 import {newCommands,runNewCommand} from '../src/duck-features.mjs';
 
