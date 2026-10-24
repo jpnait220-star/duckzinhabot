@@ -1,4 +1,5 @@
 import {deflateSync} from 'node:zlib';
+import {drawAuraBehind,drawAuraAccent} from './duck-aura-details.mjs';
 
 // O avatar é desenhado no servidor, sem imagens externas ou pacotes nativos.
 // Cada cosmético ocupa uma camada própria para permitir combinações.
@@ -586,8 +587,8 @@ function encodePng(pixels){
 }
 export function renderAvatar(data={}){
   const a=normalizeAvatar(data),d=drawSurface();
-  backdrop(d,a);aura(d,a);petBehind(d,a.pet);duck(d,a);
-  faceGear(d,a.rosto);hat(d,a.chapeu);handGear(d,a.maos);
+  backdrop(d,a);aura(d,a);drawAuraBehind(d,a);petBehind(d,a.pet);duck(d,a);
+  faceGear(d,a.rosto);hat(d,a.chapeu);handGear(d,a.maos);drawAuraAccent(d,a);
   // Brilhos de primeiro plano, evitando poluir o rosto.
   d.ellipse(36,289,3,3,'#ffffff',.72);
   d.ellipse(281,129,3,3,'#ffffff',.57);
