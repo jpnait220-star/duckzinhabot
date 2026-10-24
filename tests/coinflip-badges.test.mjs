@@ -107,8 +107,15 @@ test('painéis de loja e diário usam IDs permanentes nos botões',()=>{
  assert.equal(shop.components[0].components[0].data.custom_id,'duckbadge:bronze');
  assert.equal(shop.components[0].components[1].data.custom_id,'duckbadge:ouro');
  assert.match(shop.content,/canais exclusivos/);
+ assert.match(shop.content,/Loja de Emblemas/);
+ assert.doesNotMatch(shop.content,/LOJA DE EMBLEMAS DA DUCKZINHA/i);
+ assert.match(shop.content,/^@everyone/);
+ assert.deepEqual(shop.allowedMentions,{parse:['everyone']});
  assert.equal(dailyPanel().components[0].components[0].data.custom_id,'duckdaily:claim');
  assert.match(dailyPanel().content,/20 moedas/);
+ assert.match(dailyPanel().content,/Recompensa Diária/);
+ assert.match(dailyPanel().content,/^@everyone/);
+ assert.deepEqual(dailyPanel().allowedMentions,{parse:['everyone']});
  assert.equal(Object.keys(BADGES).length,4);
 });
 
