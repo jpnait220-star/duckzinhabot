@@ -157,15 +157,59 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - **Importante:** os novos itens são presets de pitch/ritmo sobre as cinco vozes-base já utilizadas, **não** vozes neurais inéditas. Quando o Edge TTS estiver indisponível, o Google TTS usa os ajustes locais com FFmpeg, sem criar novos timbres de locutor.
 
 
-## 🦆 Duck RPG — batalhas por turnos, níveis e TMs
-- **/pato perfil** mostra tipo, nível (1–30), XP para subir, moedas, golpes e inventário. Também aceita `usuario:` para consultar outro membro.
-- **/pato tipo elemento:** escolhe entre Normal 🦆, Água 🌊, Fogo 🔥, Natureza 🌿, Elétrico ⚡ e Gelo ❄️. A primeira escolha é gratuita. Alterar depois exige uma Essência Elemental comprada na loja; os TMs conhecidos são preservados na mudança de tipo.
-- **/pato loja** mostra preços fixos de ração (+50 XP), super ração (+140 XP), Essência Elemental e seis TMs.
-- **/pato comprar item:** usa somente as **moedas de pato já ganhas no servidor**, sem dinheiro real e sem apostas. A transação é atômica no Supabase e rejeita saldo insuficiente e inventário cheio.
-- **/pato usar item:** consome ração do inventário e dá XP, subindo automaticamente de nível ao atingir o limite.
-- **/pato tm item: slot:** gasta uma TM e **substitui um dos 3 golpes equipados**, mantendo os outros. TMs ensinam Onda Gigante, Fúria Solar, Trovão Patônico, Abraço da Floresta, Nevasca de Penas ou Cometa de Borracha.
-- **/batalha pessoa:** envia um desafio que o outro jogador deve aceitar em 60 s. A arena mostra barras de HP, tipo, nível e turno; há botões de **3 golpes**, **Defender** e **Desistir**. Apenas o jogador da vez pode atacar. As relações elementais oferecem vantagens e resistências, e a defesa reduz dano. Turno expira em 90 s. Partidas completas rendem XP (12 ao vencedor, 5 ao outro), limitados a 100 XP de batalha por dia. Confrontos curtíssimos e desistências não rendem XP.
-- As batalhas nunca debitam moedas, não incluem apostas nem dinheiro real. Ao reiniciar o servidor, batalhas abertas são encerradas sem perda de recursos. O nível, os golpes, os itens e o tipo ficam no Supabase.
-- A economia base continua sendo **/afk iniciar**, **/afk resgatar**, conversar com a Duckzinha e ensinar fatos da comunidade conforme permissões. Os limites diários evitam multiplicação de moedas por cliques.
-- **Migrações reutilizáveis:** `sql/duck-economy.sql` (moedas e conjuntos visuais) seguida de `sql/duck-rpg.sql` (pato e transações). Já foram aplicadas no Supabase atual. Não há novas ENVs.
-- Atualize a branch `asasa` na FadeHost e reinicie o bot para recadastrar os slash commands. Valide com `npm run check` e `npm test`. Não foi possível executar batalhas reais no Discord a partir do GitHub.
+## 🪙 Economia e emblemas da Duckzinha (sem apostas)
+
+**O RPG de combate foi removido do bot:** não há mais comandos /pato, /batalha,
+TMs, XP, tipos ou combate. Os registros históricos de RPG no banco não são
+apagados automaticamente, para evitar perda irreversível de dados antigos.
+
+### Coinflip divertido (três rodadas)
+- Comando: /coinflip jogador:@membro.
+- Quem foi desafiado deve clicar em **Aceitar** em até 60 segundos.
+- O desafiante representa **Cara** e a outra pessoa, **Coroa**.
+- A Duckzinha lança a moeda de pato **três vezes**, publicando um MP3 diferente
+  para cada lado e mostrando o resultado e a pontuação de cada rodada.
+- **Sem valor apostado e sem movimentação de moedas:** o jogo é só recreativo.
+- O áudio é gerado no próprio servidor pelo FFmpeg existente, sem API nem ENV nova.
+
+### Enviar moedas
+- /enviar jogador:@membro valor:50 transfere saldo voluntariamente.
+- Valores de 1 a 500 por transferência, limite de 1000 por dia por remetente.
+- Valida se a pessoa está no servidor e se o saldo do remetente é suficiente.
+- O débito e o crédito acontecem em uma única operação transacional no Supabase,
+  com chave de idempotência baseada na interação do Discord.
+- /moedas consulta o saldo. /afk continua disponível como antes.
+
+### Painel de 20 moedas diárias
+- O administrador usa **/diario publicar** dentro do canal dedicado a moedas diárias.
+- Publica uma mensagem com botão permanente **Resgatar 20 moedas**.
+- Cada usuário pode receber **20 moedas de pato por dia**, uma vez por data
+  local no fuso America/Bahia. A ação é atômica e segura contra cliques repetidos.
+- O painel permanece utilizável após reiniciar o bot.
+
+### Loja de emblemas no Discord
+1. Crie no Discord um cargo de emblema **sem permissões administrativas**.
+2. Atribua ao cargo as permissões desejadas para os canais exclusivos e
+   coloque o cargo da Duckzinha **acima** dele na hierarquia. O bot precisa de
+   **Gerenciar Cargos**.
+3. Use /emblema configurar tipo:Bronze cargo:@EmblemaBronze preco:100.
+   Há quatro espaços: Bronze, Prata, Ouro e Diamante.
+4. No canal dedicado à loja, use **/emblema publicar**. O bot envia um painel
+   de botões, que persiste após reinícios.
+5. Quem tiver saldo suficiente recebe o cargo do emblema ao comprar.
+   Se a atribuição falhar, o bot tenta reembolsar a compra.
+6. **/emblema loja** mostra preços e nomes. Permissões perigosas como
+   Administrador, Gerenciar Cargos ou banir membros são proibidas na loja.
+
+**Projetos bloqueados:** para restringir o acesso a arquivos publicados em um
+**canal privado do Discord**, o administrador precisa configurar as permissões
+desse canal para o cargo do emblema. **Arquivos de um site externo não ficam
+protegidos automaticamente por uma role do Discord:** o site precisaria
+verificar a identidade do usuário e sua compra no servidor, e entregar o
+arquivo por uma rota autenticada. Nenhuma integração de downloads no site foi
+alterada, já que esse código não está neste repositório.
+
+**SQL:** o banco atual recebeu as tabelas e funções para transferências,
+recompensas e emblemas. Não exige novas variáveis de ambiente na FadeHost.
+Os antigos dados de RPG continuam guardados em tabelas não utilizadas,
+apenas para preservar históricos até que a exclusão seja solicitada.
