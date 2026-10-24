@@ -1,6 +1,6 @@
 import {deflateSync} from 'node:zlib';
 import {drawAuraBehind,drawAuraAccent} from './duck-aura-details.mjs';
-import {POSES,POSITION,SIZE,DETAIL_COLORS,DETAIL_HEX,poseEffects,transformPainter} from './duck-poses.mjs';
+import {SIZE,DETAIL_COLORS,DETAIL_HEX,transformPainter} from './duck-poses.mjs';
 
 // O avatar é desenhado no servidor, sem imagens externas ou pacotes nativos.
 // Cada cosmético ocupa uma camada própria para permitir combinações.
@@ -9,17 +9,18 @@ export const COLORS=Object.freeze({
   fundo:['ceu','lilas','menta','noite','rosa','por_do_sol','neon','cafe','espaco'],
   chapeu:['nenhum','bone','coroa','fone','laco','touca','coelho','sombrero','chines','cartola','tiara','natal'],
   rosto:['nenhum','oculos','escuros','visor','monoculo'],
-  roupa:['nenhuma','moletom','cachecol','jaqueta','kimono','capa','uniforme','sueter','terno','armadura','praia'],
-  maos:['nenhuma','garras','punhos_gelo','punhos_fogo','punhos_corrompidos'],
-  aura:['nenhuma','brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'],
+  roupa:['nenhuma','moletom','cachecol','jaqueta','kimono','uniforme','sueter','terno','armadura','praia'],
+  camada_roupa:['acima','abaixo'],
+  maos:['nenhuma','garras'],
+  aura:['nenhuma','brilho','coracoes','fogo','gelo','eletrica','dinheiro'],
   pet:['nenhum','fantasma','estrela','mini_pato','ceifador','borboleta'],
   olhos:['normal','feliz','sonolento','piscando','determinado'],
-  pose:POSES,tamanho:SIZE,posicao:POSITION,cor_detalhe:DETAIL_COLORS
+  tamanho:SIZE,cor_detalhe:DETAIL_COLORS
 });
 export const DEFAULT_AVATAR=Object.freeze({
   corpo:'amarelo',fundo:'ceu',chapeu:'nenhum',rosto:'nenhum',
   roupa:'moletom',maos:'nenhuma',aura:'brilho',pet:'nenhum',olhos:'normal',
-  pose:'normal',tamanho:'normal',posicao:'centro',cor_detalhe:'original'
+  camada_roupa:'acima',tamanho:'normal',cor_detalhe:'original'
 });
 const legacyAccessory={oculos:['rosto','oculos'],coroa:['chapeu','coroa'],bone:['chapeu','bone'],
   fone:['chapeu','fone'],laco:['chapeu','laco']};
@@ -167,76 +168,20 @@ function backdrop(d,a){
   d.ellipse(159,286,91,15,'#ffffff',.14);
 }
 function aura(d,a){
-  const type=a.aura;
-  if(type==='nenhuma')return;
-  const themes={
-    brilho:['#fff4b8','#ffe09b','#fffdf2'],estrelas:['#ffe8a5','#8bdcf6','#ffffff'],
-    coracoes:['#ff91c3','#ffb7d8','#fff6f8'],fogo:['#ff672f','#ffb34c','#fff7c6'],
-    gelo:['#6bcfff','#c3f2ff','#f4ffff'],eletrica:['#aa91fc','#6dedff','#faf5ff'],
-    dinheiro:['#4fd88c','#a0f3a5','#efffd7']
-  };
-  const [primary,secondary,shine]=themes[type]||themes.brilho;
-  // Três órbitas de energia translúcidas atrás do pato.
-  for(let ring=0;ring<3;ring++){
-    const radius=104+ring*12,tilt=0.93+ring*.012;
-    const segments=68;
-    for(let i=0;i<segments;i++){
-      const t=i/segments*Math.PI*2-.7,next=(i+1)/segments*Math.PI*2-.7;
-      const alpha=(.08+(ring===1?.18:.09))*(.5+Math.abs(Math.sin(t*2))*.5);
-      const c=ring===1?primary:secondary;
-      d.line(160+Math.cos(t)*radius,163+Math.sin(t)*radius*tilt,
-        160+Math.cos(next)*radius,163+Math.sin(next)*radius*tilt,
-        ring===1?3.3:2.2,c,alpha);
+  // Deixe as auras elementais nas camadas especializadas, sem órbitas genéricas
+  // nem estrelas indesejadas sobrepostas a neve, chamas e eletricidade.
+  if(a.aura==='brilho'){
+    for(let i=0;i<15;i++){
+      const angle=i*2.39996323,rx=112+i%3*10;
+      const x=160+Math.cos(angle)*rx,y=152+Math.sin(angle)*rx*.83;
+      d.ellipse(x,y,2.6,2.6,'#ffefad',.82);
+      d.ellipse(x,y,5,5,'#fff9e3',.11);
     }
-  }
-  // Partículas com halo, núcleo iluminado e detalhes próprios de cada aura.
-  for(let i=0;i<23;i++){
-    const t=i*2.39996323-1.1,r=105+(i*37%33);
-    const x=160+Math.cos(t)*r,y=156+Math.sin(t)*r*.93;
-    if(x<11||x>309||y<15||y>284)continue;
-    const scale=3+(i*7%7);
-    d.ellipse(x,y,scale*2.8,scale*2.8,primary,.055);
-    d.ellipse(x,y,scale*1.6,scale*1.6,secondary,.14);
-    if(type==='fogo'){
-      const h=11+(i*3%16);
-      d.polygon([[x-7,y+scale],[x-8,y-4],[x-2,y-h],[x+3,y-5],[x+7,y+scale]],
-        primary,.8);
-      d.polygon([[x-3,y+scale],[x-2,y-4],[x+2,y-h*.6],[x+4,y+scale]],secondary,.9);
-      d.ellipse(x,y+2,2.5,4,shine,.88);
-    }else if(type==='gelo'){
-      const size=scale+5;
-      for(let n=0;n<3;n++){
-        const theta=n*Math.PI/3;
-        const vx=Math.cos(theta)*size,vy=Math.sin(theta)*size;
-        d.line(x-vx,y-vy,x+vx,y+vy,2,secondary,.91);
-        d.line(x-vx*.6,y-vy*.6,x-vx*.6+vy*.25,y-vy*.6-vx*.25,1.5,shine);
-      }
-      d.ellipse(x,y,2.5,2.5,shine);
-    }else if(type==='eletrica'){
-      const s=scale*1.6;
-      d.line(x-s,y-s*.5,x-s*.25,y+s*.1,3,primary,.9);
-      d.line(x-s*.25,y+s*.1,x+s*.35,y-s*.9,2.5,secondary);
-      d.line(x+s*.35,y-s*.9,x+s,y+s*.4,2.3,shine);
-      star(d,x+s,y+s*.4,2,shine);
-    }else if(type==='dinheiro'){
-      d.ellipse(x,y,scale+2,scale+2,'#31694d',.85);
-      d.ellipse(x,y,scale,scale,'#f6dd81');
-      d.ellipse(x-1,y-1,scale-2,scale-2,'#9edc7f');
-      d.line(x-2,y-4,x+2,y+4,2,'#3a8064');
-      d.ellipse(x-scale*.3,y-scale*.35,1.5,1.5,shine,.85);
-    }else if(type==='coracoes'){
-      heart(d,x,y,scale+2,primary);
-      heart(d,x-1,y-2,Math.max(3,scale-2),secondary);
-      d.ellipse(x-3,y-4,2,1.8,shine,.85);
-    }else if(type==='estrelas'){
-      star(d,x,y,scale+3,primary,.92);
-      star(d,x,y,scale*.63,shine,.88);
-    }else{
-      star(d,x,y,scale+3,secondary,.75);
-      star(d,x,y,scale*.56,shine,.95);
-    }
-    if(i%3===0)for(const [dx,dy] of [[-13,11],[12,-13],[19,7]]){
-      d.ellipse(x+dx,y+dy,1.4,1.4,shine,.85);
+  }else if(a.aura==='coracoes'){
+    for(let i=0;i<8;i++){
+      const angle=i*Math.PI/4,dist=118+i%2*8;
+      const x=160+Math.cos(angle)*dist,y=158+Math.sin(angle)*dist*.78;
+      heart(d,x,y,4+(i%3),'#f9a7cf');
     }
   }
 }
@@ -251,11 +196,18 @@ function petBehind(d,type){
     d.ellipse(x-11,y-14,4,6,type==='ceifador'?'#e86dce':OUT);
     d.ellipse(x+11,y-14,4,6,type==='ceifador'?'#e86dce':OUT);
     if(type==='ceifador'){
-      d.line(x+24,y-27,x+40,y+28,4,'#adb8d0');d.ellipse(x+20,y-31,21,5,'#d2e2eb');
-      d.ellipse(x,y-38,27,8,'#41374f');d.ellipse(x,y-32,30,22,'#30283d');
-      d.line(x-21,y-25,x+21,y-25,3,'#b6a1df',.5);
-      d.polygon([[x-7,y-23],[x+7,y-23],[x,y-9]],'#bf95ec');
-      star(d,x+19,y-46,4,'#f4ddff');
+      // Pequeno ceifador com capuz sombreado e foice na lateral, sem cruzar os olhos.
+      d.polygon([[x-28,y-17],[x-16,y-49],[x+9,y-53],[x+29,y-20],[x+32,y+22],
+        [x+17,y+16],[x,y+26],[x-18,y+17],[x-32,y+25]],'#27253e');
+      d.ellipse(x,y-19,27,27,'#4c4269');
+      d.ellipse(x,y-17,22,21,'#22243a');
+      d.ellipse(x-9,y-15,4,5,'#dd8cf9');
+      d.ellipse(x+9,y-15,4,5,'#dd8cf9');
+      d.line(x+29,y-42,x+39,y+24,4,'#a8aab6');
+      d.line(x+29,y-42,x+10,y-45,4,'#cce4ed');
+      d.line(x+10,y-45,x+2,y-34,3,'#d9eff4');
+      d.ellipse(x+37,y+21,4,4,'#a8aab6');
+      d.ellipse(x-6,y-38,9,5,'#b19dd8',.28);
     }else{
       d.ellipse(x-6,y-6,3,3,'#ffc0cf');
       d.ellipse(x+8,y-6,3,3,'#ffc0cf');
@@ -287,7 +239,7 @@ function garment(d,a){
   const outfit=a.roupa;
   const fabric={
     moletom:['#f5c74f','#e9a83b'],jaqueta:['#577cbd','#344b89'],
-    kimono:['#eb7b9a','#b95781'],capa:['#a574d5','#684caa'],
+    kimono:['#eb7b9a','#b95781'],
     uniforme:['#506a91','#2f4265'],sueter:['#94c2b8','#5b9b98'],
     terno:['#343449','#252538'],armadura:['#aab5c8','#78869d'],
     praia:['#8bd6ef','#4aa0cb']
@@ -295,24 +247,25 @@ function garment(d,a){
   if(outfit==='nenhuma'||outfit==='cachecol')return;
   const [natural,shadow]=fabric[outfit]||fabric.moletom;
   const base=DETAIL_HEX[a.cor_detalhe]||natural;
-  const shade=a.cor_detalhe==='original'?shadow:OUT;
+  const shade=shadow;
+  const detail=a.cor_detalhe==='original'?'#fff3c6':base;
   d.ellipse(160,229,94,80,OUT);
   d.ellipse(160,225,87,74,shade);
   d.ellipse(159,214,82,63,base);
   d.ellipse(132,181,39,19,'#fff9eb',.7);
   d.ellipse(182,181,39,19,'#fff9eb',.7);
   if(outfit==='moletom'){
-    d.line(145,183,143,217,3,WHITE);d.line(173,183,175,217,3,WHITE);
+    d.line(145,183,143,217,3,detail);d.line(173,183,175,217,3,detail);
     d.ellipse(160,244,37,22,shade);d.ellipse(160,244,31,16,base);
     d.line(115,253,205,253,3,'#fff0bd',.42);
     d.line(95,217,104,253,2,'#fff1b7',.62);
     d.line(225,217,216,253,2,'#c88829',.54);
     d.line(123,238,147,238,2,'#ffe9b0',.5);
     d.line(174,238,198,238,2,'#ffe9b0',.5);
-    star(d,160,228,8,'#ffecaa',.92);
+    star(d,160,228,8,detail,.92);
     d.ellipse(160,228,3,3,'#eeb365');
   }else if(outfit==='jaqueta'||outfit==='uniforme'){
-    d.line(160,183,160,293,4,'#e6eaf6');
+    d.line(160,183,160,293,4,detail);
     for(let y=210;y<=264;y+=24)d.ellipse(170,y,3,3,'#f7d475');
     d.polygon([[115,177],[157,196],[142,215]],'#e9efff');
     d.polygon([[204,177],[163,196],[177,215]],'#e9efff');
@@ -328,9 +281,13 @@ function garment(d,a){
     for(const xy of [[107,228],[122,241],[210,228],[196,241]])star(d,xy[0],xy[1],5,'#ffeff6',.7);
     d.ellipse(164,256,8,8,'#ffeac8');
   }else if(outfit==='sueter'){
-    for(let y=232;y<287;y+=13)d.line(97,y,223,y,3,'#d7fff0',.45);
-    star(d,161,244,13,'#fff7d1');
-    star(d,161,244,7,'#ffe0a8');
+    // Trama ajustada ao contorno do tórax, sem faixas horizontais ultrapassando a malha.
+    for(let y=220;y<=269;y+=13){
+      const indent=Math.round(Math.max(0,(y-238)*.14));
+      d.line(105+indent,y,215-indent,y,2.5,detail,.45);
+    }
+    star(d,161,244,13,detail,.86);
+    star(d,161,244,7,base);
     for(const yy of [255,265,275])for(let xx=115;xx<211;xx+=14)
       d.ellipse(xx,yy,1.2,1.2,'#e0fff0',.6);
     d.line(104,198,105,259,2,'#def9ec',.55);
@@ -359,13 +316,13 @@ function garment(d,a){
     d.line(114,222,139,220,2,'#fff6df');
     d.line(183,220,208,222,2,'#fff6df');
     star(d,160,243,5,WHITE);
-  }else if(outfit==='capa'){
-    d.polygon([[101,179],[67,303],[253,303],[217,179]],'#7655ab');
-    d.polygon([[110,197],[96,290],[225,290],[207,197]],'#a889da');
-    d.ellipse(160,193,15,12,'#f8da71');
-    d.ellipse(160,193,8,7,'#fff6c2');
-    for(const dx of [-60,-30,0,30,60])star(d,160+dx,276,4,'#d8b9ff',.5);
-    d.line(105,208,93,282,2,'#ffe8ff',.4);
+  }
+}
+function drawWings(d,main,shade){
+  for(const x of [90,230]){
+    d.ellipse(x,208,30,43,OUT);
+    d.ellipse(x,206,25,37,shade);
+    d.ellipse(x-6,196,10,23,main,.42);
   }
 }
 function duck(d,a){
@@ -376,13 +333,21 @@ function duck(d,a){
   d.ellipse(160,231,87,75,OUT);
   d.ellipse(160,228,81,69,shade);
   d.ellipse(148,213,62,55,main,.68);
-  d.ellipse(90,208,30,43,OUT);
-  d.ellipse(230,208,30,43,OUT);
-  d.ellipse(90,206,25,37,shade);
-  d.ellipse(230,206,25,37,shade);
-  d.ellipse(84,196,10,23,main,.42);
-  d.ellipse(224,196,9,22,main,.42);
+  if(a.camada_roupa==='acima')drawWings(d,main,shade);
   garment(d,a);
+  if(a.camada_roupa==='abaixo')drawWings(d,main,shade);
+  // Mangas acompanham a cor do tecido quando a roupa passa por cima das asas.
+  if(a.camada_roupa==='acima'&&a.roupa!=='nenhuma'&&a.roupa!=='cachecol'){
+    const fabric=DETAIL_HEX[a.cor_detalhe]||({
+      moletom:'#f5c74f',jaqueta:'#577cbd',kimono:'#eb7b9a',uniforme:'#506a91',
+      sueter:'#94c2b8',terno:'#343449',armadura:'#aab5c8',praia:'#8bd6ef'
+    }[a.roupa]||'#f5c74f');
+    for(const x of [90,230]){
+      d.ellipse(x,216,23,30,OUT);
+      d.ellipse(x,214,19,27,fabric);
+      d.line(x-12,233,x+12,233,2,'#ffffff',.2);
+    }
+  }
   // Cabeça redondinha com laterais macias e topete.
   d.ellipse(159,129,87,87,OUT);
   d.ellipse(159,125,81,80,shade);
@@ -430,6 +395,25 @@ function duck(d,a){
     d.polygon([[184,202],[211,200],[210,273],[181,265]],'#d96b8a');
     d.line(183,265,211,273,3,OUT);
     for(let i=0;i<4;i++)d.line(186+i*6,272,186+i*6,281,2,'#ffccd0');
+  }
+}
+// Silhueta traseira construída com as mesmas cores/cosméticos do /avatar.
+function duckBack(d,a){
+  const [main,shade]=BODY[a.corpo];
+  for(const x of [116,207]){d.ellipse(x,291,35,13,OUT);d.ellipse(x,288,31,11,'#e9984d');}
+  d.ellipse(160,231,87,75,OUT);d.ellipse(160,228,81,69,shade);
+  if(a.camada_roupa==='acima')drawWings(d,main,shade);
+  garment(d,a);
+  if(a.camada_roupa==='abaixo')drawWings(d,main,shade);
+  d.ellipse(159,130,87,87,OUT);
+  d.ellipse(159,125,81,80,shade);
+  d.ellipse(155,116,75,71,main);
+  d.ellipse(141,76,18,19,shade);d.ellipse(151,70,14,19,main);
+  d.ellipse(128,124,27,48,'#ffffff',.085);
+  d.ellipse(183,130,27,48,'#443a52',.06);
+  if(a.roupa==='cachecol'){
+    d.ellipse(158,201,69,14,OUT);d.ellipse(158,198,65,12,'#f08a98');
+    d.polygon([[119,200],[139,201],[136,272],[109,263]],'#d96b8a');
   }
 }
 function faceGear(d,type){
@@ -590,12 +574,15 @@ function encodePng(pixels){
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),
     pngChunk('IHDR',ihdr),pngChunk('IDAT',deflateSync(raw,{level:6})),pngChunk('IEND',Buffer.alloc(0))]);
 }
-export function renderAvatar(data={}){
+export function renderAvatar(data={},options={}){
   const a=normalizeAvatar(data),d=drawSurface();
-  backdrop(d,a);aura(d,a);drawAuraBehind(d,a);
+  if(!options.transparent)backdrop(d,a);
+  aura(d,a);drawAuraBehind(d,a);
   const p=transformPainter(d,a);
-  petBehind(p,a.pet);duck(p,a);poseEffects(p,a);
-  faceGear(p,a.rosto);hat(p,a.chapeu);handGear(p,a.maos);drawAuraAccent(d,a);
+  petBehind(p,a.pet);
+  if(options.backView)duckBack(p,a);else duck(p,a);
+  if(!options.backView)faceGear(p,a.rosto);
+  hat(p,a.chapeu);handGear(p,a.maos);drawAuraAccent(d,a);
   // Brilhos de primeiro plano, evitando poluir o rosto.
   d.ellipse(36,289,3,3,'#ffffff',.72);
   d.ellipse(281,129,3,3,'#ffffff',.57);
