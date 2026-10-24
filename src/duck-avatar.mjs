@@ -241,23 +241,42 @@ function petBehind(d,type){
   const x=254,y=225;
   if(type==='fantasma'||type==='ceifador'){
     d.ellipse(x,y-14,34,33,OUT);d.ellipse(x,y-15,31,30,type==='ceifador'?'#38304e':'#ffffff');
+    d.ellipse(x-8,y-24,17,14,type==='ceifador'?'#70558d':'#d4f4ff',.35);
     d.polygon([[x-30,y-15],[x+30,y-15],[x+30,y+27],[x+15,y+20],[x,y+27],[x-15,y+20],[x-30,y+27]],
       type==='ceifador'?'#38304e':'#ffffff');
     d.ellipse(x-11,y-14,4,6,type==='ceifador'?'#e86dce':OUT);
     d.ellipse(x+11,y-14,4,6,type==='ceifador'?'#e86dce':OUT);
-    if(type==='ceifador'){d.line(x+24,y-27,x+40,y+28,4,'#adb8d0');d.ellipse(x+20,y-31,21,5,'#d2e2eb');}
+    if(type==='ceifador'){
+      d.line(x+24,y-27,x+40,y+28,4,'#adb8d0');d.ellipse(x+20,y-31,21,5,'#d2e2eb');
+      d.ellipse(x,y-38,27,8,'#41374f');d.ellipse(x,y-32,30,22,'#30283d');
+      d.line(x-21,y-25,x+21,y-25,3,'#b6a1df',.5);
+      d.polygon([[x-7,y-23],[x+7,y-23],[x,y-9]],'#bf95ec');
+      star(d,x+19,y-46,4,'#f4ddff');
+    }else{
+      d.ellipse(x-6,y-6,3,3,'#ffc0cf');
+      d.ellipse(x+8,y-6,3,3,'#ffc0cf');
+      star(d,x+28,y-42,5,'#efffff');
+    }
   }else if(type==='estrela'){
     star(d,x,y,33,OUT);star(d,x,y,28,'#ffe899');
     d.ellipse(x-9,y,3,4,OUT);d.ellipse(x+9,y,3,4,OUT);
+    star(d,x-13,y-15,5,WHITE,.65);d.ellipse(x,y+10,6,3,'#eab571',.5);
   }else if(type==='mini_pato'){
     d.ellipse(x,y+5,32,29,OUT);d.ellipse(x,y+2,29,26,'#ffdf73');
     d.ellipse(x-9,y-1,4,6,OUT);d.ellipse(x+9,y-1,4,6,OUT);
-    d.ellipse(x,y+11,13,7,'#f6a044');
+    d.ellipse(x,y+11,13,7,'#f6a044');d.ellipse(x-11,y+6,4,3,'#f2a5ac',.7);
+    d.ellipse(x+11,y+6,4,3,'#f2a5ac',.7);
+    d.ellipse(x-6,y-16,9,6,WHITE,.2);d.ellipse(x-5,y-4,1.8,2.2,WHITE);
+    d.ellipse(x+13,y-4,1.8,2.2,WHITE);
   }else if(type==='borboleta'){
     d.ellipse(x-14,y-11,19,24,'#f3a7db');d.ellipse(x+14,y-11,19,24,'#a6d5ff');
     d.ellipse(x-12,y+13,13,17,'#dc95d9');d.ellipse(x+12,y+13,13,17,'#7ec2e6');
     d.line(x,y-15,x,y+20,4,OUT);
     d.line(x,y-12,x-11,y-24,2,OUT);d.line(x,y-12,x+11,y-24,2,OUT);
+    for(const wing of [-1,1]){
+      d.ellipse(x+wing*15,y-15,7,13,WHITE,.24);
+      d.ellipse(x+wing*14,y+8,4,9,WHITE,.23);
+    }star(d,x-33,y-30,3,WHITE,.8);
   }
 }
 function garment(d,a){
@@ -280,33 +299,67 @@ function garment(d,a){
     d.line(145,183,143,217,3,WHITE);d.line(173,183,175,217,3,WHITE);
     d.ellipse(160,244,37,22,shade);d.ellipse(160,244,31,16,base);
     d.line(115,253,205,253,3,'#fff0bd',.42);
+    d.line(95,217,104,253,2,'#fff1b7',.62);
+    d.line(225,217,216,253,2,'#c88829',.54);
+    d.line(123,238,147,238,2,'#ffe9b0',.5);
+    d.line(174,238,198,238,2,'#ffe9b0',.5);
+    star(d,160,228,8,'#ffecaa',.92);
+    d.ellipse(160,228,3,3,'#eeb365');
   }else if(outfit==='jaqueta'||outfit==='uniforme'){
     d.line(160,183,160,293,4,'#e6eaf6');
     for(let y=210;y<=264;y+=24)d.ellipse(170,y,3,3,'#f7d475');
     d.polygon([[115,177],[157,196],[142,215]],'#e9efff');
+    d.polygon([[204,177],[163,196],[177,215]],'#e9efff');
+    d.line(109,214,126,254,2,'#eaf5ff',.64);
+    d.line(211,214,194,254,2,'#243c79',.35);
+    for(let y=210;y<270;y+=24)d.ellipse(149,y,2,2,'#f4edc3');
   }else if(outfit==='kimono'){
     d.polygon([[101,185],[154,232],[132,261],[84,218]],'#fff1e7');
     d.polygon([[218,185],[167,232],[190,261],[236,218]],'#fff1e7');
     d.line(118,257,204,257,11,'#eeb7cc');
+    d.line(105,194,133,223,3,'#ed9eb4');
+    d.line(213,194,187,223,3,'#ed9eb4');
+    for(const xy of [[107,228],[122,241],[210,228],[196,241]])star(d,xy[0],xy[1],5,'#ffeff6',.7);
+    d.ellipse(164,256,8,8,'#ffeac8');
   }else if(outfit==='sueter'){
     for(let y=232;y<287;y+=13)d.line(97,y,223,y,3,'#d7fff0',.45);
     star(d,161,244,13,'#fff7d1');
+    star(d,161,244,7,'#ffe0a8');
+    for(const yy of [255,265,275])for(let xx=115;xx<211;xx+=14)
+      d.ellipse(xx,yy,1.2,1.2,'#e0fff0',.6);
+    d.line(104,198,105,259,2,'#def9ec',.55);
   }else if(outfit==='terno'){
     d.polygon([[108,187],[151,218],[136,251]],'#faf3ed');
     d.polygon([[210,187],[169,218],[182,251]],'#faf3ed');
     d.polygon([[158,202],[169,202],[165,267],[153,267]],'#de7484');
+    d.polygon([[159,214],[166,214],[160,245]],'#ffc2c3');
+    d.ellipse(159,205,5,6,'#f8d3ad');
+    d.line(138,210,129,263,2,WHITE,.3);
+    d.line(185,210,192,263,2,WHITE,.3);
   }else if(outfit==='armadura'){
     d.ellipse(160,229,59,53,'#677b97');
     d.ellipse(160,220,52,43,'#d7e4f0');
     d.polygon([[160,201],[174,216],[160,243],[146,216]],'#88cde9');
     d.line(117,254,203,254,6,'#616d89');
+    d.line(132,207,120,234,3,WHITE,.72);
+    d.line(187,207,200,234,3,'#7289a4');
+    d.polygon([[100,205],[127,211],[119,243],[91,236]],'#d0dae9');
+    d.polygon([[219,205],[193,211],[200,243],[231,236]],'#d0dae9');
+    star(d,160,220,6,WHITE,.86);
+    for(let i=0;i<4;i++)d.ellipse(128+i*20,269,2,3,'#f6e8a8');
   }else if(outfit==='praia'){
     for(let i=0;i<5;i++)d.line(94+i*27,199,81+i*30,283,5,'#fffbdd',.7);
     d.ellipse(162,245,10,8,'#e7a856');
+    d.line(114,222,139,220,2,'#fff6df');
+    d.line(183,220,208,222,2,'#fff6df');
+    star(d,160,243,5,WHITE);
   }else if(outfit==='capa'){
     d.polygon([[101,179],[67,303],[253,303],[217,179]],'#7655ab');
     d.polygon([[110,197],[96,290],[225,290],[207,197]],'#a889da');
     d.ellipse(160,193,15,12,'#f8da71');
+    d.ellipse(160,193,8,7,'#fff6c2');
+    for(const dx of [-60,-30,0,30,60])star(d,160+dx,276,4,'#d8b9ff',.5);
+    d.line(105,208,93,282,2,'#ffe8ff',.4);
   }
 }
 function duck(d,a){
@@ -328,6 +381,10 @@ function duck(d,a){
   d.ellipse(159,129,87,87,OUT);
   d.ellipse(159,125,81,80,shade);
   d.ellipse(155,116,75,71,main);
+  d.ellipse(146,91,53,35,WHITE,.07);
+  d.ellipse(183,156,26,14,shade,.19);
+  d.ellipse(93,133,8,26,WHITE,.06);
+  d.ellipse(223,142,7,21,deep,.15);
   d.ellipse(136,88,40,25,WHITE,.13);
   d.ellipse(126,75,18,20,shade);
   d.ellipse(139,67,17,23,main);
@@ -357,6 +414,7 @@ function duck(d,a){
   d.ellipse(160,175,31,21,OUT);
   d.ellipse(160,172,27,16,'#f4a748');
   d.ellipse(150,167,17,8,'#ffd18b',.85);
+  d.ellipse(162,165,10,4,'#fff0c9',.48);
   d.ellipse(160,182,18,7,'#e48235');
   d.ellipse(167,193,2.2,2,'#e6d5b5');
   // Cachecol finalizado sobre o pescoço.
