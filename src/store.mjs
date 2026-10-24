@@ -70,7 +70,7 @@ export class DuckStore {
     await this.requireResult(this.db.from('duckzinha_avatars').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
         console.warn('[Duckzinha] Avatar: '+err.message));
-    for(const table of ['duckzinha_wallets','duckzinha_coin_events','duckzinha_afk','duckzinha_loadouts','duckzinha_ducks','duckzinha_duck_items','duckzinha_duck_progress'])
+    for(const table of ['duckzinha_wallets','duckzinha_coin_events','duckzinha_afk','duckzinha_loadouts','duckzinha_ducks','duckzinha_duck_items','duckzinha_duck_progress','duckzinha_coin_transfers','duckzinha_daily_claims','duckzinha_badge_owners'])
       await this.requireResult(this.db.from(table).delete().eq('guild_id',this.guildId)
         .eq('discord_user_id',discordId)).catch(err=>console.warn('[Duckzinha] Privacidade: '+err.message));
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
@@ -178,6 +178,48 @@ export class DuckStore {
     if(!this.db)return null;
     return await this.requireResult(this.db.rpc('duckzinha_battle_xp',{
       p_guild:this.guildId,p_user:user,p_key:eventKey,p_xp:xp
+    }));
+  }
+  async claimDaily(user){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.rpc('duckzinha_claim_daily',{
+      p_guild:this.guildId,p_user:user
+    }));
+  }
+  async transferCoins(from,to,amount,requestId){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.rpc('duckzinha_transfer_coins',{
+      p_guild:this.guildId,p_from:from,p_to:to,
+      p_amount:amount,p_request:requestId
+    }));
+  }
+  async setBadge({key,label,price,roleId}){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.from('duckzinha_badge_catalog').upsert({
+      guild_id:this.guildId,badge_key:key,label,price,role_id:roleId
+    },{onConflict:'guild_id,badge_key'}));
+  }
+  async listBadges(){
+    if(!this.db)return [];
+    return this.requireResult(this.db.from('duckzinha_badge_catalog')
+      .select('badge_key,label,price,role_id').eq('guild_id',this.guildId)
+      .order('price',{ascending:true}));
+  }
+  async removeBadge(key){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.from('duckzinha_badge_catalog')
+      .delete().eq('guild_id',this.guildId).eq('badge_key',key));
+  }
+  async buyBadge(user,key){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.rpc('duckzinha_purchase_badge',{
+      p_guild:this.guildId,p_user:user,p_badge:key
+    }));
+  }
+  async refundBadge(user,key){
+    if(!this.db)throw Error('Supabase indisponível.');
+    return this.requireResult(this.db.rpc('duckzinha_refund_badge',{
+      p_guild:this.guildId,p_user:user,p_badge:key
     }));
   }
   async getBalance(user){
