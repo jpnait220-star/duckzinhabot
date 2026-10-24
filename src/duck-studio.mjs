@@ -27,7 +27,7 @@ button{border:0;border-radius:12px;padding:13px 19px;font-weight:800;background:
 button:hover{filter:brightness(1.06)}button:disabled{opacity:.5;cursor:not-allowed}
 button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2px solid #ffda5e}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
-.notice{min-height:28px;margin:14px 0 0;color:#ddcfc0;font-size:14px}
+.notice{min-height:28px;margin:14px 0 0;color:#ddcfc0;font-size:14px}.admin-preview{display:flex;gap:14px;align-items:center;background:#242533;border-radius:15px;padding:13px;margin:15px 0}.admin-preview img{width:94px;height:94px;border-radius:14px}.mode-label{padding:10px 13px;border-radius:12px;background:#342e42;color:#ffda74;margin:12px 0;font-weight:700}
 .tip{margin-top:18px;border:1px solid #3c3b49;border-radius:16px;padding:16px;color:#bbbbcd}
 .hidden{display:none!important}.login{max-width:510px;margin:45px auto}.login input{margin:14px 0}.login p{color:#a5a3b9}
 .tabs{display:flex;gap:10px;margin:0 0 20px}.switch{display:flex;align-items:center;justify-content:space-between;background:#282936;border-radius:12px;padding:13px;margin:10px 0}
@@ -45,6 +45,7 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
 <div id="avatarPane" class="layout">
  <section class="panel preview"><span class="preview-head">✦ DUCKZINHA AVATAR STUDIO ✦</span><img id="avatar" alt="Prévia detalhada do seu avatar de pato"><div class="preview-tip">Seu patinho com acessórios independentes e combinações exclusivas ✨</div></section>
  <section class="panel"><h2 id="welcome">Personalize seu avatar</h2>
+ <div id="editingBot" class="mode-label hidden">🦆 Você está editando o avatar oficial da Duckzinha.</div>
  <div class="controls">
  <div class="subsection">🎨 Aparência</div>
  <div><label for="corpo">Cor do patinho</label><select id="corpo"></select></div>
@@ -52,14 +53,14 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <div><label for="fundo">Fundo do avatar</label><select id="fundo"></select></div>
  <div class="subsection">🧢 Cosméticos • combine à vontade</div>
  <div><label for="chapeu">Chapéus e coroas</label><select id="chapeu"></select></div>
- <div><label for="rosto">Óculos e máscaras</label><select id="rosto"></select></div>
+ <div><label for="rosto">Acessórios do rosto</label><select id="rosto"></select></div>
  <div><label for="roupa">Roupas</label><select id="roupa"></select></div>
  <div><label for="maos">Punhos e luvas</label><select id="maos"></select></div>
  <div><label for="aura">Auras e efeitos</label><select id="aura"></select></div>
  <div><label for="pet">Mascote companheiro</label><select id="pet"></select></div>
  </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button><button id="cute" class="secondary">🐰 Fofo</button><button id="combat" class="secondary">⚔️ PvP</button></div>
  <p id="status" role="status" class="notice"></p>
- <div class="tip">No Discord, use <strong>/ver pessoa</strong> para mostrar o avatar de alguém. Seus acessórios ficam salvos até você mudar novamente.</div>
+ <div class="tip">No Discord, use <strong>/ver pessoa</strong> para mostrar o avatar de alguém. Seus acessórios ficam salvos até você mudar novamente.</div><button id="backPersonal" class="secondary hidden">Voltar ao meu avatar</button>
  </section>
 </div>
 <div id="adminPane" class="panel hidden">
@@ -68,6 +69,10 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <label class="switch">Voz com emoções <input type="checkbox" id="emotionalVoice"></label>
  <label class="switch">Reações especiais <input type="checkbox" id="specialReactions"></label>
  <button id="saveSettings">Salvar configurações</button><p id="settingsStatus" class="notice" role="status"></p>
+ <div class="admin-preview"><img id="botPreview" alt="Avatar oficial da Duckzinha"><div><strong>🦆 Avatar da Duckzinha</strong><p>Personalize o patinho da bot no mesmo editor de cosméticos.</p></div></div>
+ <button id="editBotAvatar">🎨 Editar avatar da Duckzinha</button>
+ <button id="applyBotAvatar" class="secondary">Aplicar como foto do bot no Discord</button>
+ <p id="botStatus" class="notice" role="status"></p>
  </div>
 </section>
 </main>
@@ -76,7 +81,6 @@ const names=${JSON.stringify(COLORS)};
 const pretty={ceu:'Céu limpo',lilas:'Lilás',menta:'Menta',por_do_sol:'Pôr do sol',
   neon:'Neon',cafe:'Café',espaco:'Espaço',creme:'Creme',caramelo:'Caramelo',
   oculos:'Óculos clássicos',escuros:'Óculos escuros',visor:'Visor futurista',
-  mascara_pato:'Máscara de pato',mascara_corvo:'Máscara de corvo',mascara_japonesa:'Máscara japonesa',
   monoculo:'Monóculo',laco:'Laço',bone:'Boné',touca:'Touca',coelho:'Orelhas de coelho',
   sombrero:'Sombrero',chines:'Chapéu chinês',cartola:'Cartola',tiara:'Tiara',
   natal:'Gorro de Natal',moletom:'Moletom',nenhum:'Nenhum',nenhuma:'Nenhuma',
@@ -94,7 +98,15 @@ const $=id=>document.getElementById(id);
 for(const [k,opts] of Object.entries(names))for(const v of opts)$ (k).add(new Option(pretty[v]||v[0].toUpperCase()+v.slice(1),v));
 for(const v of ['auto','animada','calma','curiosa','sonolenta'])$('mood').add(new Option(v[0].toUpperCase()+v.slice(1),v));
 const params=()=>Object.fromEntries(Object.keys(names).map(k=>[k,$(k).value]));
-let current=null;
+let current=null,editingBot=false,personalAvatar=null;
+function setEditor(data){
+  for(const [k,values] of Object.entries(names)){
+    const v=data?.[k];
+    $(k).value=values.includes(v)?v:values[0];
+  }
+  preview();
+}
+function refreshBotPreview(){$('botPreview').src='/api/bot/avatar.png?t='+Date.now();}
 function preview(){$('avatar').src='/api/preview.png?'+new URLSearchParams(params());}
 for(const k of Object.keys(names))$(k).addEventListener('change',preview);
 async function request(path,method='GET',body){
@@ -108,9 +120,10 @@ async function enter(){
   current=await request('/api/me');
   $('login').classList.add('hidden');$('studio').classList.remove('hidden');
   $('welcome').textContent='Avatar de '+current.name;
-  Object.entries(current.avatar).forEach(([k,v])=>{if($(k))$(k).value=v;});
+  personalAvatar={...current.avatar};editingBot=false;setEditor(personalAvatar);
   $('adminTab').classList.toggle('hidden',!current.admin);
-  preview();
+  $('editingBot').classList.add('hidden');$('backPersonal').classList.add('hidden');
+  refreshBotPreview();
   if(current.admin){
    $('mood').value=current.settings.mood;
    $('emotionalVoice').checked=current.settings.emotionalVoice;
@@ -125,8 +138,34 @@ $('loginButton').onclick=async()=>{
 };
 $('save').onclick=async()=>{
  $('status').textContent='Salvando...';
- try{await request('/api/avatar','POST',{avatar:params()});$('status').textContent='💛 Avatar salvo! Use /ver pessoa no Discord.';}
- catch(e){$('status').textContent=e.message;}
+ try{
+  const avatar=params();
+  await request(editingBot?'/api/bot/avatar':'/api/avatar','POST',{avatar});
+  if(editingBot){refreshBotPreview();$('status').textContent='🦆 Avatar da Duckzinha salvo! Aplique como foto pelo painel.';}
+  else{personalAvatar={...avatar};$('status').textContent='💛 Avatar salvo! Use /ver pessoa no Discord.';}
+ }catch(e){$('status').textContent=e.message;}
+};
+$('editBotAvatar').onclick=async()=>{
+ if(!current?.admin)return;
+ try{
+  const data=await request('/api/bot/avatar');
+  editingBot=true;setEditor(data.avatar);
+  $('editingBot').classList.remove('hidden');
+  $('backPersonal').classList.remove('hidden');
+  $('welcome').textContent='Editando o avatar da Duckzinha';
+  tab(false);$('status').textContent='Personalize e clique em Salvar visual.';
+ }catch(e){$('botStatus').textContent=e.message;}
+};
+$('backPersonal').onclick=()=>{
+ editingBot=false;setEditor(personalAvatar||current.avatar);
+ $('editingBot').classList.add('hidden');$('backPersonal').classList.add('hidden');
+ $('welcome').textContent='Avatar de '+current.name;$('status').textContent='';
+};
+$('applyBotAvatar').onclick=async()=>{
+ if(!current?.admin)return;
+ $('botStatus').textContent='Aplicando no Discord...';
+ try{await request('/api/bot/avatar/apply','POST',{});$('botStatus').textContent='✅ Foto de perfil da Duckzinha atualizada no Discord!';}
+ catch(e){$('botStatus').textContent=e.message;}
 };
 $('random').onclick=()=>{for(const [k,opts] of Object.entries(names))$(k).value=opts[Math.floor(Math.random()*opts.length)];preview();};
 function preset(values){for(const [k,v] of Object.entries(values))if($(k))$(k).value=v;preview();}
