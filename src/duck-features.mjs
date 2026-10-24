@@ -4,6 +4,9 @@ import {voiceReadableText} from './voice-visit.mjs';
 import {synthesizeDuckSpeech} from './duck-tts.mjs';
 import {expressiveVoice} from './duck-extras.mjs';
 import {convertToVoiceMessage,sendNativeVoice} from './duck-voice-message.mjs';
+import {renderProfileCard} from './duck-profile-card.mjs';
+import {animatedDuckReaction} from './duck-animated-reactions.mjs';
+export {runMessageMenu} from './duck-message-menu.mjs';
 
 export function newCommands(){
   return [
@@ -30,7 +33,27 @@ export function newCommands(){
       .addSubcommand(s=>s.setName('publicar').setDescription('Cole o anúncio pronto com título e descrição juntos')
         .addStringOption(o=>o.setName('texto').setDescription('Cole tudo, incluindo #, **, > e quebras de linha').setRequired(true).setMaxLength(1800)))
       .setDMPermission(false),
-    new SlashCommandBuilder().setName('novidades').setDescription('Mostrar as últimas atualizações publicadas').setDMPermission(false)
+    new SlashCommandBuilder().setName('novidades').setDescription('Mostrar as últimas atualizações publicadas').setDMPermission(false),
+    new SlashCommandBuilder().setName('card').setDescription('Cartão de perfil da comunidade em PNG')
+      .addUserOption(x=>x.setName('usuario').setDescription('Membro (opcional)')).setDMPermission(false),
+    new SlashCommandBuilder().setName('inventario').setDescription('Mostra seus cinco conjuntos de cosméticos salvos').setDMPermission(false),
+    new SlashCommandBuilder().setName('batalha').setDescription('Desafiar alguém para uma disputa divertida sem apostas')
+      .addUserOption(x=>x.setName('pessoa').setDescription('Pessoa a desafiar').setRequired(true)).setDMPermission(false),
+    new SlashCommandBuilder().setName('minigame').setDescription('Iniciar um jogo curto para todos do canal')
+      .addStringOption(x=>x.setName('tipo').setDescription('Escolha o minigame').addChoices(
+        {name:'Aleatório',value:'aleatorio'},
+        {name:'Verdadeiro ou falso',value:'verdadeiro-ou-falso'},
+        {name:'Adivinhe o mob',value:'adivinhe-o-mob'},
+        {name:'Matemática',value:'matematica'},
+        {name:'Minecraft',value:'desafio-mine'},
+        {name:'Geografia',value:'geografia'})).setDMPermission(false),
+    new SlashCommandBuilder().setName('moedas').setDescription('Consultar suas moedas de pato').setDMPermission(false),
+    new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
+      .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
+        .addChoices({name:'Iniciar',value:'iniciar'},{name:'Resgatar',value:'resgatar'})).setDMPermission(false),
+    new SlashCommandBuilder().setName('campeonato').setDescription('Campeonato público de quiz')
+      .addSubcommand(s=>s.setName('iniciar').setDescription('Começar campeonato para todos'))
+      .setDMPermission(false)
   ].map(x=>x.toJSON());
 }
 
@@ -39,11 +62,11 @@ const reply=(interaction,content)=>interaction.reply({content,flags,allowedMenti
 const lastVoice=new Map(),lastArt=new Map();
 
 export async function runNewCommand(interaction,{
-  store,extras,studio,selectedVoice,findReactionFile
+  store,extras,studio,community,selectedVoice,findReactionFile
 }={}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return false;
   const name=interaction.commandName;
-  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades'].includes(name))return false;
+  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','batalha','minigame','moedas','afk','campeonato'].includes(name))return false;
   if(name==='avatar'||name==='painel'){
     const isAdmin=Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
     if(name==='painel'&&!isAdmin){await reply(interaction,'Este painel é só para administradores.');return true;}
@@ -55,6 +78,29 @@ export async function runNewCommand(interaction,{
     }else{
       await reply(interaction,'Ative **Settings → Web address → Enable** na FadeHost para abrir o Studio. Nenhuma ENV extra é necessária.');
     }
+    return true;
+  }
+  if(name==='moedas'||name==='afk'){await community.economy(interaction);return true;}
+  if(name==='minigame'){await community.game(interaction);return true;}
+  if(name==='batalha'){await community.challenge(interaction);return true;}
+  if(name==='campeonato'){await extras.startGame(interaction,{championship:true});return true;}
+  if(name==='inventario'){
+    const items=await store.getLoadouts(interaction.user.id);
+    await reply(interaction,'🎒 **Seus conjuntos de patinhos**\n'+
+      Array.from({length:5},(_,i)=>'Visual '+(i+1)+': '+(items.find(x=>x.slot===i+1)?'salvo ✅':'vazio')).join('\n')+
+      '\n\nPara guardar ou equipar um visual, abra /avatar e use o Inventário do Studio.');
+    return true;
+  }
+  if(name==='card'){
+    const user=interaction.options.getUser('usuario')||interaction.user;
+    const member=await interaction.guild.members.fetch(user.id).catch(()=>null);
+    if(!member){await reply(interaction,'Esse membro não está no servidor.');return true;}
+    await interaction.deferReply();
+    const avatar=await store.getAvatar(user.id).catch(()=>null);
+    const coins=await store.getBalance(user.id).catch(()=>0);
+    const image=renderProfileCard({name:member.displayName,avatar,coins,streak:extras.score(user.id),
+      title:coins>=100?'Colecionador':extras.score(user.id)>=5?'Mestre do Quiz':'Explorador'});
+    await interaction.editReply({files:[new AttachmentBuilder(image,{name:'duckzinha-card.png'})],allowedMentions:{parse:[]}});
     return true;
   }
   if(name==='jogo'){
@@ -118,9 +164,14 @@ export async function runNewCommand(interaction,{
     if(Date.now()-last<15000){await reply(interaction,'Espere 15 segundos antes de enviar outra reação.');return true;}
     const type=interaction.options.getString('tipo',true);
     const file=await findReactionFile(type);
-    if(!file){await reply(interaction,'Ainda não existe arte para esta reação no projeto.');return true;}
+    let result=file;
+    if(!result){
+      try{result=new AttachmentBuilder(await animatedDuckReaction(type),{name:'duckzinha-'+type+'.gif'});}
+      catch(err){console.warn('[Duckzinha] GIF animado indisponível: '+err.message);}
+    }
+    if(!result){await reply(interaction,'Não consegui gerar a animação agora.');return true;}
     lastArt.set(interaction.user.id,Date.now());
-    await interaction.reply({content:'🦆💛 Reação: '+type,files:[file],allowedMentions:{parse:[]}});
+    await interaction.reply({content:'🦆💛 Reação: '+type,files:[result],allowedMentions:{parse:[]}});
     return true;
   }
   if(name==='novidade'){
