@@ -20,7 +20,7 @@ import {runNewCommand} from './duck-features.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
-import {broadWebSearch,webResearchContext,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails} from './web-research.mjs';
+import {broadWebSearch,webResearchContext,wantsWebResearch,uncertainty,decision,answerIgnoresWebResults,sourceDetails,offerSearchControls} from './web-research.mjs';
 
 const TOKEN=process.env.DISCORD_TOKEN?.trim();
 const GUILD_ID=process.env.DISCORD_GUILD_ID?.trim();
@@ -744,7 +744,7 @@ client.on(Events.MessageCreate,async message=>{
     // Disponibiliza o botão no chat da call sem executar pesquisas automaticamente.
     // Apenas quem perguntou pode clicar; a validação ocorre em handleDuckButton.
     const isVoiceChat=message.channel?.type===ChannelType.GuildVoice;
-    const offerSearch=shouldOffer||(isVoiceChat&&!searching&&mentioned);
+    const offerSearch=offerSearchControls({shouldOffer,isVoiceChat,searching,mentioned});
     const components=offerSearch?[unknownButtons(id)]:(sources?[sources.row]:[]);
     if(memorySaved)answer=answer.slice(0,1750)+'\n\n🧠 **Memória atualizada!**';
     const voiceText=isVoiceChat?voiceReadableText(answer):null;
