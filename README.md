@@ -142,3 +142,9 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - O comando `/falar` agora converte o TTS para Ogg/Opus mono, calcula duração + forma de onda e envia uma **mensagem de voz nativa** com a flag `IS_VOICE_MESSAGE` pela API do Discord. A confirmação do slash command é privada e não inclui o áudio. O bot precisa das permissões Ver canal, Enviar mensagens, Anexar arquivos e Enviar mensagens de voz. A compatibilidade visual final depende do cliente Discord e das permissões do servidor.
 - A versão discord.js 14.22.1 instalada não contém os métodos de duração/forma de onda de versões futuras de AttachmentBuilder, então a mensagem de voz é enviada via REST oficial do mesmo cliente, sem serviços externos nem ENVs novas.
 - Para atualizar a FadeHost use a branch `asasa`, atualize os arquivos e reinicie. Execute `npm install` se necessário.
+
+
+## Melhorias de aura e controle de /falar
+- O editor não disponibiliza mais **Luvas de Boxe** nem **Luvas Brancas**. Quem havia selecionado alguma delas verá automaticamente `Nenhuma` nesse slot, sem apagar cores, roupas, auras e outros cosméticos. **Garras Spring** e **Punhos de Gelo, Fogo e Corrompidos** continuam.
+- As sete auras (`brilho`, `estrelas`, `coracoes`, `fogo`, `gelo`, `eletrica`, `dinheiro`) ganharam novas camadas de iluminação, símbolos próprios, detalhes por categoria, partículas e brilhos nas laterais. Existe uma camada de efeitos atrás do pato e outra sutil perto das asas e dos pés, para não atrapalhar rosto/olhos.
+- O comando `/falar` agora requer a permissão **Administrador**: os membros comuns não recebem a opção por padrão, e tentativas indevidas são bloqueadas pelo próprio bot antes de gerar qualquer áudio. A mensagem de bloqueio é privada. Não são necessárias ENVs adicionais.
