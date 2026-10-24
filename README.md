@@ -148,3 +148,10 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - O editor não disponibiliza mais **Luvas de Boxe** nem **Luvas Brancas**. Quem havia selecionado alguma delas verá automaticamente `Nenhuma` nesse slot, sem apagar cores, roupas, auras e outros cosméticos. **Garras Spring** e **Punhos de Gelo, Fogo e Corrompidos** continuam.
 - As sete auras (`brilho`, `estrelas`, `coracoes`, `fogo`, `gelo`, `eletrica`, `dinheiro`) ganharam novas camadas de iluminação, símbolos próprios, detalhes por categoria, partículas e brilhos nas laterais. Existe uma camada de efeitos atrás do pato e outra sutil perto das asas e dos pés, para não atrapalhar rosto/olhos.
 - O comando `/falar` agora requer a permissão **Administrador**: os membros comuns não recebem a opção por padrão, e tentativas indevidas são bloqueadas pelo próprio bot antes de gerar qualquer áudio. A mensagem de bloqueio é privada. Não são necessárias ENVs adicionais.
+
+
+## Mais vozes animadas — outubro de 2026
+- `/duckzinha voice nome:` agora oferece **20 estilos**, incluindo 9 novos: Francisca Bem Animada, Super Animada e Fofinha Animada; Thalita Animada e Super Animada; Raquel Animada e Super Animada; Antônio Animado; Duarte Animado. O limite de 25 opções estáticas do Discord é respeitado.
+- A voz escolhida continua sendo salva no Supabase e pode ser testada com `/duckzinha testevoz` (admin). Não é necessário criar ENV nova nem alterar tabelas.
+- O ajuste `Voz expressiva` associa automaticamente o humor animado às variações de Francisca, Thalita, Raquel, Antônio e Duarte quando a base natural está selecionada. Uma variação explicitamente escolhida pelo admin não é substituída pelo humor.
+- **Importante:** os novos itens são presets de pitch/ritmo sobre as cinco vozes-base já utilizadas, **não** vozes neurais inéditas. Quando o Edge TTS estiver indisponível, o Google TTS usa os ajustes locais com FFmpeg, sem criar novos timbres de locutor.
