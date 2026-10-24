@@ -1,8 +1,9 @@
 import {EdgeTTS,Constants} from '@andresaya/edge-tts';
 import {styleGoogleSpeechMp3} from './google-voice-style.mjs';
 
-// Cinco vozes efetivas do serviço Edge (três do Brasil, duas de Portugal)
-// e presets de tom/velocidade. Presets reutilizam a voz original.
+// Cinco vozes-base do serviço Edge (três do Brasil, duas de Portugal),
+// com estilos de tom e velocidade, incluindo variações mais animadas.
+// Esses estilos NÃO são novos timbres/modelos; reutilizam as vozes-base.
 // Os IDs virtuais pt-BR-*Neural são chaves internas de seleção compatíveis com
 // o formato existente no banco, NÃO nomes de modelos Edge; edgeId é o modelo real.
 const rows=[
@@ -10,13 +11,22 @@ const rows=[
   ['Francisca • Fofinha','pt-BR-FranciscaFofaNeural','pt-BR-FranciscaNeural',35,4,'Brasil • mais aguda'],
   ['Francisca • Suave','pt-BR-FranciscaSuaveNeural','pt-BR-FranciscaNeural',18,-9,'Brasil • tranquila'],
   ['Francisca • Animada','pt-BR-FranciscaAnimadaNeural','pt-BR-FranciscaNeural',23,12,'Brasil • expressiva'],
+  ['Francisca • Bem Animada','pt-BR-FranciscaBemAnimadaNeural','pt-BR-FranciscaNeural',28,20,'Brasil • alegre e rápida'],
+  ['Francisca • Super Animada','pt-BR-FranciscaSuperAnimadaNeural','pt-BR-FranciscaNeural',38,28,'Brasil • muita energia'],
+  ['Francisca • Fofinha Animada','pt-BR-FranciscaFofaAnimadaNeural','pt-BR-FranciscaNeural',40,16,'Brasil • aguda e divertida'],
   ['Thalita • Natural','pt-BR-ThalitaMultilingualNeural','pt-BR-ThalitaMultilingualNeural',10,0,'Brasil • feminina'],
   ['Thalita • Fofinha','pt-BR-ThalitaFofaNeural','pt-BR-ThalitaMultilingualNeural',32,5,'Brasil • mais aguda'],
   ['Thalita • Suave','pt-BR-ThalitaSuaveNeural','pt-BR-ThalitaMultilingualNeural',14,-10,'Brasil • tranquila'],
+  ['Thalita • Animada','pt-BR-ThalitaAnimadaNeural','pt-BR-ThalitaMultilingualNeural',23,16,'Brasil • alegre'],
+  ['Thalita • Super Animada','pt-BR-ThalitaSuperAnimadaNeural','pt-BR-ThalitaMultilingualNeural',33,26,'Brasil • muito expressiva'],
   ['Antônio','pt-BR-AntonioNeural','pt-BR-AntonioNeural',0,0,'Brasil • masculino'],
+  ['Antônio • Animado','pt-BR-AntonioAnimadoNeural','pt-BR-AntonioNeural',16,17,'Brasil • mais animado'],
   ['Raquel • Portugal','pt-BR-RaquelPortugalNeural','pt-PT-RaquelNeural',12,0,'Portugal • feminina'],
   ['Raquel • Fofinha','pt-BR-RaquelFofaNeural','pt-PT-RaquelNeural',31,6,'Portugal • mais aguda'],
-  ['Duarte • Portugal','pt-BR-DuartePortugalNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino']
+  ['Raquel • Animada','pt-BR-RaquelAnimadaNeural','pt-PT-RaquelNeural',21,15,'Portugal • expressiva'],
+  ['Raquel • Super Animada','pt-BR-RaquelSuperAnimadaNeural','pt-PT-RaquelNeural',31,24,'Portugal • entusiasmada'],
+  ['Duarte • Portugal','pt-BR-DuartePortugalNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino'],
+  ['Duarte • Animado','pt-BR-DuarteAnimadoNeural','pt-PT-DuarteNeural',15,16,'Portugal • mais animado']
 ];
 export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
   Object.freeze({name,id,edgeId,pitch,rate,description})));
