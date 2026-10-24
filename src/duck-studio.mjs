@@ -55,7 +55,7 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <div><label for="chapeu">Chapéus e coroas</label><select id="chapeu"></select></div>
  <div><label for="rosto">Acessórios do rosto</label><select id="rosto"></select></div>
  <div><label for="roupa">Roupas</label><select id="roupa"></select></div>
- <div><label for="maos">Punhos e luvas</label><select id="maos"></select></div>
+ <div><label for="maos">Garras e punhos elementais</label><select id="maos"></select></div>
  <div><label for="aura">Auras e efeitos</label><select id="aura"></select></div>
  <div><label for="pet">Mascote companheiro</label><select id="pet"></select></div>
  </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button><button id="cute" class="secondary">🐰 Fofo</button><button id="combat" class="secondary">⚔️ PvP</button></div>
@@ -87,9 +87,9 @@ const pretty={ceu:'Céu limpo',lilas:'Lilás',menta:'Menta',por_do_sol:'Pôr do 
   sonolento:'Sonolento',piscando:'Piscando',determinado:'Determinado',
   cachecol:'Cachecol',jaqueta:'Jaqueta',kimono:'Quimono',capa:'Capa real',
   uniforme:'Uniforme',sueter:'Suéter',terno:'Terno elegante',armadura:'Armadura',
-  praia:'Roupa de praia',luvas_boxe:'Luvas de boxe',garras:'Garras Spring',
+  praia:'Roupa de praia',garras:'Garras Spring',
   punhos_gelo:'Punhos de gelo',punhos_fogo:'Punhos de fogo',
-  punhos_corrompidos:'Punhos corrompidos',luvas_brancas:'Luvas brancas',
+  punhos_corrompidos:'Punhos corrompidos',
   brilho:'Brilho delicado',estrelas:'Estrelas',coracoes:'Corações',
   fogo:'Fogo',gelo:'Gelo',eletrica:'Eletricidade',dinheiro:'Dinheiro',
   fantasma:'Ghost Pet',estrela:'Pet estrela',mini_pato:'Mini patinho',
@@ -169,7 +169,7 @@ $('applyBotAvatar').onclick=async()=>{
 };
 $('random').onclick=()=>{for(const [k,opts] of Object.entries(names))$(k).value=opts[Math.floor(Math.random()*opts.length)];preview();};
 function preset(values){for(const [k,v] of Object.entries(values))if($(k))$(k).value=v;preview();}
-$('cute').onclick=()=>preset({corpo:'creme',fundo:'rosa',chapeu:'coelho',rosto:'nenhum',roupa:'moletom',maos:'luvas_brancas',aura:'coracoes',pet:'mini_pato',olhos:'feliz'});
+$('cute').onclick=()=>preset({corpo:'creme',fundo:'rosa',chapeu:'coelho',rosto:'nenhum',roupa:'moletom',maos:'nenhuma',aura:'coracoes',pet:'mini_pato',olhos:'feliz'});
 $('combat').onclick=()=>preset({corpo:'amarelo',fundo:'neon',chapeu:'bone',rosto:'visor',roupa:'armadura',maos:'punhos_corrompidos',aura:'eletrica',pet:'ceifador',olhos:'determinado'});
 function tab(admin){$('avatarPane').classList.toggle('hidden',admin);$('adminPane').classList.toggle('hidden',!admin);$('avatarTab').classList.toggle('active',!admin);$('adminTab').classList.toggle('active',admin);}
 $('avatarTab').onclick=()=>tab(false);
