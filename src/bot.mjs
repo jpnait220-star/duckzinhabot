@@ -1020,8 +1020,8 @@ client.on(Events.InteractionCreate,async interaction=>{
 client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
   if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
 });
-process.once('SIGTERM',()=>{extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
-process.once('SIGINT',()=>{extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGTERM',()=>{community.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGINT',()=>{community.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
 client.on(Events.ShardDisconnect,(event,shardId)=>
   console.warn('[Duckzinha] Gateway desconectado (shard '+shardId+', código '+event.code+').'));
 client.on(Events.ShardReconnecting,shardId=>
