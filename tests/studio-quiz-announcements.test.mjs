@@ -13,14 +13,17 @@ test('avatar novo aceita cosméticos independentes e preserva seleção antiga',
   assert.equal(normalizeAvatar({chapeu:'coelho',acessorio:'bone'}).chapeu,'coelho');
   assert.equal(normalizeAvatar({maos:'item_que_nao_existe'}).maos,DEFAULT_AVATAR.maos);
   assert.ok(COLORS.pet.includes('ceifador'));
-  assert.ok(COLORS.rosto.includes('mascara_corvo'));
+  assert.equal(COLORS.rosto.some(x=>x.startsWith('mascara_')),false);
+  for(const removed of ['mascara_pato','mascara_corvo','mascara_japonesa']){
+    assert.equal(normalizeAvatar({rosto:removed}).rosto,'nenhum');
+  }
   assert.ok(COLORS.maos.includes('punhos_fogo'));
 });
 
 test('gera PNG real de alta resolução e visual varia com cosméticos',()=>{
   const baseline=renderAvatar();
   const variant=renderAvatar({
-    fundo:'espaco',corpo:'rosa',chapeu:'coelho',rosto:'mascara_japonesa',
+    fundo:'espaco',corpo:'rosa',chapeu:'coelho',rosto:'visor',
     roupa:'kimono',maos:'punhos_gelo',aura:'gelo',pet:'fantasma',olhos:'sonolento'
   });
   assert.equal(baseline.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
@@ -117,4 +120,16 @@ test('anúncio usa um campo e envia Markdown completo como texto',async()=>{
   assert.equal(saved[1],announcement);
   assert.match(confirmed,/publicada/);
   assert.ok(deferred);
+});
+
+test('auras e acessórios renderizam visuais PNG realmente distintos',()=>{
+  const base={corpo:'amarelo',chapeu:'coroa',roupa:'jaqueta',maos:'luvas_brancas'};
+  const styles=['brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'];
+  const images=styles.map(aura=>renderAvatar({...base,aura}));
+  assert.equal(new Set(images.map(img=>img.toString('base64'))).size,styles.length);
+  for(const png of images){
+    assert.ok(png.length>5000);
+    assert.equal(png.readUInt32BE(16),384);
+    assert.equal(png.readUInt32BE(20),384);
+  }
 });
