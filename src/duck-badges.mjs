@@ -36,7 +36,7 @@ export async function validatedRole(interaction,roleId){
  return role;
 }
 export function badgePanel(items){
- const content='@everyone\n\n## 🏷️ Loja de Emblemas\n'+
+ const content='## 🏷️ Loja de Emblemas\n'+
    items.map(x=>(BADGES[x.badge_key]?.emoji||'🏷️')+' **'+x.label+'** • '+
      x.price+' 🪙\nCargo: <@&'+x.role_id+'>').join('\n\n')+
    '\n\n🛍️ **Compre seu emblema e receba um cargo exclusivo!**\n'+
@@ -46,10 +46,10 @@ export function badgePanel(items){
    new ButtonBuilder().setCustomId('duckbadge:'+x.badge_key)
      .setLabel(x.label.slice(0,55)).setEmoji(BADGES[x.badge_key]?.emoji||'🏷️')
      .setStyle(ButtonStyle.Primary)));
- return {content,components:[row],allowedMentions:{parse:['everyone']}};
+ return {content,components:[row],allowedMentions:{parse:[]}};
 }
 export const dailyPanel=()=>({
- content:'@everyone\n\n## 🪙 Recompensa Diária\n'+
+ content:'## 🪙 Recompensa Diária\n'+
    '🎁 **20 moedas** para resgatar todos os dias!\n\n'+
    '⏰ Disponível novamente à meia-noite (horário da Bahia).\n'+
    '🏷️ Use suas moedas na Loja de Emblemas.\n\n'+
@@ -57,8 +57,14 @@ export const dailyPanel=()=>({
  components:[new ActionRowBuilder().addComponents(
    new ButtonBuilder().setCustomId('duckdaily:claim').setLabel('Resgatar 20 moedas')
      .setEmoji('🪙').setStyle(ButtonStyle.Success)
- )],allowedMentions:{parse:['everyone']}
+ )],allowedMentions:{parse:[]}
 });
+// Apenas a publicação feita por um administrador avisa o servidor todo.
+// Painéis isolados, respostas a botões, consultas e atualizações não mencionam @everyone.
+export function publishedPanel(panel){
+ return {...panel,content:'@everyone\\n\\n'+panel.content,
+   allowedMentions:{parse:['everyone']}};
+}
 export class DuckBadgeShop{
  constructor({store}={}){this.store=store;}
  async publish(interaction){
@@ -79,7 +85,7 @@ export class DuckBadgeShop{
      try{await validatedRole(interaction,item.role_id);}
      catch(err){return interaction.reply(hidden('Erro no emblema '+item.label+': '+err.message));}
    }
-   await interaction.channel.send(badgePanel(items));
+   await interaction.channel.send(publishedPanel(badgePanel(items)));
    return interaction.reply(hidden('🏷️ Loja de emblemas publicada no canal!'));
  }
  async configure(interaction){
@@ -146,7 +152,7 @@ export class DuckBadgeShop{
      return interaction.reply(hidden('Preciso de permissão para publicar mensagens aqui.'));
    if(!interaction.channel.permissionsFor(me)?.has(PermissionFlagsBits.MentionEveryone))
      return interaction.reply(hidden('Para avisar @everyone, preciso da permissão Mencionar @everyone neste canal.'));
-   await interaction.channel.send(dailyPanel());
+   await interaction.channel.send(publishedPanel(dailyPanel()));
    return interaction.reply(hidden('✅ Painel de 20 moedas diárias publicado!'));
  }
  async list(interaction){
