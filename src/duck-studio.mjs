@@ -51,6 +51,11 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <div><label for="corpo">Cor do patinho</label><select id="corpo"></select></div>
  <div><label for="olhos">Expressão dos olhos</label><select id="olhos"></select></div>
  <div><label for="fundo">Fundo do avatar</label><select id="fundo"></select></div>
+ <div class="subsection">🎭 Poses e enquadramento</div>
+ <div><label for="pose">Pose do pato</label><select id="pose"></select></div>
+ <div><label for="tamanho">Tamanho</label><select id="tamanho"></select></div>
+ <div><label for="posicao">Posição</label><select id="posicao"></select></div>
+ <div><label for="cor_detalhe">Cor da roupa</label><select id="cor_detalhe"></select></div>
  <div class="subsection">🧢 Cosméticos • combine à vontade</div>
  <div><label for="chapeu">Chapéus e coroas</label><select id="chapeu"></select></div>
  <div><label for="rosto">Acessórios do rosto</label><select id="rosto"></select></div>
@@ -60,6 +65,13 @@ button.secondary{background:#343546;color:#fff}button.secondary.active{outline:2
  <div><label for="pet">Mascote companheiro</label><select id="pet"></select></div>
  </div><div class="actions"><button id="save">💛 Salvar visual</button><button id="random" class="secondary">🎲 Surpreenda-me</button><button id="cute" class="secondary">🐰 Fofo</button><button id="combat" class="secondary">⚔️ PvP</button></div>
  <p id="status" role="status" class="notice"></p>
+ <div class="subsection">🎒 Inventário de conjuntos salvos</div>
+ <div class="actions"><select id="slot" aria-label="Escolha conjunto" style="max-width:180px">
+ <option value="1">Visual 1</option><option value="2">Visual 2</option><option value="3">Visual 3</option>
+ <option value="4">Visual 4</option><option value="5">Visual 5</option></select>
+ <button id="saveOutfit" class="secondary">Guardar conjunto</button>
+ <button id="loadOutfit" class="secondary">Equipar conjunto</button></div>
+ <p id="outfitStatus" class="notice" role="status"></p>
  <div class="tip">No Discord, use <strong>/ver pessoa</strong> para mostrar o avatar de alguém. Seus acessórios ficam salvos até você mudar novamente.</div><button id="backPersonal" class="secondary hidden">Voltar ao meu avatar</button>
  </section>
 </div>
@@ -93,7 +105,11 @@ const pretty={ceu:'Céu limpo',lilas:'Lilás',menta:'Menta',por_do_sol:'Pôr do 
   brilho:'Brilho delicado',estrelas:'Estrelas',coracoes:'Corações',
   fogo:'Fogo',gelo:'Gelo',eletrica:'Eletricidade',dinheiro:'Dinheiro',
   fantasma:'Ghost Pet',estrela:'Pet estrela',mini_pato:'Mini patinho',
-  ceifador:'Pet ceifador',borboleta:'Borboleta'};
+  ceifador:'Pet ceifador',borboleta:'Borboleta',
+  acenando:'Acenando',dormindo:'Dormindo',comemorando:'Comemorando',
+  coracao:'Segurando coração',de_lado:'Olhando de lado',
+  pequeno:'Pequeno',grande:'Grande',esquerda:'Esquerda',direita:'Direita',
+  centro:'Centro',original:'Original',dourado:'Dourado',vermelho:'Vermelho'};
 const $=id=>document.getElementById(id);
 for(const [k,opts] of Object.entries(names))for(const v of opts)$ (k).add(new Option(pretty[v]||v[0].toUpperCase()+v.slice(1),v));
 for(const v of ['auto','animada','calma','curiosa','sonolenta'])$('mood').add(new Option(v[0].toUpperCase()+v.slice(1),v));
@@ -107,6 +123,28 @@ function setEditor(data){
   preview();
 }
 function refreshBotPreview(){$('botPreview').src='/api/bot/avatar.png?t='+Date.now();}
+const inventory=new Map();
+async function refreshInventory(){
+ try{
+  const items=await request('/api/loadouts');
+  inventory.clear();
+  for(const item of items.loadouts||[])inventory.set(Number(item.slot),item.avatar);
+ }catch(e){$('outfitStatus').textContent=e.message;}
+}
+$('saveOutfit').onclick=async()=>{
+ if(editingBot){$('outfitStatus').textContent='Volte ao seu avatar para guardar conjuntos pessoais.';return;}
+ const slot=Number($('slot').value);
+ try{
+  await request('/api/loadouts','POST',{slot,avatar:params()});
+  inventory.set(slot,params());$('outfitStatus').textContent='💾 Visual '+slot+' guardado.';
+ }catch(e){$('outfitStatus').textContent=e.message;}
+};
+$('loadOutfit').onclick=()=>{
+ if(editingBot){$('outfitStatus').textContent='Conjuntos são pessoais.';return;}
+ const data=inventory.get(Number($('slot').value));
+ if(!data){$('outfitStatus').textContent='Este espaço está vazio.';return;}
+ setEditor(data);$('outfitStatus').textContent='✨ Conjunto equipado na prévia. Clique em Salvar visual.';
+};
 function preview(){$('avatar').src='/api/preview.png?'+new URLSearchParams(params());}
 for(const k of Object.keys(names))$(k).addEventListener('change',preview);
 async function request(path,method='GET',body){
@@ -124,6 +162,7 @@ async function enter(){
   $('adminTab').classList.toggle('hidden',!current.admin);
   $('editingBot').classList.add('hidden');$('backPersonal').classList.add('hidden');
   refreshBotPreview();
+  await refreshInventory();
   if(current.admin){
    $('mood').value=current.settings.mood;
    $('emotionalVoice').checked=current.settings.emotionalVoice;
@@ -263,6 +302,11 @@ export class DuckStudio{
     if(!this.client?.user?.id)return respond(res,503,{error:'Duckzinha offline.'});
     return respond(res,200,renderAvatar(await this.avatar(this.client.user.id)),'image/png');
   }
+  if(method==='GET'&&path==='/api/loadouts'){
+    const who=this.session(req);
+    if(!who)return respond(res,401,{error:'Não autenticado'});
+    return respond(res,200,{loadouts:await this.store.getLoadouts(who.userId)});
+  }
   if(method==='GET'&&path==='/api/bot/avatar'){
     const who=this.session(req);
     if(!await this.canManageBot(who))return respond(res,403,{error:'Somente administradores.'});
@@ -307,6 +351,13 @@ export class DuckStudio{
         return respond(res,200,{ok:true,avatar});
       }
       await this.client.user.setAvatar(renderAvatar(await this.avatar(this.client.user.id)));
+      return respond(res,200,{ok:true});
+    }
+    if(path==='/api/loadouts'){
+      if(!this.store.persistent)return respond(res,503,{error:'Supabase indisponível'});
+      const slot=Number(body.slot);
+      if(!Number.isInteger(slot)||slot<1||slot>5)return respond(res,400,{error:'Slot inválido'});
+      await this.store.saveLoadout(who.userId,slot,normalizeAvatar(body.avatar));
       return respond(res,200,{ok:true});
     }
     if(path==='/api/avatar'){
