@@ -569,7 +569,7 @@ client.on(Events.MessageCreate,async message=>{
   if(mentioned){
     const moderation=parseModerationRequest(message.content,client.user.id);
     if(moderation){
-      try{await handleModerationRequest(message,moderation,{botId:client.user.id});}
+      try{await handleModerationRequest(message,moderation,{botId:client.user.id,store});}
       catch(err){
         console.warn('[Duckzinha] Falha na moderação: '+String(err?.message||err));
         await message.reply({content:'⚠️ Não consegui concluir a ação de moderação.',
