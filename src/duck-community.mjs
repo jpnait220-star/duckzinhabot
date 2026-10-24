@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
-import {DuckBattleArena} from './duck-battle-arena.mjs';
-import {TYPES,SHOP,MOVES,normalizedPet,xpNeeded,MAX_LEVEL} from './duck-battle-data.mjs';
+import {DuckCoinflip} from './duck-coinflip.mjs';
+import {DuckBadgeShop} from './duck-badges.mjs';
 
 const priv=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export function naturalTeaching(text){
@@ -27,7 +27,7 @@ export const SAFE_GAMES=[
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.arena=new DuckBattleArena({store});this.games=new Map();}
+ constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip();this.badges=new DuckBadgeShop({store});this.games=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
@@ -89,69 +89,39 @@ export class DuckCommunity{
    return interaction.reply(priv('✅ Resposta registrada. O resultado sai no canal ao fim da rodada.'));
  }
 
- async challenge(interaction){return this.arena.challenge(interaction);}
- async battleButton(interaction){return this.arena.action(interaction);}
- shutdown(){this.arena.shutdown();}
- async pato(interaction){
-  if(!this.store?.persistent)return interaction.reply(priv('Ative o Supabase para usar o RPG de patinhos.'));
+
+ async coinFlip(interaction){return this.coin.challenge(interaction);}
+ async coinButton(interaction){return this.coin.button(interaction);}
+ async badgeButton(interaction){return this.badges.handleBuy(interaction);}
+ async dailyButton(interaction){return this.badges.handleDaily(interaction);}
+ async badgeCommand(interaction){
   const sub=interaction.options.getSubcommand();
-  const user=interaction.user.id;
-  if(sub==='perfil'||sub==='golpes'){
-    const member=sub==='perfil'?interaction.options.getUser('usuario')||interaction.user:interaction.user;
-    const [row,coins,items]=await Promise.all([
-      this.store.getDuck(member.id),this.store.getBalance(member.id),this.store.getDuckItems(member.id)
-    ]);
-    const p=normalizedPet(row);
-    const moves=p.moves.map((id,i)=>'**'+(i+1)+'.** '+MOVES[id].emoji+' '+MOVES[id].name+
-      ' ('+MOVES[id].power+' poder)').join('\n');
-    return interaction.reply(priv('🦆 **PATO DE '+member.username.slice(0,32)+'**\n'+
-      TYPES[p.type].emoji+' Tipo: **'+TYPES[p.type].name+'**'+(p.chosen?'':' (ainda não escolhido)')+
-      '\n🏅 Nível **'+p.level+'/'+MAX_LEVEL+'**'+
-      (p.level<MAX_LEVEL?' • XP '+p.xp+'/'+xpNeeded(p.level):' • nível máximo')+
-      '\n🪙 Moedas: **'+coins+'**\n⚔️ **Golpes:**\n'+moves+
-      '\n🎒 Itens: '+(items.length?items.map(i=>(SHOP[i.item_key]?.name||i.item_key)+' ×'+i.quantity).join(', ').slice(0,640):'nenhum')+
-      '\n\nTreine usando /pato usar, ensine TM com /pato tm e desafie usando /batalha.'));
-  }
-  if(sub==='loja'){
-    const coins=await this.store.getBalance(user);
-    return interaction.reply(priv('🛍️ **LOJA DOS PATOS** • Você tem '+coins+' moedas\n'+
-      Object.entries(SHOP).map(([key,item])=>'• **'+item.name+'** — **'+item.cost+' 🪙**'+
-      '\n  '+item.desc+' • código: '+key).join('\n').slice(0,1700)+
-      '\n\nUse /pato comprar para adquirir itens. Não há apostas ou dinheiro real.'));
-  }
-  if(sub==='tipo'){
-    const type=interaction.options.getString('elemento',true);
-    const result=await this.store.chooseDuckType(user,type);
-    const msg=result.ok?TYPES[type].emoji+' Seu pato agora é do tipo **'+TYPES[type].name+'**!'+
-      (result.consumed?' Uma Essência Elemental foi consumida.':' Primeira escolha grátis!'):
-      result.reason==='same'?'Seu pato já tem esse tipo.':
-      result.reason==='essencia'?'Para trocar de tipo, compre uma **Essência Elemental** na loja.':'Tipo inválido.';
-    return interaction.reply(priv(msg));
-  }
-  if(sub==='comprar'){
-    const item=interaction.options.getString('item',true);
-    const bought=await this.store.buyDuckItem(user,item);
-    return interaction.reply(priv(bought.ok?'🛍️ Você comprou **'+SHOP[item].name+'** por '+SHOP[item].cost+
-      ' moedas! Saldo: **'+bought.balance+'**.':
-      bought.reason==='coins'?'🪙 Moedas insuficientes! Precisa de '+bought.price+' e tem '+bought.balance+'.':
-      bought.reason==='full'?'Seu inventário deste item está cheio (99).':'Item indisponível.'));
-  }
-  if(sub==='usar'){
-    const item=interaction.options.getString('item',true);
-    const outcome=await this.store.feedDuck(user,item);
-    return interaction.reply(priv(outcome.ok?'🍽️ Seu pato ganhou **'+outcome.earned+' XP**! Nível: **'+
-      outcome.level+'** • XP restante: '+outcome.xp+'.':
-      outcome.reason==='missing'?'Você ainda não tem essa ração. Compre na /pato loja.':
-      outcome.reason==='max'?'Seu pato já está no nível máximo!':'Não consegui alimentar o pato.'));
-  }
-  if(sub==='tm'){
-    const item=interaction.options.getString('item',true);
-    const slot=interaction.options.getInteger('slot',true);
-    const result=await this.store.teachDuckMove(user,item,slot);
-    return interaction.reply(priv(result.ok?'📀 TM aplicada! O golpe **'+MOVES[result.replaced].name+
-      '** virou **'+MOVES[result.learned].name+'** no espaço '+slot+'.':
-      result.reason==='missing'?'Você precisa comprar essa TM na loja.':
-      result.reason==='already'?'Seu pato já conhece esse golpe.':'Não foi possível aplicar essa TM.'));
-  }
+  if(sub==='configurar')return this.badges.configure(interaction);
+  if(sub==='publicar')return this.badges.publish(interaction);
+  return this.badges.list(interaction);
  }
+ async dailyCommand(interaction){return this.badges.publishDaily(interaction);}
+ async transfer(interaction){
+   if(!this.store?.persistent)return interaction.reply(priv('As moedas precisam do Supabase.'));
+   const recipient=interaction.options.getUser('jogador',true);
+   const amount=interaction.options.getInteger('valor',true);
+   if(recipient.bot||recipient.id===interaction.user.id)
+     return interaction.reply(priv('Escolha outra pessoa real para receber as moedas.'));
+   if(!Number.isInteger(amount)||amount<1||amount>500)
+     return interaction.reply(priv('Você pode enviar entre 1 e 500 moedas por vez.'));
+   if(!await interaction.guild.members.fetch(recipient.id).catch(()=>null))
+     return interaction.reply(priv('Essa pessoa não está no servidor.'));
+   await interaction.deferReply({flags:MessageFlags.Ephemeral});
+   const result=await this.store.transferCoins(interaction.user.id,recipient.id,amount,interaction.id);
+   if(!result.ok){
+     const reason=result.reason==='funds'?'Saldo insuficiente. Você tem '+result.balance+' moedas.':
+       result.reason==='limit'?'Seu limite de envios de hoje (1000 moedas) foi atingido.':
+       result.reason==='duplicate'?'Esta transferência já foi processada.':
+       'Não foi possível realizar a transferência.';
+     return interaction.editReply('🪙 '+reason);
+   }
+   await interaction.editReply('✅ Você enviou **'+amount+' moedas de pato** para <@'+recipient.id+
+     '>!\nSeu saldo atual é **'+result.balance+' moedas**.');
+ }
+ shutdown(){this.coin.shutdown();}
 }
