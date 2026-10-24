@@ -39,9 +39,9 @@ export function badgePanel(items){
  const content='🏷️ **LOJA DE EMBLEMAS DA DUCKZINHA**\n\n'+
    items.map(x=>(BADGES[x.badge_key]?.emoji||'🏷️')+' **'+x.label+'** • '+
      x.price+' 🪙\nCargo: <@&'+x.role_id+'>').join('\n\n')+
-   '\n\nClique para comprar e receber o cargo.\n'+
-   'Esses cargos podem liberar **canais exclusivos** configurados pela administração.\n'+
-   '🔒 Não concedem poderes de moderação. Sem apostas nem dinheiro real.';
+   '\n\n🛍️ **Compre seu emblema e receba um cargo exclusivo!**\n'+
+   '🔓 Seu emblema poderá liberar acesso a **projetos e downloads especiais no site da DuckzinCommunity**, conforme os benefícios disponíveis.\n'+
+   '✨ Garanta seu emblema e aproveite as novidades da comunidade!';
  const row=new ActionRowBuilder().addComponents(items.slice(0,4).map(x=>
    new ButtonBuilder().setCustomId('duckbadge:'+x.badge_key)
      .setLabel(x.label.slice(0,55)).setEmoji(BADGES[x.badge_key]?.emoji||'🏷️')
