@@ -54,6 +54,7 @@ test('coinflip atualiza uma mensagem, aguarda 3s antes de cada giro e usa GIF',a
  const id=[...coin.games.keys()][0];
  assert.match(sent[0].content,/3 rodadas/);
  assert.match(sent[0].content,/ninguém aposta/i);
+ assert.doesNotMatch(sent[0].content,/\b(?:GIF|MP4|vídeo)\b/i);
  const finished=new Promise(resolve=>{
    const original=coin.stop.bind(coin);
    coin.stop=game=>{original(game);resolve();};
@@ -68,13 +69,13 @@ test('coinflip atualiza uma mensagem, aguarda 3s antes de cada giro e usa GIF',a
  assert.equal(sent.length,1,'apenas o convite cria mensagem');
  assert.equal(edits.filter(x=>/vai girar em \*\*[123]\*\*/.test(x.content)).length,9);
  assert.equal(waits.filter(x=>x===1000).length,9);
- const rounds=edits.filter(x=>/MOEDA DE PATO • RODADA/.test(x.content));
+ const rounds=edits.filter(x=>/\*\*RODADA [123]\/3\*\*  ·/.test(x.content));
  assert.equal(rounds.length,3);
  assert.ok(rounds.every(x=>x.files?.length===1&&x.files[0].name.endsWith('.gif')));
  assert.ok(rounds[0].files[0].name.includes('-cara-'));
  assert.ok(rounds[1].files[0].name.includes('-coroa-'));
  assert.ok(rounds[2].files[0].name.includes('-cara-'));
- assert.match(edits.at(-1).content,/RESULTADO DO COINFLIP/);
+ assert.match(edits.at(-1).content,/PLACAR FINAL/);
  assert.match(edits.at(-1).content,/\*\*2\*\* × \*\*1\*\*/);
  assert.ok(waits.filter(x=>x>=3000).length===3);
  assert.equal(coin.games.size,0);
