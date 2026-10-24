@@ -18,6 +18,11 @@ test('avatar novo aceita cosméticos independentes e preserva seleção antiga',
     assert.equal(normalizeAvatar({rosto:removed}).rosto,'nenhum');
   }
   assert.ok(COLORS.maos.includes('punhos_fogo'));
+  assert.ok(COLORS.maos.includes('garras'));
+  assert.equal(COLORS.maos.some(v=>v.includes('luva')),false);
+  for(const removed of ['luvas_boxe','luvas_brancas']){
+    assert.equal(normalizeAvatar({maos:removed}).maos,'nenhuma');
+  }
 });
 
 test('gera PNG real de alta resolução e visual varia com cosméticos',()=>{
@@ -123,7 +128,7 @@ test('anúncio usa um campo e envia Markdown completo como texto',async()=>{
 });
 
 test('auras e acessórios renderizam visuais PNG realmente distintos',()=>{
-  const base={corpo:'amarelo',chapeu:'coroa',roupa:'jaqueta',maos:'luvas_brancas'};
+  const base={corpo:'amarelo',chapeu:'coroa',roupa:'jaqueta',maos:'garras'};
   const styles=['brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'];
   const images=styles.map(aura=>renderAvatar({...base,aura}));
   assert.equal(new Set(images.map(img=>img.toString('base64'))).size,styles.length);
