@@ -23,7 +23,12 @@ const PRESETS={
   'pt-BR-RaquelAnimadaNeural':[1.15,1.19],
   'pt-BR-RaquelSuperAnimadaNeural':[1.23,1.29],
   'pt-BR-DuartePortugalNeural':[0.77,0.92],
-  'pt-BR-DuarteAnimadoNeural':[0.86,1.15]
+  'pt-BR-DuarteAnimadoNeural':[0.86,1.15],
+  'pt-BR-BrendaNeural':[1.02,1.0],
+  'pt-BR-GiovannaNeural':[1.03,1.0],
+  'pt-BR-LeilaNeural':[1.01,1.0],
+  'pt-BR-ManuelaNeural':[0.99,1.0],
+  'pt-BR-YaraNeural':[1.04,1.0]
 };
 export function googleVoicePreset(voice){
   const item=PRESETS[voice];
