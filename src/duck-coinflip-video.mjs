@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {readFile,unlink} from 'node:fs/promises';
 import ffmpegStatic from 'ffmpeg-static';
+import {writeFfmpegFrame} from './duck-ffmpeg-stream.mjs';
 import {coinPcm} from './duck-coinflip-audio.mjs';
 
 export const COIN_VIDEO={width:512,height:288,fps:20,seconds:3.4};
@@ -356,9 +357,7 @@ export async function coinflipVideo(side,{
       for(let i=0;i<Math.round(FPS*DURATION);i++){
        if(done)break;
        const frame=renderFrame(side,i);
-       if(!child.stdin.write(frame))await new Promise((res,rej)=>{
-         child.stdin.once('drain',res);child.stdin.once('error',rej);
-       });
+       await writeFfmpegFrame(child.stdin,frame);
       }
       child.stdin.end();
      }catch(err){child.kill();finish(err);}
