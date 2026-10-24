@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {readFile,unlink} from 'node:fs/promises';
 import ffmpegStatic from 'ffmpeg-static';
+import {writeFfmpegFrame} from './duck-ffmpeg-stream.mjs';
 import {COIN_VIDEO,renderFrame} from './duck-coinflip-video.mjs';
 
 // GIF se reproduz automaticamente na mensagem do Discord, sem áudio.
@@ -58,12 +59,7 @@ export async function coinflipGif(side,{
             for(let i=0;i<total;i++){
               if(done)return;
               const frame=renderFrame(side,i);
-              if(!child.stdin.write(frame)){
-                await new Promise((res,rej)=>{
-                  child.stdin.once('drain',res);
-                  child.stdin.once('error',rej);
-                });
-              }
+              await writeFfmpegFrame(child.stdin,frame);
             }
             child.stdin.end();
           }catch(error){
