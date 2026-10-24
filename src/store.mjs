@@ -70,7 +70,7 @@ export class DuckStore {
     await this.requireResult(this.db.from('duckzinha_avatars').delete()
       .eq('guild_id',this.guildId).eq('discord_user_id',discordId)).catch(err=>
         console.warn('[Duckzinha] Avatar: '+err.message));
-    for(const table of ['duckzinha_wallets','duckzinha_coin_events','duckzinha_afk','duckzinha_loadouts'])
+    for(const table of ['duckzinha_wallets','duckzinha_coin_events','duckzinha_afk','duckzinha_loadouts','duckzinha_ducks','duckzinha_duck_items','duckzinha_duck_progress'])
       await this.requireResult(this.db.from(table).delete().eq('guild_id',this.guildId)
         .eq('discord_user_id',discordId)).catch(err=>console.warn('[Duckzinha] Privacidade: '+err.message));
     await this.requireResult(this.db.from('duckzinha_profile_facts').delete()
@@ -136,6 +136,49 @@ export class DuckStore {
       guild_id:this.guildId,features,updated_by:adminId,
       updated_at:new Date().toISOString()
     },{onConflict:'guild_id'}));
+  }
+  async getDuck(user){
+    if(!this.db)return null;
+    const row=await this.requireResult(this.db.from('duckzinha_ducks')
+      .select('duck_type,type_chosen,level,xp,moves,updated_at')
+      .eq('guild_id',this.guildId).eq('discord_user_id',user).maybeSingle());
+    return row||null;
+  }
+  async getDuckItems(user){
+    if(!this.db)return [];
+    return await this.requireResult(this.db.from('duckzinha_duck_items')
+      .select('item_key,quantity').eq('guild_id',this.guildId)
+      .eq('discord_user_id',user).gt('quantity',0).order('item_key'))||[];
+  }
+  async chooseDuckType(user,type){
+    if(!this.db)throw Error('Supabase indisponível');
+    return await this.requireResult(this.db.rpc('duckzinha_choose_duck_type',{
+      p_guild:this.guildId,p_user:user,p_type:type
+    }));
+  }
+  async buyDuckItem(user,item){
+    if(!this.db)throw Error('Supabase indisponível');
+    return await this.requireResult(this.db.rpc('duckzinha_buy_duck_item',{
+      p_guild:this.guildId,p_user:user,p_item:item
+    }));
+  }
+  async feedDuck(user,item){
+    if(!this.db)throw Error('Supabase indisponível');
+    return await this.requireResult(this.db.rpc('duckzinha_feed_duck',{
+      p_guild:this.guildId,p_user:user,p_item:item
+    }));
+  }
+  async teachDuckMove(user,item,slot){
+    if(!this.db)throw Error('Supabase indisponível');
+    return await this.requireResult(this.db.rpc('duckzinha_learn_duck_tm',{
+      p_guild:this.guildId,p_user:user,p_item:item,p_slot:slot
+    }));
+  }
+  async awardDuckBattleXp(user,eventKey,xp){
+    if(!this.db)return null;
+    return await this.requireResult(this.db.rpc('duckzinha_battle_xp',{
+      p_guild:this.guildId,p_user:user,p_key:eventKey,p_xp:xp
+    }));
   }
   async getBalance(user){
     if(!this.db)return 0;
