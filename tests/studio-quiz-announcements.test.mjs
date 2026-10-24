@@ -17,7 +17,7 @@ test('avatar novo aceita cosméticos independentes e preserva seleção antiga',
   for(const removed of ['mascara_pato','mascara_corvo','mascara_japonesa']){
     assert.equal(normalizeAvatar({rosto:removed}).rosto,'nenhum');
   }
-  assert.ok(COLORS.maos.includes('punhos_fogo'));
+  assert.equal(COLORS.maos.includes('punhos_fogo'),false);
   assert.ok(COLORS.maos.includes('garras'));
   assert.equal(COLORS.maos.some(v=>v.includes('luva')),false);
   for(const removed of ['luvas_boxe','luvas_brancas']){
@@ -29,7 +29,7 @@ test('gera PNG real de alta resolução e visual varia com cosméticos',()=>{
   const baseline=renderAvatar();
   const variant=renderAvatar({
     fundo:'espaco',corpo:'rosa',chapeu:'coelho',rosto:'visor',
-    roupa:'kimono',maos:'punhos_gelo',aura:'gelo',pet:'fantasma',olhos:'sonolento'
+    roupa:'kimono',maos:'garras',aura:'gelo',pet:'fantasma',olhos:'sonolento'
   });
   assert.equal(baseline.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
   assert.equal(baseline.readUInt32BE(16),384);
@@ -129,7 +129,7 @@ test('anúncio usa um campo e envia Markdown completo como texto',async()=>{
 
 test('auras e acessórios renderizam visuais PNG realmente distintos',()=>{
   const base={corpo:'amarelo',chapeu:'coroa',roupa:'jaqueta',maos:'garras'};
-  const styles=['brilho','estrelas','coracoes','fogo','gelo','eletrica','dinheiro'];
+  const styles=['brilho','coracoes','fogo','gelo','eletrica','dinheiro'];
   const images=styles.map(aura=>renderAvatar({...base,aura}));
   assert.equal(new Set(images.map(img=>img.toString('base64'))).size,styles.length);
   for(const png of images){
