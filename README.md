@@ -155,3 +155,17 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - A voz escolhida continua sendo salva no Supabase e pode ser testada com `/duckzinha testevoz` (admin). Não é necessário criar ENV nova nem alterar tabelas.
 - O ajuste `Voz expressiva` associa automaticamente o humor animado às variações de Francisca, Thalita, Raquel, Antônio e Duarte quando a base natural está selecionada. Uma variação explicitamente escolhida pelo admin não é substituída pelo humor.
 - **Importante:** os novos itens são presets de pitch/ritmo sobre as cinco vozes-base já utilizadas, **não** vozes neurais inéditas. Quando o Edge TTS estiver indisponível, o Google TTS usa os ajustes locais com FFmpeg, sem criar novos timbres de locutor.
+
+
+## 🦆 Duck RPG — batalhas por turnos, níveis e TMs
+- **/pato perfil** mostra tipo, nível (1–30), XP para subir, moedas, golpes e inventário. Também aceita `usuario:` para consultar outro membro.
+- **/pato tipo elemento:** escolhe entre Normal 🦆, Água 🌊, Fogo 🔥, Natureza 🌿, Elétrico ⚡ e Gelo ❄️. A primeira escolha é gratuita. Alterar depois exige uma Essência Elemental comprada na loja; os TMs conhecidos são preservados na mudança de tipo.
+- **/pato loja** mostra preços fixos de ração (+50 XP), super ração (+140 XP), Essência Elemental e seis TMs.
+- **/pato comprar item:** usa somente as **moedas de pato já ganhas no servidor**, sem dinheiro real e sem apostas. A transação é atômica no Supabase e rejeita saldo insuficiente e inventário cheio.
+- **/pato usar item:** consome ração do inventário e dá XP, subindo automaticamente de nível ao atingir o limite.
+- **/pato tm item: slot:** gasta uma TM e **substitui um dos 3 golpes equipados**, mantendo os outros. TMs ensinam Onda Gigante, Fúria Solar, Trovão Patônico, Abraço da Floresta, Nevasca de Penas ou Cometa de Borracha.
+- **/batalha pessoa:** envia um desafio que o outro jogador deve aceitar em 60 s. A arena mostra barras de HP, tipo, nível e turno; há botões de **3 golpes**, **Defender** e **Desistir**. Apenas o jogador da vez pode atacar. As relações elementais oferecem vantagens e resistências, e a defesa reduz dano. Turno expira em 90 s. Partidas completas rendem XP (12 ao vencedor, 5 ao outro), limitados a 100 XP de batalha por dia. Confrontos curtíssimos e desistências não rendem XP.
+- As batalhas nunca debitam moedas, não incluem apostas nem dinheiro real. Ao reiniciar o servidor, batalhas abertas são encerradas sem perda de recursos. O nível, os golpes, os itens e o tipo ficam no Supabase.
+- A economia base continua sendo **/afk iniciar**, **/afk resgatar**, conversar com a Duckzinha e ensinar fatos da comunidade conforme permissões. Os limites diários evitam multiplicação de moedas por cliques.
+- **Migrações reutilizáveis:** `sql/duck-economy.sql` (moedas e conjuntos visuais) seguida de `sql/duck-rpg.sql` (pato e transações). Já foram aplicadas no Supabase atual. Não há novas ENVs.
+- Atualize a branch `asasa` na FadeHost e reinicie o bot para recadastrar os slash commands. Valide com `npm run check` e `npm test`. Não foi possível executar batalhas reais no Discord a partir do GitHub.
