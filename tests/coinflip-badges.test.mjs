@@ -117,10 +117,11 @@ test('painéis de loja e diário usam IDs permanentes nos botões',()=>{
  assert.doesNotMatch(dailyPanel().content,/@everyone/);
  assert.deepEqual(dailyPanel().allowedMentions,{parse:[]});
  const onPublish=publishedPanel(shop);
- assert.match(onPublish.content,/^@everyone\n\n/);
+ assert.match(onPublish.content,/\n\n@everyone$/);
  assert.deepEqual(onPublish.allowedMentions,{parse:['everyone']});
  assert.equal(onPublish.components[0].components[0].data.custom_id,'duckbadge:bronze');
  assert.equal(publishedPanel(dailyPanel()).allowedMentions.parse[0],'everyone');
+ assert.match(publishedPanel(dailyPanel()).content,/\n\n@everyone$/);
  assert.equal(Object.keys(BADGES).length,4);
 });
 
