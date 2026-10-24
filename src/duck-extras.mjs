@@ -1,5 +1,5 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits} from 'discord.js';
-import {DuckQuiz} from './duck-quiz.mjs';
+import {DuckPublicQuiz} from './duck-public-quiz.mjs';
 
 export const MOODS=['auto','animada','calma','curiosa','sonolenta'];
 export const DEFAULT_SETTINGS=Object.freeze({mood:'auto',emotionalVoice:true,specialReactions:true});
@@ -52,7 +52,7 @@ export class DuckExtras{
   constructor({store}={}){
     this.store=store;
     this.settings={...DEFAULT_SETTINGS};
-    this.quiz=new DuckQuiz();
+    this.quiz=new DuckPublicQuiz();
     this.lastImage=new Map();
   }
   async load(){
@@ -111,6 +111,8 @@ export class DuckExtras{
     await interaction.update(p);
   }
   startGame(interaction){return this.quiz.start(interaction);}
+  stopGame(interaction){return this.quiz.stop(interaction);}
+  shutdown(){this.quiz.shutdown();}
 
   async gameButton(interaction){return this.quiz.answer(interaction);}
 }
