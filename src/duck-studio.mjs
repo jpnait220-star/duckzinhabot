@@ -2,6 +2,7 @@ import {createServer} from 'node:http';
 import {randomBytes} from 'node:crypto';
 import {renderAvatar,normalizeAvatar,COLORS} from './duck-avatar.mjs';
 import {MOODS,normalizeSettings} from './duck-extras.mjs';
+import {PermissionFlagsBits} from 'discord.js';
 
 function html(){
 return `<!doctype html>
@@ -186,6 +187,17 @@ export class DuckStudio{
   const existing=await this.store.getAvatar(userId).catch(()=>null);
   return normalizeAvatar(existing);
  }
+ async canManageBot(who){
+  if(!who?.admin||!this.client?.user?.id)return false;
+  try{
+    const guild=await this.client.guilds.fetch(this.store.guildId);
+    const member=await guild.members.fetch(who.userId);
+    return member.permissions.has(PermissionFlagsBits.Administrator);
+  }catch(err){
+    console.warn('[Duckzinha] Verificação de admin: '+String(err?.message||err).slice(0,120));
+    return false;
+  }
+ }
  start(){
   const port=Number(process.env.PORT)||8080;
   this.server=createServer((req,res)=>{void this.route(req,res).catch(e=>{
@@ -207,6 +219,15 @@ export class DuckStudio{
   if(method==='GET'&&path==='/api/preview.png'){
     const avatar=Object.fromEntries(Object.keys(normalizeAvatar()).map(k=>[k,url.searchParams.get(k)]));
     return respond(res,200,renderAvatar(avatar),'image/png');
+  }
+  if(method==='GET'&&path==='/api/bot/avatar.png'){
+    if(!this.client?.user?.id)return respond(res,503,{error:'Duckzinha offline.'});
+    return respond(res,200,renderAvatar(await this.avatar(this.client.user.id)),'image/png');
+  }
+  if(method==='GET'&&path==='/api/bot/avatar'){
+    const who=this.session(req);
+    if(!await this.canManageBot(who))return respond(res,403,{error:'Somente administradores.'});
+    return respond(res,200,{avatar:await this.avatar(this.client.user.id)});
   }
   if(method==='GET'&&/^\/api\/avatar\/\d{17,22}\.png$/.test(path)){
     const id=path.split('/').pop().replace('.png','');
@@ -238,13 +259,24 @@ export class DuckStudio{
       return respond(res,200,{ok:true});
     }
     if(!who)return respond(res,401,{error:'Sessão expirada. Use /avatar para entrar novamente.'});
+    if(path==='/api/bot/avatar'||path==='/api/bot/avatar/apply'){
+      if(!await this.canManageBot(who))return respond(res,403,{error:'Somente administradores podem editar a Duckzinha.'});
+      if(!this.store.persistent)return respond(res,503,{error:'Supabase precisa estar configurado.'});
+      if(path==='/api/bot/avatar'){
+        const avatar=normalizeAvatar(body.avatar);
+        await this.store.setAvatar(this.client.user.id,avatar);
+        return respond(res,200,{ok:true,avatar});
+      }
+      await this.client.user.setAvatar(renderAvatar(await this.avatar(this.client.user.id)));
+      return respond(res,200,{ok:true});
+    }
     if(path==='/api/avatar'){
       if(!this.store.persistent)return respond(res,503,{error:'É necessário configurar o Supabase para guardar avatares.'});
       const avatar=normalizeAvatar(body.avatar);
       await this.store.setAvatar(who.userId,avatar);
       return respond(res,200,{ok:true,avatar});
     }
-    if(path==='/api/settings'&&who.admin){
+    if(path==='/api/settings'&&await this.canManageBot(who)){
       const next=normalizeSettings(body.settings);
       let persisted=true;
       for(const [k,v] of Object.entries(next)){
