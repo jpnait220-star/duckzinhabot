@@ -189,7 +189,7 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
   const panel=panelId?`https://discord.com/channels/${interaction.guildId}/${panelId}`:null;
   if(cmd==='ajuda')return respond({embeds:[embed('🦆 Central de ajuda da Duckzinha',
     'Oiee, patinho! 💛 Eu sou a ajudante da comunidade!\n\n'+
-    '🌐 **/website** — conhecer nosso site\n🎫 **/ticket** — atendimento humano\n📦 **/projetos** — mods, apps e arquivos\n🎮 **/boxpvp** — modo de jogo e gírias\n❓ **/faq** — dúvidas comuns\n💛 **/sobre** — saber mais sobre mim\n🏓 **/ping** — estou online?\n🧠 **/memoria** — controle sua memória\n\n'+
+    '🌐 **/website** — conhecer nosso site\n🎫 **/ticket** — atendimento humano\n📦 **/projetos** — mods, apps e arquivos\n🎮 **/boxpvp** — modo de jogo e gírias\n❓ **/faq** — dúvidas comuns\n💛 **/sobre** — saber mais sobre mim\n🏓 **/ping** — estou online?\n🧠 **/memoria** — controle sua memória\n🦆 **/pato perfil** — veja nível, XP e golpes\n🌊 **/pato tipo** — escolha o elemento do patinho\n🛍️ **/pato loja** — compre rações e TMs\n⚔️ **/batalha** — desafie outro pato por turnos\n🪙 **/moedas** — consulte suas moedas\n\n'+
     '💬 **Para conversar comigo**, escreva `@Duckzinha` e sua pergunta. Só respondo quando sou mencionada!\n\n'+
     '⚠️ Para bugs e problemas de verdade, abra um ticket e aguarde a equipe.') ]});
   if(cmd==='website')return respond(publicInfoPayload('website',{site}));
