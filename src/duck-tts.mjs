@@ -26,7 +26,12 @@ const rows=[
   ['Raquel • Animada','pt-BR-RaquelAnimadaNeural','pt-PT-RaquelNeural',21,15,'Portugal • expressiva'],
   ['Raquel • Super Animada','pt-BR-RaquelSuperAnimadaNeural','pt-PT-RaquelNeural',31,24,'Portugal • entusiasmada'],
   ['Duarte • Portugal','pt-BR-DuartePortugalNeural','pt-PT-DuarteNeural',0,0,'Portugal • masculino'],
-  ['Duarte • Animado','pt-BR-DuarteAnimadoNeural','pt-PT-DuarteNeural',15,16,'Portugal • mais animado']
+  ['Duarte • Animado','pt-BR-DuarteAnimadoNeural','pt-PT-DuarteNeural',15,16,'Portugal • mais animado'],
+  ['Brenda • Brasil','pt-BR-BrendaNeural','pt-BR-BrendaNeural',10,0,'Brasil • voz feminina diferente'],
+  ['Giovanna • Brasil','pt-BR-GiovannaNeural','pt-BR-GiovannaNeural',10,0,'Brasil • voz feminina diferente'],
+  ['Leila • Brasil','pt-BR-LeilaNeural','pt-BR-LeilaNeural',10,0,'Brasil • voz feminina diferente'],
+  ['Manuela • Brasil','pt-BR-ManuelaNeural','pt-BR-ManuelaNeural',10,0,'Brasil • voz feminina diferente'],
+  ['Yara • Brasil','pt-BR-YaraNeural','pt-BR-YaraNeural',10,0,'Brasil • voz feminina diferente']
 ];
 export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
   Object.freeze({name,id,edgeId,pitch,rate,description})));
