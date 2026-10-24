@@ -235,17 +235,17 @@ function petBehind(d,type){
     }star(d,x-33,y-30,3,WHITE,.8);
   }
 }
+const OUTFIT_FABRICS=Object.freeze({
+  moletom:['#f5c74f','#e9a83b'],jaqueta:['#577cbd','#344b89'],
+  kimono:['#eb7b9a','#b95781'],
+  uniforme:['#506a91','#2f4265'],sueter:['#94c2b8','#5b9b98'],
+  terno:['#343449','#252538'],armadura:['#aab5c8','#78869d'],
+  praia:['#8bd6ef','#4aa0cb']
+});
 function garment(d,a){
   const outfit=a.roupa;
-  const fabric={
-    moletom:['#f5c74f','#e9a83b'],jaqueta:['#577cbd','#344b89'],
-    kimono:['#eb7b9a','#b95781'],
-    uniforme:['#506a91','#2f4265'],sueter:['#94c2b8','#5b9b98'],
-    terno:['#343449','#252538'],armadura:['#aab5c8','#78869d'],
-    praia:['#8bd6ef','#4aa0cb']
-  };
   if(outfit==='nenhuma'||outfit==='cachecol')return;
-  const [natural,shadow]=fabric[outfit]||fabric.moletom;
+  const [natural,shadow]=OUTFIT_FABRICS[outfit]||OUTFIT_FABRICS.moletom;
   const base=DETAIL_HEX[a.cor_detalhe]||natural;
   const shade=shadow;
   const detail=a.cor_detalhe==='original'?'#fff3c6':base;
@@ -325,6 +325,48 @@ function drawWings(d,main,shade){
     d.ellipse(x-6,196,10,23,main,.42);
   }
 }
+// A manga usa a mesma paleta do tronco e segue a silhueta da asa.
+function fittedSleeves(d,a){
+  const outfit=a.roupa;
+  if(outfit==='nenhuma'||outfit==='cachecol')return;
+  const [natural,shadow]=OUTFIT_FABRICS[outfit]||OUTFIT_FABRICS.moletom;
+  const base=DETAIL_HEX[a.cor_detalhe]||natural;
+  const accent=a.cor_detalhe==='original'?'#fff3c6':base;
+  for(const x of [90,230]){
+    const side=x<160?-1:1;
+    // Contorno igual ao da asa original: manga acompanha o braço, sem bolhas soltas.
+    d.ellipse(x,208,30,43,OUT);
+    d.ellipse(x,206,26,39,shadow);
+    d.ellipse(x-side*2,203,23,35,base);
+    // Ombro integrado à peça central, mantendo a mesma cor.
+    d.ellipse(x-side*12,187,15,14,base);
+    d.ellipse(x+side*10,196,6,20,WHITE,.11);
+    if(outfit==='armadura'){
+      d.ellipse(x,205,21,28,'#8493ac');
+      d.ellipse(x-side*3,201,17,22,'#c5d6e5');
+      d.polygon([[x-side*17,214],[x+side*16,214],
+        [x+side*10,229],[x-side*9,231]],'#72829d',.8);
+      d.line(x-side*12,193,x-side*3,187,3,WHITE,.45);
+    }else if(outfit==='kimono'){
+      // Barra clara do quimono também envolve as mangas.
+      d.line(x-18,233,x+18,233,8,'#fff1e7',.9);
+      d.line(x-17,231,x+17,231,2,'#ed9eb4',.9);
+    }else if(outfit==='sueter'){
+      d.line(x-17,232,x+17,232,6,shadow,.92);
+      for(const dx of [-11,-5,1,7])d.line(x+dx,230,x+dx,234,1.4,accent,.45);
+    }else if(outfit==='terno'){
+      d.line(x-17,233,x+17,233,7,'#faf3ed',.95);
+      d.line(x-14,228,x+14,228,2,shadow,.62);
+    }else if(outfit==='praia'){
+      for(const dx of [-9,5])d.line(x+dx-8,185,x+dx+8,223,3,'#fffbdd',.45);
+      d.line(x-17,232,x+17,232,3,shadow,.9);
+    }else{
+      // Punho discreto seguindo o tecido e a sombra do torso.
+      d.line(x-17,232,x+17,232,4,shadow,.75);
+      d.line(x-12,230,x+12,230,1.5,accent,.33);
+    }
+  }
+}
 function duck(d,a){
   const [main,shade,deep]=BODY[a.corpo];
   // Pezinhos e asas da silhueta principal.
@@ -333,21 +375,11 @@ function duck(d,a){
   d.ellipse(160,231,87,75,OUT);
   d.ellipse(160,228,81,69,shade);
   d.ellipse(148,213,62,55,main,.68);
-  if(a.camada_roupa==='acima')drawWings(d,main,shade);
   garment(d,a);
-  if(a.camada_roupa==='abaixo')drawWings(d,main,shade);
-  // Mangas acompanham a cor do tecido quando a roupa passa por cima das asas.
-  if(a.camada_roupa==='acima'&&a.roupa!=='nenhuma'&&a.roupa!=='cachecol'){
-    const fabric=DETAIL_HEX[a.cor_detalhe]||({
-      moletom:'#f5c74f',jaqueta:'#577cbd',kimono:'#eb7b9a',uniforme:'#506a91',
-      sueter:'#94c2b8',terno:'#343449',armadura:'#aab5c8',praia:'#8bd6ef'
-    }[a.roupa]||'#f5c74f');
-    for(const x of [90,230]){
-      d.ellipse(x,216,23,30,OUT);
-      d.ellipse(x,214,19,27,fabric);
-      d.line(x-12,233,x+12,233,2,'#ffffff',.2);
-    }
-  }
+  // As asas ficam visíveis em ambas as opções. "Acima" veste mangas
+  // completas sobre elas; "Abaixo" preserva as penas por cima da roupa.
+  drawWings(d,main,shade);
+  if(a.camada_roupa==='acima')fittedSleeves(d,a);
   // Cabeça redondinha com laterais macias e topete.
   d.ellipse(159,129,87,87,OUT);
   d.ellipse(159,125,81,80,shade);
@@ -402,9 +434,9 @@ function duckBack(d,a){
   const [main,shade]=BODY[a.corpo];
   for(const x of [116,207]){d.ellipse(x,291,35,13,OUT);d.ellipse(x,288,31,11,'#e9984d');}
   d.ellipse(160,231,87,75,OUT);d.ellipse(160,228,81,69,shade);
-  if(a.camada_roupa==='acima')drawWings(d,main,shade);
   garment(d,a);
-  if(a.camada_roupa==='abaixo')drawWings(d,main,shade);
+  drawWings(d,main,shade);
+  if(a.camada_roupa==='acima')fittedSleeves(d,a);
   d.ellipse(159,130,87,87,OUT);
   d.ellipse(159,125,81,80,shade);
   d.ellipse(155,116,75,71,main);
