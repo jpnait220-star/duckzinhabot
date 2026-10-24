@@ -34,50 +34,51 @@ test('efeitos de moeda geram WAV PCM diferentes por lado e MP3 válido',async()=
  assert.equal(await coinMp3('cara'),a);
 });
 
-test('a partida de três rodadas é de quem aceita e não debita moedas',async()=>{
- const messages=[];
- const games=new DuckCoinflip({randomSide:(()=>{let n=0;return ()=>[0,1,0][n++];})(),sleep:async()=>{},
-   renderVideo:async side=>Buffer.concat([Buffer.from([0,0,0,24]),Buffer.from('ftypisom'),Buffer.from(side)])});
+test('coinflip atualiza uma mensagem, aguarda 3s antes de cada giro e usa GIF',async()=>{
+ const sent=[],edits=[],waits=[];
+ const message={edit:async payload=>{edits.push(payload);return message;}};
+ const coin=new DuckCoinflip({
+   randomSide:(()=>{let i=0;return ()=>[0,1,0][i++];})(),
+   sleep:async ms=>{waits.push(ms);},
+   renderGif:async side=>Buffer.from('GIF89a'+side)
+ });
  const interaction={
-  user:{id:'111111111111111111'},guildId:'333333333333333333',
-  guild:{members:{fetch:async()=>({})}},
-  options:{getUser:()=>({id:'222222222222222222',bot:false})},
-  channel:{send:async msg=>{messages.push(msg);return msg;}},
-  reply:async msg=>{messages.push(msg);},
-  fetchReply:async()=>({edit:async()=>{}})
+   user:{id:'111111111111111111'},guildId:'333333333333333333',
+   guild:{members:{fetch:async()=>({})}},
+   options:{getUser:()=>({id:'222222222222222222',bot:false})},
+   channel:{send:async payload=>{sent.push(payload);}},
+   reply:async payload=>{sent.push(payload);},
+   fetchReply:async()=>message
  };
- await games.challenge(interaction);
- assert.equal(games.games.size,1);
- const id=[...games.games.keys()][0];
- const challenge=messages[0].content;
- assert.match(challenge,/três|3 rodadas/i);
- assert.match(challenge,/ninguém aposta/i);
- let outcome;
- const approved={
-  user:{id:interaction.options.getUser().id},
-  customId:'duckcoin:'+id+':yes',
-  update:async content=>{outcome=content;},
-  reply:async content=>{outcome=content;}
- };
- const run=games.run.bind(games);
- let finalized;
- games.run=async game=>{finalized=await run(game);};
- await games.button(approved);
- for(let i=0;i<60&&!messages.some(x=>/RESULTADO DO COINFLIP/.test(x.content));i++)
-   await new Promise(resolve=>setTimeout(resolve,10));
- assert.equal(messages.filter(x=>/RODADA \d\/3/.test(x.content)).length,3);
- const videos=messages.filter(x=>/RODADA \d\/3/.test(x.content));
- assert.equal(videos.every(x=>x.files?.length===1&&x.files[0]?.name.endsWith('.mp4')),true);
- assert.ok(videos[0].files[0].name.includes('-cara-'));
- assert.ok(videos[1].files[0].name.includes('-coroa-'));
- assert.ok(videos[2].files[0].name.includes('-cara-'));
- assert.equal(videos.every(x=>!x.content.includes('apostou')),true);
- assert.match(messages.at(-1).content,/\*\*2\*\* × \*\*1\*\*/);
- assert.match(messages.at(-1).content,/Nenhuma moeda foi apostada/);
- assert.equal(games.games.size,0);
- assert.equal(games.players.size,0);
- assert.ok(finalized===undefined);
- games.shutdown();
+ await coin.challenge(interaction);
+ const id=[...coin.games.keys()][0];
+ assert.match(sent[0].content,/3 rodadas/);
+ assert.match(sent[0].content,/ninguém aposta/i);
+ const finished=new Promise(resolve=>{
+   const original=coin.stop.bind(coin);
+   coin.stop=game=>{original(game);resolve();};
+ });
+ await coin.button({
+   user:{id:'222222222222222222'},
+   customId:'duckcoin:'+id+':yes',
+   update:async payload=>{edits.push(payload);},
+   reply:async()=>{throw Error('Não deveria responder');}
+ });
+ await finished;
+ assert.equal(sent.length,1,'apenas o convite cria mensagem');
+ assert.equal(edits.filter(x=>/vai girar em \*\*[123]\*\*/.test(x.content)).length,9);
+ assert.equal(waits.filter(x=>x===1000).length,9);
+ const rounds=edits.filter(x=>/MOEDA DE PATO • RODADA/.test(x.content));
+ assert.equal(rounds.length,3);
+ assert.ok(rounds.every(x=>x.files?.length===1&&x.files[0].name.endsWith('.gif')));
+ assert.ok(rounds[0].files[0].name.includes('-cara-'));
+ assert.ok(rounds[1].files[0].name.includes('-coroa-'));
+ assert.ok(rounds[2].files[0].name.includes('-cara-'));
+ assert.match(edits.at(-1).content,/RESULTADO DO COINFLIP/);
+ assert.match(edits.at(-1).content,/\*\*2\*\* × \*\*1\*\*/);
+ assert.ok(waits.filter(x=>x>=3000).length===3);
+ assert.equal(coin.games.size,0);
+ assert.equal(coin.players.size,0);
 });
 
 test('não pode aceitar desafio de outra pessoa',async()=>{
