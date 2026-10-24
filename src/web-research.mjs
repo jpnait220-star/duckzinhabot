@@ -147,6 +147,8 @@ export function sourceDetails(results) {
 
 // Conversa no chat de voz usa o mesmo fluxo de consentimento de pesquisa
 // dos canais de texto. Não pesquisar automaticamente só por ser uma call.
-export function offerSearchControls({shouldOffer=false,isVoiceChat=false,searching=false,mentioned=false}={}){
-  return Boolean(shouldOffer||(isVoiceChat&&!searching&&mentioned));
+export function offerSearchControls({shouldOffer=false,searching=false}={}){
+  // Só oferecer pesquisa se a Duckzinha não soube responder.
+  // Uma simples menção no chat da call não deve criar o botão.
+  return Boolean(shouldOffer&&!searching);
 }
