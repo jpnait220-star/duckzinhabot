@@ -127,3 +127,10 @@ Cadastre `TAVILY_API_KEY` e `SERPER_API_KEY` nas variáveis privadas da FadeHost
 - O Studio agora renderiza avatares PNG de **384×384** com gradientes, luz e sombra, acessórios por camada e maior variedade de visuais. Categorias: cores do patinho, fundo, olhos, chapéus e coroas, óculos e máscaras, roupas, punhos/luvas, auras e pets. Há presets Fofo e PvP e sorteio. As personalizações anteriores (`acessorio`) são convertidas para a camada equivalente quando possível.
 - Para atualizar o bot existente na FadeHost, use a branch `asasa`, rode `npm install` se necessário e reinicie. Os comandos slash são recadastrados na inicialização. Rode `npm run check` e `npm test` para conferir os módulos.
 - O site de avatar ainda exige que o Studio esteja acessível por HTTPS público e que `APP_URL` seja reconhecida pelo processo, conforme a configuração já existente do serviço.
+
+
+## Quiz público da galera + botões de pesquisa no chat da call
+- `/jogo quiz` inicia **uma partida pública por canal**, com perguntas e botões que todas as pessoas no canal podem usar. As respostas são confirmadas por mensagem privada: clicar **não apaga a pergunta** nem impede as demais respostas.
+- Cada rodada dura **35 segundos**; no fim a Duckzinha edita aquela mensagem para mostrar **quem acertou e passou**, sem expor quem errou. Se houver classificados, a próxima pergunta é publicada após **4 segundos**, só para quem passou, ficando mais difícil a cada 3 rodadas, até o nível Mestre. A partida acaba quando ninguém acerta ou após 30 rodadas.
+- Quem tem a permissão `Gerenciar Mensagens` pode usar `/jogo parar` para encerrar a partida do canal. Há limite de uma partida simultânea por canal.
+- No **chat da call**, quando alguém menciona a Duckzinha, as respostas da bot agora também mostram **Pesquisar** e **Eu explico**. O botão Pesquisar só executa a busca depois do clique da pessoa que perguntou e usa as chaves de pesquisa já configuradas; depois aparecem as fontes e o resultado também pode ser falado pela bot conectada àquela call. Nenhuma ENV nova foi adicionada.
