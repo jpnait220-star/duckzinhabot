@@ -261,3 +261,13 @@ Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente nov
 - **Voz mais expressiva:** em calls públicas, a bot usa o tom da resposta (calmo, animado, curioso, sonolento) para selecionar um preset TTS disponível quando a configuração Voz expressiva está ligada. Sem ouvir/gravar as pessoas ou iniciar escuta automática.
 
 **Permissões:** a bot precisa das permissões de leitura, envio e componentes nos canais públicos, além de DMs abertas para entregar lembretes. Administradores controlam sugestões e eventos. Para funcionar 24h, a FadeHost deve estar ligada, com Supabase configurado.
+
+
+### Quiz ampliado e Pedra, Papel e Tesoura
+
+- /jogo quiz: quiz individual com perguntas progressivas e sequência de acertos.
+- /campeonato iniciar: quiz público com 35 segundos por rodada. Acertadores avançam e as perguntas aumentam de dificuldade.
+- Os dois usam **170 perguntas** em cinco níveis (antes: 60), com Minecraft, anime, matemática, ciências, geografia, português, tecnologia, história e lógica.
+- /minigame tipo:Anime, Desafio de emojis, Lógica, Minecraft, Geografia, Matemática, Verdadeiro ou falso ou Adivinhe o mob: cada tipo possui **16 perguntas**, totalizando **128**. Cada rodada é pública, dura 30 segundos e os resultados aparecem no canal; cada pessoa responde de forma privada. As últimas 12 perguntas do mesmo canal não são repetidas enquanto houver alternativas.
+- **/minigame tipo:Pedra, Papel e Tesoura**: três botões (✊ Pedra, ✋ Papel, ✌️ Tesoura). Cada pessoa pode participar uma vez na rodada de 30 segundos. O confronto com a escolha aleatória da Duckzinha é privado e no fim o resultado público mostra o total de vitórias, derrotas e empates. Não envolve apostas, moedas nem recompensa.
+- Atualize a branch asasa na FadeHost e reinicie para os comandos novos serem registrados no Discord. Nenhuma ENV ou SQL novo é necessário para esses jogos.
