@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckCoinflip} from './duck-coinflip.mjs';
 import {DuckBadgeShop} from './duck-badges.mjs';
+import {EXTRA_MINIGAMES} from './duck-extra-minigames.mjs';
 
 const priv=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export function naturalTeaching(text){
@@ -26,11 +27,12 @@ export const SAFE_GAMES=[
  {name:'geografia',label:'Geografia',question:'Qual é a capital de Pernambuco?',options:['Salvador','Maceió','Recife','Natal'],answer:2},
  {name:'anime',label:'Desafio Anime',question:'Em Naruto, qual vila Naruto chama de lar?',options:['Vila da Areia','Vila da Folha','Vila da Névoa','Vila da Pedra'],answer:1},
  {name:'emoji',label:'Desafio Emoji',question:'Qual jogo é representado por ⛏️ 🧱 💎?',options:['Minecraft','Roblox','Among Us','Fortnite'],answer:0},
- {name:'logica',label:'Lógica Rápida',question:'Se 3 patos põem 3 ovos em 3 dias, quantos ovos 6 patos põem em 3 dias?',options:['3','6','9','12'],answer:1}
+ {name:'logica',label:'Lógica Rápida',question:'Se 3 patos põem 3 ovos em 3 dias, quantos ovos 6 patos põem em 3 dias?',options:['3','6','9','12'],answer:1},
+ ...EXTRA_MINIGAMES
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.games=new Map();}
+ constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.games=new Map();this.recentMinigames=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
@@ -63,11 +65,18 @@ export class DuckCommunity{
  async game(interaction){
    const id=randomUUID().slice(0,12);
    const kind=interaction.options.getString('tipo')||'aleatorio';
-   const available=kind==='aleatorio'?SAFE_GAMES:SAFE_GAMES.filter(x=>x.name===kind);
-   const q=available[Math.floor(Math.random()*available.length)];
    const key=interaction.guildId+':'+interaction.channelId;
    if(this.games.has(key)&&Date.now()-this.games.get(key).time<30000)
      return interaction.reply(priv('Já existe um minigame ativo neste canal.'));
+   const available=kind==='aleatorio'?SAFE_GAMES:SAFE_GAMES.filter(x=>x.name===kind);
+   if(!available.length)return interaction.reply(priv('Essa categoria ainda não está disponível.'));
+   // As últimas 12 perguntas do canal ficam excluídas da seleção, até esgotar as alternativas.
+   const recent=this.recentMinigames.get(key)||[];
+   const unused=available.filter(item=>!recent.includes(item.name+':'+item.question));
+   const selection=unused.length?unused:available;
+   const q=selection[Math.floor(Math.random()*selection.length)];
+   const used=[...recent,q.name+':'+q.question].slice(-12);
+   this.recentMinigames.set(key,used);
    this.games.set(key,{id,q,time:Date.now(),answers:new Map()});
    const row=new ActionRowBuilder().addComponents(q.options.map((v,i)=>
      new ButtonBuilder().setCustomId('duckmini:'+key+':'+id+':'+i).setLabel(v).setStyle(ButtonStyle.Primary)));
