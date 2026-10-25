@@ -10,26 +10,29 @@ const listNames=ids=>ids.slice(0,25).map(id=>'<@'+id+'>').join(', ')+
   (ids.length>25?' e mais '+(ids.length-25)+' participantes':'');
 export function publicQuestionText(round){
   const level=levelForStreak(round.number-1);
-  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+'**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':round.room.streakMode?'QUIZ STREAK':'QUIZ DA GALERA')+' — RODADA '+round.number+'**\n'+
     '⭐ Dificuldade: **'+LEVEL_NAMES[level-1]+' ('+level+'/5)**\n'+
     '🔥 Sequência em jogo: **'+(round.number-1)+'**\n'+
     (round.number===1?'👥 **Todos podem entrar nesta rodada!**':
       '👥 **'+round.eligible.size+'** pessoas passaram da rodada anterior.')+'\n'+
-    '⏳ **35 segundos** para responder, uma vez por pessoa.\n\n'+
+    '⏳ **'+Math.ceil(round.room.roundMs/1000)+' segundos** para responder, uma vez por pessoa.\n\n'+
     '📚 '+round.question.topic+'\n**'+round.question.text+'**\n\n'+
     'O quiz não fecha quando alguém responde. No fim revelo **quem passou**!';
 }
 export function publicResultText(round,winners,{last=false}={}){
   const level=levelForStreak(round.number-1);
-  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+' ENCERRADA**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':round.room.streakMode?'QUIZ STREAK':'QUIZ DA GALERA')+' — RODADA '+round.number+' ENCERRADA**\n'+
     '⭐ Nível: **'+LEVEL_NAMES[level-1]+'**\n'+
     '📚 '+round.question.text+'\n'+
     '✅ Resposta correta: **'+round.question.choices[round.question.right]+'**\n\n'+
+    (round.room.streakMode?'🔥 Streak acumulada: **'+round.number+'** acerto(s) dos classificados.\n'+
+      '🏆 Melhor streak da sessão: **'+round.room.bestStreak+'**\n':'')+
     '🏅 **QUEM PASSOU ('+winners.length+'):**\n'+
     (winners.length?listNames(winners):'Ninguém passou desta rodada.')+'\n\n'+
     (winners.length&&!last?'🔥 Próxima pergunta em 4 segundos! Somente quem passou continua.':
       winners.length?'🏆 **Parabéns aos campeões! Partida concluída.**':
-        '🏁 **Fim da partida!** Use /jogo quiz para começar de novo.');
+        (round.room.streakMode?'🏁 **Fim da streak!** Use /minigame tipo:Quiz Streak para jogar novamente.':
+          '🏁 **Fim da partida!** Use /jogo quiz para começar de novo.'));
 }
 export class DuckPublicQuiz {
   constructor({now=Date.now,random=Math.random,setTimer=setTimeout,
@@ -60,7 +63,7 @@ export class DuckPublicQuiz {
     room.used.push(question.key);
     if(room.used.length>60)room.used=room.used.slice(-60);
     return {id:randomUUID().slice(0,16),room,number,question,eligible,
-      answers:new Map(),closed:false,deadline:this.now()+this.roundMs,message:null,timer:null};
+      answers:new Map(),closed:false,deadline:this.now()+room.roundMs,message:null,timer:null};
   }
   payload(round){
     const rows=questionButtons(round.id,round.question);
@@ -72,10 +75,10 @@ export class DuckPublicQuiz {
   arm(round){
     this.rounds.set(round.id,round);
     round.timer=this.setTimer(()=>{void this.closeRound(round).catch(error=>
-      console.error('[Duckzinha] Quiz público: '+String(error?.message||error)));},this.roundMs);
+      console.error('[Duckzinha] Quiz público: '+String(error?.message||error)));},round.room.roundMs);
     round.timer?.unref?.();
   }
-  async start(interaction,{championship=false}={}){
+  async start(interaction,{championship=false,streakMode=false}={}){
     const key=this.key(interaction.guildId,interaction.channelId);
     if(this.rooms.has(key)){
       await interaction.reply(privateReply('🦆 Já existe um quiz público neste canal! Use os botões da pergunta atual.'));
@@ -85,7 +88,8 @@ export class DuckPublicQuiz {
       await interaction.reply(privateReply('Use /jogo quiz num canal de texto.'));
       return false;
     }
-    const room={key,channel:interaction.channel,nextNumber:1,used:[],current:null,timer:null,championship};
+    const room={key,channel:interaction.channel,nextNumber:1,used:[],current:null,timer:null,
+      championship,streakMode,roundMs:streakMode?30000:this.roundMs,bestStreak:0};
     this.rooms.set(key,room);
     const round=this.makeRound(room);
     room.current=round;
@@ -145,6 +149,7 @@ export class DuckPublicQuiz {
     if(round.timer!=null)this.clearTimer(round.timer);
     const winners=[...round.answers].filter(([,choice])=>choice===round.question.right).map(([user])=>user);
     for(const user of winners)if(round.number>this.score(user))this.best.set(user,round.number);
+    if(winners.length)room.bestStreak=Math.max(room.bestStreak,round.number);
     const last=round.number>=(room.championship?6:this.maxRounds);
     try{
       await round.message.edit({content:publicResultText(round,winners,{last}),
