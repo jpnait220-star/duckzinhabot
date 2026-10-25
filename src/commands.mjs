@@ -35,7 +35,16 @@ export function commandPayloads(){
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
     .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
-    .addSubcommand(x=>x.setName('testevoz').setDescription('Testar o áudio da Duckzinha na sua call (admin)'))
+    .addSubcommand(x=>x.setName('testevoz').setDescription('Ouvir uma expressão específica na sua call (admin)')
+      .addStringOption(o=>o.setName('estilo').setDescription('Compare estilos distintos de voz')
+        .addChoices(
+          {name:'Normal',value:'normal'},
+          {name:'Animada',value:'animada'},
+          {name:'Calma',value:'calma'},
+          {name:'Curiosa',value:'curiosa'},
+          {name:'Sonolenta',value:'sonolenta'},
+          {name:'Piada',value:'piada'}
+        )))
     .addSubcommand(x=>x.setName('voice').setDescription('Escolher a voz brasileira da Duckzinha (admin)')
       .addStringOption(o=>o.setName('nome').setDescription('Selecione uma voz pt-BR').setRequired(true)
         .addChoices(...voiceChoices())))
