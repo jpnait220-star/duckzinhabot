@@ -191,6 +191,12 @@ export class DuckStore {
       p_guild:this.guildId,p_user:user,p_key:key,p_kind:kind,p_coins:amount,p_daily_limit:limit
     }));
   }
+  async rewardMinigame(user,gameKey){
+    if(!this.db)return {ok:false,reason:'database'};
+    return this.requireResult(this.db.rpc('duckzinha_reward_minigame',{
+      p_guild:this.guildId,p_user:user,p_key:'minigame:'+gameKey
+    }));
+  }
   async startCoinflip(gameId,host,guest){
     if(!this.db)return {ok:false,reason:'database'};
     return this.requireResult(this.db.rpc('duckzinha_coinflip_start',{
