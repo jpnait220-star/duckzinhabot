@@ -7,7 +7,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import {writeFfmpegFrame} from './duck-ffmpeg-stream.mjs';
 import {coinPcm} from './duck-coinflip-audio.mjs';
 
-export const COIN_VIDEO={width:512,height:288,fps:20,seconds:3.4};
+export const COIN_VIDEO={width:512,height:288,fps:24,seconds:2.9};
 const {width:W,height:H,fps:FPS,seconds:DURATION}=COIN_VIDEO;
 const TAU=Math.PI*2;
 const clip=(x,min=0,max=255)=>Math.max(min,Math.min(max,x));
@@ -151,7 +151,7 @@ function makeTexture(side){
   d.star(cx+Math.cos(a)*94,cy+Math.sin(a)*94,i%3===0?4:2.6,SH,.7);
  }
  if(side==='cara'){
-  // Face limpa e simétrica do pato gravada no metal dourado.
+  // Novo emblema: pato simplificado, relevo simétrico e traços consistentes.
   d.circle(128,120,48,46,D,.30);
   d.circle(128,115,46,44,SH,.65);
   d.circle(128,118,41,40,GOLD,.98);
@@ -165,10 +165,11 @@ function makeTexture(side){
   d.circle(128,138,26,13,[245,158,63],1);
   d.circle(122,134,8,3,SH,.70);
   d.line(105,143,151,143,EM,1.2,.62);
-  // Pequenas bochechas; sem asas duplicadas ou deformadas.
-  d.circle(98,132,6,4,[240,156,96],.58);
-  d.circle(158,132,6,4,[240,156,96],.58);
-  d.text('DUCK',Math.round((N-textWidth('DUCK',3))/2),178,3,D);
+  // Monograma central e borda circular mais limpos.
+  d.circle(98,132,6,4,[240,156,96],.4);
+  d.circle(158,132,6,4,[240,156,96],.4);
+  d.line(93,163,163,163,SH,1.6,.65);
+  d.text('DUCK',Math.round((N-textWidth('DUCK',3))/2),177,3,D);
  }else{
   // Coroa real de pato com pedras lapidadas e contornos de ouro.
   d.polygon([[79,156],[73,105],[94,127],[112,78],[130,118],[153,78],
@@ -197,12 +198,12 @@ function background(time){
   const u=(x-W*.5)/W,v=(y-130)/H;
   const r=Math.hypot(u*1.5,v*1.55);
   const spot=Math.max(0,1-r);
-  const dust=Math.sin((x*.21+y*.12))*1.3;
-  const grain=(Math.sin(x*73.13+y*27.87)*.5+.5)*3;
+  const dust=Math.sin((x*.035+y*.018))*1.1;
+  const grain=(Math.sin(x*73.13+y*27.87)*.5+.5)*1.4;
   const i=(y*W+x)*3;
-  d.buf[i]=clip(13+spot*22+grain);
-  d.buf[i+1]=clip(18+spot*25+dust);
-  d.buf[i+2]=clip(36+spot*37+grain);
+  d.buf[i]=clip(8+spot*25+grain);
+  d.buf[i+1]=clip(13+spot*27+dust);
+  d.buf[i+2]=clip(26+spot*38+grain);
  }
  // Colunas de luz, plataforma de exposição, reflexos e poeira mágica.
  for(let i=0;i<14;i++){
@@ -215,8 +216,8 @@ function background(time){
  d.circle(256,252,138,10,[14,10,23],.7);
  d.line(36,264,476,264,[201,149,74],1,.3);
  d.line(75,274,438,274,[119,92,70],1,.23);
- drawCenteredText(d,'DUCKZINHA COINFLIP',13,3,[243,216,146]);
- drawCenteredText(d,'3 RODADAS',39,2,[151,172,209]);
+ drawCenteredText(d,'DUCKZINHA',14,4,[250,220,148]);
+ drawCenteredText(d,'CARA OU COROA',47,2,[160,181,210]);
  return d;
 }
 
@@ -225,18 +226,20 @@ function renderFrame(side,frame,{width=W,height=H,fps=FPS}={}){
  const t=frame/Math.max(1,Math.round(DURATION*FPS)-1);
  const d=background(frame/FPS);
  // Giro rápido, pouso com um rebote e oscilação até a face sorteada.
- const landing=smooth((t-.53)/.31);
- const finish=8*Math.PI+(side==='coroa'?Math.PI:0);
- const rotation=finish*(1-Math.pow(1-smooth(Math.min(1,t/.82)),1.18));
- const remaining=1-smooth((t-.74)/.26);
- const theta=rotation+remaining*Math.sin(t*63)*.08;
+ const landing=smooth((t-.60)/.29);
+ // Três giros legíveis: inicia de imediato e desacelera antes do resultado.
+ const finish=6*Math.PI+(side==='coroa'?Math.PI:0);
+ const progress=clip(t/.86,0,1);
+ const rotation=finish*(1-Math.pow(1-progress,2.4));
+ const remaining=1-smooth((t-.77)/.23);
+ const theta=rotation+remaining*Math.sin(t*34)*.035;
  const projected=Math.cos(theta),face=projected>=0?'cara':'coroa';
  const texture=face==='cara'?texCara:texCoroa;
  const flip=Math.abs(projected);
- const rx=6+82*flip,ry=83;
- const bounce=t<.72?Math.sin(Math.PI*t/.72)*66:Math.abs(Math.sin((t-.72)*Math.PI*11))*24*(1-smooth((t-.72)/.24));
- const xCenter=256+Math.sin(t*TAU*1.4)*6*(1-landing);
- const yCenter=157-bounce+(t<.19?17*(1-t/.19):0);
+ const rx=8+85*flip,ry=85;
+ const bounce=t<.73?Math.sin(Math.PI*t/.73)*40:Math.abs(Math.sin((t-.73)*Math.PI*8))*11*(1-smooth((t-.73)/.19));
+ const xCenter=256+Math.sin(t*TAU)*2.5*(1-landing);
+ const yCenter=158-bounce;
  const shadowWidth=115-bounce*.3;
  d.circle(256,244,shadowWidth,11,[0,0,0],.38);
  d.circle(256,242,shadowWidth*.7,6,[248,193,97],.12);
