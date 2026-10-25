@@ -233,3 +233,31 @@ apenas para preservar históricos até que a exclusão seja solicitada.
 - **/modlog ver** consulta o destino, **/modlog desativar** encerra os registros. O canal é salvo nas configurações existentes do Supabase e permanece após reiniciar, sem nova ENV nem migração SQL.
 - Os logs deste recurso são enviados nas ações executadas **pela própria Duckzinha**, não em banimentos manuais de outros moderadores. Não enviam @everyone.
 - Se o canal de logs ficar sem permissão, o comando de moderação já realizado não é desfeito: a Duckzinha avisa que o registro não foi enviado. Os logs dependem de um canal válido e de Supabase configurado.
+
+
+## Outubro de 2026 — Coinflip com prêmio e melhorias da comunidade
+
+**Para habilitar no Supabase:** abra o SQL Editor do projeto já usado pela Duckzinha e execute os arquivos nesta ordem (uma vez):
+1. sql/duck-coinflip-rewards.sql — limite e prêmio do Coinflip.
+2. sql/duck-community-plus.sql — lembretes, sugestões, votos e eventos.
+
+Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente novas. Atualize a FadeHost pela branch asasa, reinstale dependências se necessário e reinicie a bot. Os testes locais são npm run check e npm test.
+
+### Coinflip renovado
+- /coinflip jogador:@usuario continua um desafio de cara ou coroa em três rodadas, sem apostas, taxa de entrada ou perda de saldo.
+- Quem vencer recebe **15 moedas de pato** (apenas pontos da comunidade; sem valor real). A recompensa é gravada por uma operação idempotente: replays não duplicam moedas.
+- Cada participante pode jogar **até cinco partidas no intervalo móvel de duas horas**, incluindo quem recebe o desafio. As partidas só contam quando o convite é aceito e a pré-renderização termina.
+- Novo MP4 com giro 3D redesenhado e duração de cerca de 2,9 segundos. Os dois vídeos são pré-renderizados antes da contagem 3, 2, 1, para não começar a gerá-los após mostrar o número 1.
+- É necessária a migração SQL do prêmio para evitar limites apenas em memória. Sem banco, o comando explica que está indisponível.
+
+### Novas funções
+
+- **Personalidade dinâmica:** instruções variáveis conforme a mensagem, usando humor leve nas brincadeiras e tom sério nos pedidos de ajuda. Funciona quando a IA configurada gera as respostas; não altera as regras de segurança.
+- **Lembretes:** /lembrete criar texto:estudar em:15m, /lembrete listar e /lembrete cancelar id:123. Também entende a menção @Duckzinha me lembra de estudar em 15 minutos ou amanhã às 15h. Um verificador a cada minuto entrega o lembrete por DM. Se a DM estiver bloqueada, registra falha e não envia em canal público.
+- **Minigames extras:** /minigame tipo:Anime, Desafio de emojis, ou Lógica, além das categorias antigas.
+- **Resumo de chat:** /resumo analisa até 100 mensagens recentes do canal público atual das últimas 24 horas e indica os assuntos mais frequentes, sem ler tickets ou canais privados. É um resumo estatístico por temas, não uma transcrição nem uma síntese feita pela IA.
+- **Sugestões:** /sugerir ideia:... publica a sugestão com botão Apoiar; o voto de cada usuário é único. /sugestao aprovar id: e /sugestao recusar id: são restritos a administradores.
+- **Eventos:** /evento criar titulo:... quando:AAAA-MM-DD HH:MM descricao:..., /evento listar e /evento cancelar id:. O horário é o da Bahia (UTC-3). Inscrições usam os botões Vou participar e Sair, e a Duckzinha avisa no canal quando o evento começa, sem @everyone.
+- **Voz mais expressiva:** em calls públicas, a bot usa o tom da resposta (calmo, animado, curioso, sonolento) para selecionar um preset TTS disponível quando a configuração Voz expressiva está ligada. Sem ouvir/gravar as pessoas ou iniciar escuta automática.
+
+**Permissões:** a bot precisa das permissões de leitura, envio e componentes nos canais públicos, além de DMs abertas para entregar lembretes. Administradores controlam sugestões e eventos. Para funcionar 24h, a FadeHost deve estar ligada, com Supabase configurado.
