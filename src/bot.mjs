@@ -14,6 +14,7 @@ import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {parseModerationRequest,handleModerationRequest} from './duck-moderation.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
+import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resolveResearchSubject} from './duck-channel-context.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
@@ -288,18 +289,15 @@ function publicChannel(message){
     c.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel));
 }
 function makeTurn(message){
-  const clean=String(message.content||'').replace(/<@!?(\d+)>/g,(_,id)=>{
-    const u=message.mentions?.users?.get?.(id);
-    return '@'+(u?.globalName||u?.username||'membro');
-  }).replace(/https?:\/\/\S+/gi,'[link]').replace(/@everyone|@here/gi,'@grupo')
-    .replace(/\s+/g,' ').trim().slice(0,320);
-  return {id:message.id,authorId:message.author.id,
-    speaker:String(message.member?.displayName||message.author.globalName||message.author.username).slice(0,36),
-    channelId:message.channelId,channel:String(message.channel?.name||'geral').slice(0,36),
-    text:clean,timestamp:message.createdTimestamp||Date.now()};
+ return {id:message.id,authorId:message.author.id,
+   speaker:publicMessageSpeaker(message,client.user?.id),
+   channelId:message.channelId,channel:String(message.channel?.name||'geral').slice(0,36),
+   text:publicMessageText(message,{max:320}),
+   timestamp:message.createdTimestamp||Date.now()};
 }
+
 function addRecent(message){
-  if(!publicChannel(message)||!message.content?.trim())return false;
+  if(!publicChannel(message)||!publicMessageText(message))return false;
   serverRecent.push(makeTurn(message));
   const cutoff=Date.now()-CHAT_AGE;
   while(serverRecent.length>100||serverRecent[0]?.timestamp<cutoff)serverRecent.shift();
@@ -364,30 +362,27 @@ async function getHistory(userId){
   session.set(userId,{items,updated:Date.now()});
   return items;
 }
-async function getChannelConversation(message){
-  // Consultar o chat só quando Duckzinha for mencionada.
-  // Não coletar DMs, canais privados ou mensagens de outros servidores.
-  const guild=message.guild;
-  const permissions=message.channel?.permissionsFor?.(guild?.roles?.everyone);
-  if(!permissions?.has(PermissionFlagsBits.ViewChannel))return '';
-  if(!message.channel?.messages?.fetch)return '';
-  let timeoutId;
+async function getPublicRecentMessages(message,{limit=60}={}){
+  if(!publicChannel(message)||!message.channel?.messages?.fetch)return [];
+  let timer;
   try{
     const timeout=new Promise((_,reject)=>{
-      timeoutId=setTimeout(()=>reject(new Error('tempo limite da leitura do canal')),4500);
+      timer=setTimeout(()=>reject(Error('tempo limite da leitura do canal')),5000);
+      timer.unref?.();
     });
-    const recent=await Promise.race([
-      message.channel.messages.fetch({limit:25,before:message.id}),
-      timeout
+    const records=await Promise.race([
+      message.channel.messages.fetch({limit,before:message.id}),timeout
     ]);
-    return formatChannelContext([...recent.values()],client.user?.id);
+    return [...records.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
   }catch(err){
-    console.warn('[Duckzinha] Contexto do canal indisponível: '+err.message);
-    return '';
-  }finally{
-    clearTimeout(timeoutId);
-  }
+    console.warn('[Duckzinha] Histórico público indisponível: '+String(err?.message||err));
+    return [];
+  }finally{if(timer)clearTimeout(timer);}
 }
+async function getChannelConversation(message){
+  return formatChannelContext(await getPublicRecentMessages(message),client.user?.id);
+}
+
 async function addHistory(userId,question,answer,searchResults=[]){
   const items=await getHistory(userId);
   items.push({role:'user',content:question.slice(0,800)},
@@ -603,7 +598,8 @@ client.on(Events.ChannelCreate,channel=>{
 });
 
 client.on(Events.MessageCreate,async message=>{
-  if(!message.inGuild()||message.guildId!==GUILD_ID||message.author.bot)return;
+  if(!message.inGuild()||message.guildId!==GUILD_ID)return;
+  if(message.author.bot){addRecent(message);return;}
   if(!client.user)return;
   const id=message.author.id;
   const pending=pendingResearch.get(id);
@@ -723,7 +719,7 @@ client.on(Events.MessageCreate,async message=>{
   const previous=busy.get(id);
   if(previous&&Date.now()-previous<60000)return;
   if(previous)console.warn('[Duckzinha] Liberando atendimento antigo preso há mais de 60s.');
-  if(!confirmation&&Date.now()-(cooldown.get(id)||0)<7500)return;
+  if(!confirmation&&!wantsWebResearch(rawQuestion)&&Date.now()-(cooldown.get(id)||0)<7500)return;
   if(confirmation)pendingResearch.delete(id);
   const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
   if(confirmation&&said==='explain'){
@@ -801,11 +797,27 @@ client.on(Events.MessageCreate,async message=>{
     const latestName=newName||member?.preferred_name||'';
     let answer=null,aiAnswered=false;
     const searching=confirmation||wantsWebResearch(question);
+    let searchQuery=researchTopic(question)||question;
+    if(searching&&!confirmation&&isContextualResearchRequest(question)){
+      const recent=await getPublicRecentMessages(message);
+      const subject=resolveResearchSubject(question,recent,{authorId:id,botId:client.user.id});
+      const previous=[...history].reverse().find(x=>x.role==='user'&&
+        !isContextualResearchRequest(x.content));
+      searchQuery=subject||previous?.content||'';
+    }
     let webFacts=null,searchError=null;
+    if(searching&&!searchQuery){
+      const sent=await message.reply({content:'🦆 Quero pesquisar sim! Qual assunto você quer que eu procure? Diga o tema ou responda à mensagem sobre ele.',
+        allowedMentions:{repliedUser:false,parse:[]}});
+      if(sent)void schedule(sent).catch(()=>{});
+      return;
+    }
     if(searching){
-      try{webFacts=await broadWebSearch(researchTopic(question)||question,TAVILY_KEY,SERPER_KEY);
-        if(webFacts.provider)console.log('[Duckzinha] Pesquisa via '+webFacts.provider+'.')}
-      catch(err){searchError=err;console.warn('[Duckzinha] Pesquisa web: '+err.message)}
+      try{
+        webFacts=await broadWebSearch(searchQuery,TAVILY_KEY,SERPER_KEY);
+        if(webFacts.provider)console.log('[Duckzinha] Pesquisa via '+webFacts.provider+
+          ' sobre '+searchQuery.slice(0,90));
+      }catch(err){searchError=err;console.warn('[Duckzinha] Pesquisa web: '+err.message);}
     }
     const modelReady=Boolean(CF_ACCOUNT&&CF_TOKEN);
     if(modelReady&&(!searching||webFacts?.status==='ok')){
