@@ -7,14 +7,24 @@ import {ChannelType,PermissionFlagsBits} from 'discord.js';
 
 export const VOICE_IDLE_MS=5*60_000;
 export function voiceMentionContext(message){
-  const channel=message?.channel;
-  if(!message?.inGuild?.()||channel?.type!==ChannelType.GuildVoice)return null;
-  const member=message.member;
-  if(!member?.voice?.channelId||member.voice.channelId!==channel.id)return null;
-  const everyone=message.guild?.roles?.everyone;
-  if(!everyone||!channel.permissionsFor(everyone)?.has(PermissionFlagsBits.ViewChannel))return null;
-  if(channel.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(channel.name||''))return null;
-  return channel;
+ if(!message?.inGuild?.())return null;
+ const source=message.channel;
+ const guild=message.guild;
+ const member=message.member;
+ // Aceita menções no texto da própria call OU em chat público normal.
+ const voice=member?.voice?.channel||
+   guild?.voiceStates?.cache?.get(message.author?.id)?.channel;
+ if(!voice||![ChannelType.GuildVoice,ChannelType.GuildStageVoice].includes(voice.type))return null;
+ const publicRoles=guild?.roles?.everyone;
+ if(!publicRoles)return null;
+ if(source?.type!==ChannelType.GuildText&&source?.type!==ChannelType.GuildAnnouncement&&
+    source?.type!==ChannelType.GuildVoice)return null;
+ if(source.type===ChannelType.GuildVoice&&source.id!==voice.id)return null;
+ if(!source.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
+ if(source.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(source.name||''))return null;
+ if(!voice.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
+ if(voice.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(voice.name||''))return null;
+ return voice;
 }
 export function voiceIdleAt(lastMentionAt){return lastMentionAt+VOICE_IDLE_MS;}
 export function voiceShouldLeave(lastMentionAt,now=Date.now()){
@@ -67,6 +77,7 @@ export class DuckVoiceVisits{
     const last=this.sessions.get(guildId);
     if(last?.channelId===channel.id && last.connection?.state?.status===VoiceConnectionStatus.Ready){
       last.lastMentionAt=this.now();
+      last.textChannelId=message.channelId||message.channel?.id||channel.id;
       this.schedule(last);
       return {ok:true,joined:false,channelId:channel.id};
     }
@@ -78,7 +89,9 @@ export class DuckVoiceVisits{
         adapterCreator:message.guild.voiceAdapterCreator,
         selfDeaf:true,selfMute:false
       });
-      const session={guildId,channelId:channel.id,connection,lastMentionAt:this.now(),timer:null};
+      const session={guildId,channelId:channel.id,
+        textChannelId:message.channelId||message.channel?.id||channel.id,
+        connection,lastMentionAt:this.now(),timer:null};
       this.sessions.set(guildId,session);
       this.schedule(session);
       await this.waitReady(connection,VoiceConnectionStatus.Ready,15000);
@@ -171,8 +184,18 @@ export class DuckVoiceVisits{
   }
   onBotVoiceState(guildId,channelId){
     const session=this.sessions.get(guildId);
-    // Uma remoção ou mudança manual de call invalida a sessão.
-    if(session&&channelId!==session.channelId)this.stop(guildId);
+    if(!session||channelId===session.channelId)return;
+    // O Discord pode emitir uma atualização com canal nulo antes do join
+    // estar Ready; não destruir prematuramente uma conexão que está entrando.
+    if(channelId===null&&session.connection?.state?.status!==VoiceConnectionStatus.Ready)return;
+    this.stop(guildId);
+  }
+  leave(guildId,channelId){
+    const session=this.sessions.get(guildId);
+    if(!session)return {ok:false,reason:'not-connected'};
+    if(channelId!==session.channelId)return {ok:false,reason:'not-in-same-call'};
+    this.stop(guildId);
+    return {ok:true};
   }
   shutdown(){for(const id of [...this.sessions.keys()])this.stop(id)}
 }
