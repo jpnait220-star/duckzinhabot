@@ -35,6 +35,8 @@ export function commandPayloads(){
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
     .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
+    .addSubcommand(x=>x.setName('entrar').setDescription('Entrar na call pública em que você está'))
+    .addSubcommand(x=>x.setName('sair').setDescription('Sair da call em que você está'))
     .addSubcommand(x=>x.setName('testevoz').setDescription('Ouvir uma expressão específica na sua call (admin)')
       .addStringOption(o=>o.setName('estilo').setDescription('Compare estilos distintos de voz')
         .addChoices(
@@ -84,7 +86,7 @@ export function publicInfoPayload(kind,{site}={}){
   return null;
 }
 
-export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,onVoiceTest,edgeVoiceReady=true}){
+export async function runCommand(interaction,{store,site,panelId,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged,onVoiceTest,onVoiceJoin,onVoiceLeave,edgeVoiceReady=true}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return;
   const cmd=interaction.commandName;
   const ephemeral=['duckzinha','configurar','ensinar','ensinamentos'].includes(cmd);
@@ -134,6 +136,14 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
   }
   if(cmd==='duckzinha'){
     const sub=interaction.options.getSubcommand();
+    if(sub==='entrar'||sub==='sair'){
+      const callback=sub==='entrar'?onVoiceJoin:onVoiceLeave;
+      if(typeof callback!=='function')return respond('Entrada em call indisponível.',true);
+      await interaction.deferReply({flags:MessageFlags.Ephemeral});
+      try{return interaction.editReply(String(await callback(interaction)).slice(0,1600))}
+      catch(error){return interaction.editReply('Não consegui conectar à call: '+
+        String(error?.message||error).slice(0,300));}
+    }
     if(sub==='testevoz'){
       if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
         return respond('Somente administradores podem testar minha voz.',true);
