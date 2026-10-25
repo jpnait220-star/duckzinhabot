@@ -191,6 +191,18 @@ export class DuckStore {
       p_guild:this.guildId,p_user:user,p_key:key,p_kind:kind,p_coins:amount,p_daily_limit:limit
     }));
   }
+  async startCoinflip(gameId,host,guest){
+    if(!this.db)return {ok:false,reason:'database'};
+    return this.requireResult(this.db.rpc('duckzinha_coinflip_start',{
+      p_guild:this.guildId,p_game:gameId,p_host:host,p_guest:guest
+    }));
+  }
+  async finishCoinflip(gameId,winner){
+    if(!this.db)return {ok:false,reason:'database'};
+    return this.requireResult(this.db.rpc('duckzinha_coinflip_finish',{
+      p_guild:this.guildId,p_game:gameId,p_winner:winner
+    }));
+  }
   async startAfk(user){
     if(!this.db)return false;
     return await this.requireResult(this.db.rpc('duckzinha_start_afk',{p_guild:this.guildId,p_user:user}));
