@@ -228,7 +228,7 @@ test('Novos estilos animados são únicos, selecionáveis e têm ajustes diferen
   );
 });
 
-test('Humor animado muda vozes naturais sem sobrescrever estilo escolhido explicitamente',()=>{
+test('Expressão automática adapta também variantes escolhidas no menu',()=>{
   assert.equal(expressiveVoice('pt-BR-ThalitaMultilingualNeural','animada'),
     'pt-BR-ThalitaAnimadaNeural');
   assert.equal(expressiveVoice('pt-BR-RaquelPortugalNeural','animada'),
@@ -238,7 +238,11 @@ test('Humor animado muda vozes naturais sem sobrescrever estilo escolhido explic
   assert.equal(expressiveVoice('pt-BR-DuartePortugalNeural','animada'),
     'pt-BR-DuarteAnimadoNeural');
   assert.equal(expressiveVoice('pt-BR-FranciscaSuperAnimadaNeural','calma'),
-    'pt-BR-FranciscaSuperAnimadaNeural');
+    'pt-BR-FranciscaSuaveNeural');
+  assert.equal(expressiveVoice('pt-BR-ThalitaSuperAnimadaNeural','calma'),
+    'pt-BR-ThalitaSuaveNeural');
+  assert.equal(expressiveVoice('pt-BR-RaquelSuperAnimadaNeural','curiosa'),
+    'pt-BR-RaquelFofaNeural');
   assert.equal(expressiveVoice('pt-BR-FranciscaNeural','animada',false),
     'pt-BR-FranciscaNeural');
 });
