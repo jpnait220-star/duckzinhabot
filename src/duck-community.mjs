@@ -27,7 +27,7 @@ export const SAFE_GAMES=[
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip();this.badges=new DuckBadgeShop({store});this.games=new Map();}
+ constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.games=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
