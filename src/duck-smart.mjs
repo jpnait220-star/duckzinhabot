@@ -17,7 +17,7 @@ export function voiceTone(text){
   if(/\b(erro|triste|sinto muito|perdi|desculpa|problema|ajuda|medo)\b/.test(s))return 'calma';
   if(/[!]{2,}|\b(gg|parabens|incrivel|consegui|ganhei|vitoria|uhu|oba|kkk)\b/.test(s))return 'animada';
   if(/\?|\b(sera|como assim|voce sabia|por que)\b/.test(s))return 'curiosa';
-  if(/\b(boa noite|soninho|dormir)\b/.test(s))return 'sonolenta';
+  if(/\b(boa noite|soninho|sono|dormir|cansad[oa]?)\b/.test(s))return 'sonolenta';
   return 'auto';
 }
 export function conversationVoiceMood(question,answer=''){
