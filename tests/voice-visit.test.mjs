@@ -13,13 +13,31 @@ function fixture({sameCall=true,connect=true,publicChannel=true}={}){
     })
   };
   const guild={roles:{everyone:role},voiceAdapterCreator:()=>{},members:{me:{id:'botId'}}};
+  const member={voice:{channelId:sameCall?voice.id:'anotherChannel',
+    channel:sameCall?voice:null}};
   const message={
     guildId:'guildA',guild,channel:voice,channelId:voice.id,
-    inGuild:()=>true,
-    member:{voice:{channelId:sameCall?voice.id:'anotherChannel'}}
+    author:{id:'userId'},inGuild:()=>true,member
   };
   return {message,voice,guild};
 }
+
+test('Também aceita menção em chat público quando o membro já está na call',()=>{
+  const {message,voice}=fixture();
+  const textChannel={
+    id:'chatPublico',type:ChannelType.GuildText,name:'geral',
+    permissionsFor:()=>({has:()=>true}),nsfw:false
+  };
+  assert.equal(voiceMentionContext({...message,channel:textChannel,channelId:'chatPublico'}),voice);
+  assert.equal(voiceMentionContext({...message,channel:{...textChannel,name:'ticket-privado'}}),null);
+  assert.equal(voiceMentionContext({...message,member:{voice:{channel:null,channelId:null}}}),null);
+});
+
+test('Se não houver permissão de voz, devolve erro claro mesmo a partir do chat',async()=>{
+  const {message}=fixture({connect:false});
+  const result=await new DuckVoiceVisits().mention(message);
+  assert.equal(result.reason,'missing-permissions');
+});
 
 test('Uma menção válida ocorre no chat público da mesma call',()=>{
   const {message}=fixture();
