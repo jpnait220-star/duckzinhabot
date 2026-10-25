@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {MessageFlags} from 'discord.js';
 import {chooseQuestion,levelForStreak,LEVEL_NAMES,questionButtons} from './duck-quiz.mjs';
+import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
 
 export const PUBLIC_ROUND_MS=35_000;
 export const PUBLIC_NEXT_MS=4_000;
@@ -35,10 +36,10 @@ export function publicResultText(round,winners,{last=false}={}){
           '🏁 **Fim da partida!** Use /jogo quiz para começar de novo.'));
 }
 export class DuckPublicQuiz {
-  constructor({now=Date.now,random=Math.random,setTimer=setTimeout,
+  constructor({store,now=Date.now,random=Math.random,setTimer=setTimeout,
     clearTimer=clearTimeout,roundMs=PUBLIC_ROUND_MS,nextMs=PUBLIC_NEXT_MS,
     maxRounds=PUBLIC_MAX_ROUNDS}={}){
-    Object.assign(this,{now,random,setTimer,clearTimer,roundMs,nextMs,maxRounds});
+    Object.assign(this,{store,now,random,setTimer,clearTimer,roundMs,nextMs,maxRounds});
     this.rooms=new Map();this.rounds=new Map();this.best=new Map();
   }
   key(guild,channel){return guild+':'+channel;}
@@ -158,6 +159,21 @@ export class DuckPublicQuiz {
       console.warn('[Duckzinha] Quiz: erro ao editar resultado: '+String(error?.message||error));
       this.stopRoom(room);
       return;
+    }
+    // Cada acerto em uma rodada vale 5 moedas. O RPC garante apenas
+    // um pagamento por pessoa e por rodada, mesmo se houver uma repetição.
+    if(winners.length&&this.store?.persistent){
+      const credited=await Promise.all(winners.map(async user=>{
+        const reward=await awardMinigameWin(this.store,user,'quiz:'+round.id);
+        return reward?.credited===true;
+      }));
+      const rewarded=credited.filter(Boolean).length;
+      if(rewarded){
+        await round.message.edit({content:publicResultText(round,winners,{last})+
+          '\n\n'+winRewardLabel+' para '+rewarded+' participante(s) que acertaram.',
+          components:[],allowedMentions:{parse:[]}}).catch(error=>
+          console.warn('[Duckzinha] Mensagem prêmio quiz: '+String(error?.message||error)));
+      }
     }
     if(!winners.length||last){this.stopRoom(room);return;}
     // Uma nova pergunta pública; a anterior continua mostrando quem passou.
