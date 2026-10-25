@@ -52,7 +52,8 @@ export function newCommands(){
         {name:'Geografia',value:'geografia'},
         {name:'Anime',value:'anime'},
         {name:'Desafio de emojis',value:'emoji'},
-        {name:'Lógica',value:'logica'})).setDMPermission(false),
+        {name:'Lógica',value:'logica'},
+        {name:'Pedra, Papel e Tesoura',value:'pedra-papel-tesoura'})).setDMPermission(false),
     new SlashCommandBuilder().setName('moedas').setDescription('Consultar suas moedas de pato').setDMPermission(false),
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
       .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
