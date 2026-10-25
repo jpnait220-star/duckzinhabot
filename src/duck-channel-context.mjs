@@ -4,7 +4,7 @@ export function publicMessageText(message,{max=420}={}){
  let value=space(message?.content);
  const embeds=Array.isArray(message?.embeds)?message.embeds.slice(0,2):[];
  const text=embeds.map(e=>[
-  e.title,e.description,
+  e.title,space(e.description).slice(0,Math.max(120,Math.floor(max*.48))),
   ...(Array.isArray(e.fields)?e.fields.slice(0,3).flatMap(f=>[f.name,f.value]):[])
  ].filter(Boolean).map(space).join(' | ')).filter(Boolean).join(' • ');
  if(text&&(!value||!value.includes(text.slice(0,40))))
