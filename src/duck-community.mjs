@@ -4,6 +4,7 @@ import {DuckCoinflip} from './duck-coinflip.mjs';
 import {DuckRockPaperScissors} from './duck-rps.mjs';
 import {DuckBadgeShop} from './duck-badges.mjs';
 import {EXTRA_MINIGAMES} from './duck-extra-minigames.mjs';
+import {GUESS_GAMES} from './duck-guess-games.mjs';
 
 const priv=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export function naturalTeaching(text){
@@ -29,7 +30,8 @@ export const SAFE_GAMES=[
  {name:'anime',label:'Desafio Anime',question:'Em Naruto, qual vila Naruto chama de lar?',options:['Vila da Areia','Vila da Folha','Vila da Névoa','Vila da Pedra'],answer:1},
  {name:'emoji',label:'Desafio Emoji',question:'Qual jogo é representado por ⛏️ 🧱 💎?',options:['Minecraft','Roblox','Among Us','Fortnite'],answer:0},
  {name:'logica',label:'Lógica Rápida',question:'Se 3 patos põem 3 ovos em 3 dias, quantos ovos 6 patos põem em 3 dias?',options:['3','6','9','12'],answer:1},
- ...EXTRA_MINIGAMES
+ ...EXTRA_MINIGAMES,
+ ...GUESS_GAMES
 ];
 
 export class DuckCommunity{
