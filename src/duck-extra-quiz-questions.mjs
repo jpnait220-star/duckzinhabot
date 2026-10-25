@@ -867,12 +867,12 @@ export const EXTRA_QUIZ_BANK=[
     ],
     [
       "Minecraft",
-      "Qual bloco transforma concreto em pó ao cair sobre uma tocha?",
+      "Quais blocos sofrem gravidade e caem quando ficam sem apoio?",
       [
-        "Nenhum; é a bigorna",
-        "Areia e cascalho podem ser quebrados assim",
-        "A pedra lisa",
-        "O obsidiana"
+        "Obsidiana e pedra",
+        "Areia e cascalho",
+        "Tábuas e lã",
+        "Terra e tijolos"
       ],
       1
     ],
@@ -900,12 +900,12 @@ export const EXTRA_QUIZ_BANK=[
     ],
     [
       "Minecraft",
-      "Como se chama o bloco usado para armazenar experiência e encantamentos em frascos?",
+      "Qual encantamento permite consertar ferramentas usando orbes de experiência?",
       [
-        "Mesa de cartografia",
-        "Mesa de encantamentos",
-        "Âncora de renascimento",
-        "Bloco musical"
+        "Sorte",
+        "Remendo",
+        "Respiração",
+        "Infinidade"
       ],
       1
     ],
