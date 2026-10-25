@@ -223,7 +223,7 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
     const list=await store.loadKnowledge();return respond(list.length?'📚 Assuntos que conheço: '+list.map(x=>'`'+x.topic+'`').join(', ').slice(0,1500):'📭 Ainda não há ensinamentos extras.',true);
   }
   const panel=panelId?`https://discord.com/channels/${interaction.guildId}/${panelId}`:null;
-  if(cmd==='ajuda')return respond({embeds:memberHelpEmbeds(embed,interaction.options.getString('categoria')||'todas')});
+  if(cmd==='ajuda')return respond({embeds:memberHelpEmbeds(embed,interaction.options?.getString?.('categoria')||'todas')});
   if(cmd==='website')return respond(publicInfoPayload('website',{site}));
   if(cmd==='explicarproblema')return respond('🎫 **Guia da Duckzinha para tickets**\n\n'+ticketGuide(),true);
   if(cmd==='ticket')return respond({embeds:[embed('🎫 Precisa de um atendente?',
