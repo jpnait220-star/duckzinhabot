@@ -71,7 +71,10 @@ export class DuckCommunity{
    const kind=interaction.options.getString('tipo')||'aleatorio';
    if(kind==='pedra-papel-tesoura')return this.rps.start(interaction);
    if(kind==='jogo-da-velha')return this.ttt.start(interaction);
-   if(kind==='quiz-streak')return this.extras?.startGame(interaction,{streakMode:true});
+   if(kind==='quiz-streak'){
+     if(!this.extras?.startGame)return interaction.reply(priv('O Quiz Streak não está disponível agora.'));
+     return this.extras.startGame(interaction,{streakMode:true});
+   }
    const key=interaction.guildId+':'+interaction.channelId;
    if(this.games.has(key)&&Date.now()-this.games.get(key).time<30000)
      return interaction.reply(priv('Já existe um minigame ativo neste canal.'));
