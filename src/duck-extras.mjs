@@ -55,7 +55,13 @@ const emotionMap={
   }
 };
 export function expressiveVoice(current,mood,enabled=true){
-  return enabled?(emotionMap[current]?.[mood]||current):current;
+  if(!enabled||mood==='auto')return current;
+  // Também adapta variantes escolhidas no /duckzinha voice, não somente vozes naturais.
+  const family=Object.keys(emotionMap).find(base=>{
+    const stem=base.replace(/Neural$/,'');
+    return current===base||current.startsWith(stem);
+  });
+  return (emotionMap[family]?.[mood]||current);
 }
 
 export class DuckExtras{
