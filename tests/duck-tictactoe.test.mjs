@@ -8,7 +8,7 @@ function gameFixture(){
  let now=100000,reply,edit,updated,callback;
  let idCounter=0;
  const game=new DuckTicTacToe({
-  now:()=>now,random:()=>0,
+  now:()=>now,random:()=>0,starter:()=>0,
   setTimer:cb=>{callback=cb;return {unref:()=>{}};},
   clearTimer:()=>{}
  });
