@@ -49,11 +49,38 @@ export function newCommands(){
         {name:'Adivinhe o mob',value:'adivinhe-o-mob'},
         {name:'Matemática',value:'matematica'},
         {name:'Minecraft',value:'desafio-mine'},
-        {name:'Geografia',value:'geografia'})).setDMPermission(false),
+        {name:'Geografia',value:'geografia'},
+        {name:'Anime',value:'anime'},
+        {name:'Desafio de emojis',value:'emoji'},
+        {name:'Lógica',value:'logica'})).setDMPermission(false),
     new SlashCommandBuilder().setName('moedas').setDescription('Consultar suas moedas de pato').setDMPermission(false),
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
       .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
         .addChoices({name:'Iniciar',value:'iniciar'},{name:'Resgatar',value:'resgatar'})).setDMPermission(false),
+    new SlashCommandBuilder().setName('lembrete').setDescription('Lembretes pessoais por DM')
+      .addSubcommand(x=>x.setName('criar').setDescription('Agendar lembrete')
+        .addStringOption(o=>o.setName('texto').setDescription('O que lembrar').setRequired(true).setMaxLength(180))
+        .addStringOption(o=>o.setName('em').setDescription('15m, 2h ou 1d').setRequired(true)))
+      .addSubcommand(x=>x.setName('listar').setDescription('Próximos lembretes'))
+      .addSubcommand(x=>x.setName('cancelar').setDescription('Cancelar lembrete')
+        .addIntegerOption(o=>o.setName('id').setDescription('ID').setRequired(true))),
+    new SlashCommandBuilder().setName('resumo').setDescription('Resumo por temas do canal público'),
+    new SlashCommandBuilder().setName('sugerir').setDescription('Criar sugestão pública')
+      .addStringOption(o=>o.setName('ideia').setDescription('Sua sugestão').setRequired(true).setMaxLength(400)),
+    new SlashCommandBuilder().setName('sugestao').setDescription('Administração das sugestões')
+      .addSubcommand(x=>x.setName('aprovar').setDescription('Aprovar sugestão')
+        .addIntegerOption(o=>o.setName('id').setDescription('ID').setRequired(true)))
+      .addSubcommand(x=>x.setName('recusar').setDescription('Recusar sugestão')
+        .addIntegerOption(o=>o.setName('id').setDescription('ID').setRequired(true)))
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder().setName('evento').setDescription('Eventos da comunidade')
+      .addSubcommand(x=>x.setName('criar').setDescription('Criar evento (admin)')
+        .addStringOption(o=>o.setName('titulo').setDescription('Título').setRequired(true).setMaxLength(90))
+        .addStringOption(o=>o.setName('quando').setDescription('AAAA-MM-DD HH:MM, Bahia').setRequired(true))
+        .addStringOption(o=>o.setName('descricao').setDescription('Detalhes').setMaxLength(400)))
+      .addSubcommand(x=>x.setName('listar').setDescription('Ver próximos eventos'))
+      .addSubcommand(x=>x.setName('cancelar').setDescription('Cancelar (admin)')
+        .addIntegerOption(o=>o.setName('id').setDescription('ID').setRequired(true))),
     new SlashCommandBuilder().setName('modlog').setDescription('Configurar logs de banimentos e castigos (admin)')
       .addSubcommand(x=>x.setName('configurar').setDescription('Escolher canal que receberá os registros')
         .addChannelOption(o=>o.setName('canal').setDescription('Canal de texto dos logs')
@@ -92,11 +119,11 @@ const reply=(interaction,content)=>interaction.reply({content,flags,allowedMenti
 const lastVoice=new Map(),lastArt=new Map();
 
 export async function runNewCommand(interaction,{
-  store,extras,studio,community,selectedVoice,findReactionFile
+  store,extras,studio,community,communityPlus,selectedVoice,findReactionFile
 }={}){
   if(!interaction.inGuild()||interaction.guildId!==store.guildId)return false;
   const name=interaction.commandName;
-  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','coinflip','enviar','emblema','diario','minigame','moedas','afk','campeonato','modlog'].includes(name))return false;
+  if(!['avatar','painel','ver','perfil','jogo','falar','reacao','novidade','novidades','card','inventario','coinflip','enviar','emblema','diario','minigame','moedas','afk','campeonato','modlog','lembrete','resumo','sugerir','sugestao','evento'].includes(name))return false;
   if(name==='avatar'||name==='painel'){
     const isAdmin=Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
     if(name==='painel'&&!isAdmin){await reply(interaction,'Este painel é só para administradores.');return true;}
@@ -110,6 +137,11 @@ export async function runNewCommand(interaction,{
     }
     return true;
   }
+  if(name==='lembrete'){await communityPlus.reminder(interaction);return true;}
+  if(name==='resumo'){await communityPlus.summary(interaction);return true;}
+  if(name==='sugerir'){await communityPlus.suggest(interaction);return true;}
+  if(name==='sugestao'){await communityPlus.suggestionAdmin(interaction);return true;}
+  if(name==='evento'){await communityPlus.event(interaction);return true;}
   if(name==='modlog'){await configureModerationLogs(interaction,{store});return true;}
   if(name==='coinflip'){await community.coinFlip(interaction);return true;}
   if(name==='enviar'){await community.transfer(interaction);return true;}
