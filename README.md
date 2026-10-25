@@ -311,3 +311,13 @@ Mensagens só anunciam o bônus quando o banco confirmou o crédito.
 A migração em sql/duck-minigame-rewards.sql disponibiliza a função RPC
 duckzinha_reward_minigame apenas para service_role; aplicar a migração
 no Supabase é necessário em instalações novas. Não há ENV adicional.
+
+
+### Mensagem direta de banimento e Jogo da Velha justo
+
+- Quando um administrador bane via menção à Duckzinha, ela envia uma **DM após confirmar o banimento**, informando o servidor, o moderador responsável, o motivo e uma mensagem educada sobre respeitar as regras. Se o banimento falhar, não informa falsamente que ocorreu.
+- A bot também escuta **GuildBanAdd** para avisar bans aplicados pelo próprio Discord ou outras ferramentas. Com a permissão **Ver registro de auditoria**, identifica o responsável e o motivo a partir do registro recente do usuário banido; sem dados confiáveis, usa "equipe de moderação" e "Motivo não informado" em vez de inventar informações.
+- O mesmo banimento não deve gerar DMs duplicadas. Se o destinatário desativou as DMs ou bloqueou a bot, o banimento permanece válido e a falha fica nos logs da aplicação. Nenhuma nova ENV é necessária.
+- No **/minigame tipo:Jogo da Velha**, **quem começa é sorteado (50% jogador, 50% Duckzinha)**. Se a bot começar, ela já ocupa uma casa antes do jogador. A estratégia da Duckzinha passou a antecipar várias jogadas, dificultando ganhar sempre da mesma forma.
+- O prêmio do Jogo da Velha continua sendo **5 moedas por vitória**, porém o banco limita a **5 vitórias premiadas por pessoa a cada 2 horas**. Mesmo depois do limite a pessoa pode continuar jogando; só não recebe moedas extras até renovar a janela. Outros minigames mantêm suas regras de recompensa.
+- A migração de limite está em sql/duck-ttt-reward-limit.sql. No Supabase ligado ao projeto, a migração já foi aplicada e validada numa transação desfeita.
