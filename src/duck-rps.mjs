@@ -1,5 +1,6 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
 export const RPS_MOVES=[
  {name:'Pedra',emoji:'✊'},
  {name:'Papel',emoji:'✋'},
@@ -12,7 +13,8 @@ export function rockPaperScissorsResult(player,bot){
 }
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export class DuckRockPaperScissors{
- constructor({randomMove=()=>randomInt(3),now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}={}){
+ constructor({store,randomMove=()=>randomInt(3),now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}={}){
+  this.store=store;
   Object.assign(this,{randomMove,now,setTimer,clearTimer});this.games=new Map();
  }
  async start(interaction){
@@ -68,14 +70,20 @@ export class DuckRockPaperScissors{
       '🤝 Empate! Bora de novo!';
   // Publica o resultado no chat normal: o bot também consegue considerar
   // essa mensagem no contexto público recente da conversa.
-  return interaction.reply({
-    content:'## ✊✋✌️ Pedra, Papel e Tesoura\n'+
-      '👤 **Jogador:** <@'+interaction.user.id+'>\n'+
-      '**Sua jogada:** '+RPS_MOVES[choice].emoji+' '+RPS_MOVES[choice].name+'\n'+
-      '🦆 **Duckzinha:** '+RPS_MOVES[bot].emoji+' '+RPS_MOVES[bot].name+
-      '\n\n'+label,
-    allowedMentions:{parse:[]}
-  });
+  const content='## ✊✋✌️ Pedra, Papel e Tesoura\n'+
+    '👤 **Jogador:** <@'+interaction.user.id+'>\n'+
+    '**Sua jogada:** '+RPS_MOVES[choice].emoji+' '+RPS_MOVES[choice].name+'\n'+
+    '🦆 **Duckzinha:** '+RPS_MOVES[bot].emoji+' '+RPS_MOVES[bot].name+
+    '\n\n'+label;
+  await interaction.reply({content,allowedMentions:{parse:[]}});
+  if(outcome==='vitoria'){
+    const reward=await awardMinigameWin(this.store,interaction.user.id,'rps:'+game.id);
+    if(reward.credited&&typeof interaction.editReply==='function'){
+      await interaction.editReply({content:content+'\n'+winRewardLabel,
+        allowedMentions:{parse:[]}}).catch(error=>
+          console.warn('[Duckzinha] Mensagem de prêmio RPS: '+String(error?.message||error)));
+    }
+  }
  }
  shutdown(){
   for(const game of this.games.values())if(game.timer)this.clearTimer(game.timer);
