@@ -291,3 +291,23 @@ Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente nov
 - As categorias de minigame já existentes permanecem disponíveis em partidas curtas. O **Quiz Streak** é a opção para perguntas contínuas, níveis e sequência.
 - O sistema de proteção de respostas continua ativo para o Quiz Streak enquanto a pergunta está aberta. As respostas certas só aparecem ao final das rodadas.
 - O comando /jogo quiz e os demais jogos continuam funcionando. Não precisa de nova ENV ou migração SQL; atualizar a branch **asasa** e reiniciar na FadeHost registra os novos tipos.
+
+
+### Recompensas de minigames (+5 moedas)
+
+Vitórias em /minigame (quiz de 30 segundos, adivinhe o anime/mob/bloco,
+Pedra, Papel e Tesoura e Jogo da Velha) rendem **5 moedas de pato** por
+participante vencedor. No Quiz Streak e no quiz público, cada rodada
+acertada conta como uma vitória e rende +5 moedas; respostas erradas,
+derrotas e empates não rendem moedas. O Coinflip continua com sua
+recompensa separada de 15 moedas para o vencedor.
+
+A pontuação é creditada **após o resultado confirmado**, nunca ao iniciar.
+O Supabase registra cada vitória pelo ID da partida ou da rodada e do
+usuário e rejeita créditos duplicados. Os jogos não exigem apostas,
+pagamento de entrada nem oferecem moedas com valor monetário real.
+Mensagens só anunciam o bônus quando o banco confirmou o crédito.
+
+A migração em sql/duck-minigame-rewards.sql disponibiliza a função RPC
+duckzinha_reward_minigame apenas para service_role; aplicar a migração
+no Supabase é necessário em instalações novas. Não há ENV adicional.
