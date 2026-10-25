@@ -23,7 +23,10 @@ export const SAFE_GAMES=[
  {name:'adivinhe-o-mob',label:'Adivinhe o mob',question:'Sou verde, faço barulho e explodo quando chego perto. Quem sou?',options:['Zumbi','Creeper','Slime','Enderman'],answer:1},
  {name:'matematica',label:'Matemática rápida',question:'Quanto é (8 × 7) + 12?',options:['62','68','76','84'],answer:1},
  {name:'desafio-mine',label:'Minecraft',question:'Qual encantamento impulsiona o jogador na água com tridente?',options:['Lealdade','Canalização','Correnteza','Inquebrável'],answer:2},
- {name:'geografia',label:'Geografia',question:'Qual é a capital de Pernambuco?',options:['Salvador','Maceió','Recife','Natal'],answer:2}
+ {name:'geografia',label:'Geografia',question:'Qual é a capital de Pernambuco?',options:['Salvador','Maceió','Recife','Natal'],answer:2},
+ {name:'anime',label:'Desafio Anime',question:'Em Naruto, qual vila Naruto chama de lar?',options:['Vila da Areia','Vila da Folha','Vila da Névoa','Vila da Pedra'],answer:1},
+ {name:'emoji',label:'Desafio Emoji',question:'Qual jogo é representado por ⛏️ 🧱 💎?',options:['Minecraft','Roblox','Among Us','Fortnite'],answer:0},
+ {name:'logica',label:'Lógica Rápida',question:'Se 3 patos põem 3 ovos em 3 dias, quantos ovos 6 patos põem em 3 dias?',options:['3','6','9','12'],answer:1}
 ];
 
 export class DuckCommunity{
