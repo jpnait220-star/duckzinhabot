@@ -3,6 +3,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.j
 import {DuckCoinflip} from './duck-coinflip.mjs';
 import {DuckRockPaperScissors} from './duck-rps.mjs';
 import {DuckTicTacToe} from './duck-tictactoe.mjs';
+import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
 import {DuckBadgeShop} from './duck-badges.mjs';
 import {EXTRA_MINIGAMES} from './duck-extra-minigames.mjs';
 import {GUESS_GAMES} from './duck-guess-games.mjs';
@@ -36,7 +37,7 @@ export const SAFE_GAMES=[
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.rps=new DuckRockPaperScissors();this.ttt=new DuckTicTacToe();this.games=new Map();this.recentMinigames=new Map();}
+ constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.rps=new DuckRockPaperScissors({store});this.ttt=new DuckTicTacToe({store});this.games=new Map();this.recentMinigames=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
@@ -95,9 +96,15 @@ export class DuckCommunity{
    const timer=setTimeout(async()=>{
      const current=this.games.get(key);if(current?.id!==id)return;
      this.games.delete(key);
-     const winners=[...current.answers].filter(([,v])=>v===q.answer).map(([uid])=>'<@'+uid+'>');
+     const winners=[...current.answers].filter(([,v])=>v===q.answer).map(([uid])=>uid);
+     const rewarded=await Promise.all(winners.map(async user=>({
+       user,result:await awardMinigameWin(this.store,user,'mini:'+id)
+     })));
+     const credited=rewarded.filter(item=>item.result?.credited===true).length;
      await message.edit({content:'🏁 Resultado: '+q.label+'\n✅ '+q.options[q.answer]+'\n🏆 Acertaram: '+
-       (winners.length?winners.slice(0,20).join(', '):'ninguém'),components:[],allowedMentions:{parse:[]}}).catch(()=>{});
+       (winners.length?winners.slice(0,20).map(uid=>'<@'+uid+'>').join(', '):'ninguém')+
+       (credited?'\n'+winRewardLabel+' para '+credited+' vencedor(es).':''),
+       components:[],allowedMentions:{parse:[]}}).catch(()=>{});
    },30000);timer.unref?.();
  }
  async rpsButton(interaction){return this.rps.choose(interaction);}
