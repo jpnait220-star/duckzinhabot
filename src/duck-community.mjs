@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckCoinflip} from './duck-coinflip.mjs';
+import {DuckRockPaperScissors} from './duck-rps.mjs';
 import {DuckBadgeShop} from './duck-badges.mjs';
 import {EXTRA_MINIGAMES} from './duck-extra-minigames.mjs';
 
@@ -32,7 +33,7 @@ export const SAFE_GAMES=[
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.games=new Map();this.recentMinigames=new Map();}
+ constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.rps=new DuckRockPaperScissors();this.games=new Map();this.recentMinigames=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
@@ -65,6 +66,7 @@ export class DuckCommunity{
  async game(interaction){
    const id=randomUUID().slice(0,12);
    const kind=interaction.options.getString('tipo')||'aleatorio';
+   if(kind==='pedra-papel-tesoura')return this.rps.start(interaction);
    const key=interaction.guildId+':'+interaction.channelId;
    if(this.games.has(key)&&Date.now()-this.games.get(key).time<30000)
      return interaction.reply(priv('Já existe um minigame ativo neste canal.'));
@@ -90,6 +92,7 @@ export class DuckCommunity{
        (winners.length?winners.slice(0,20).join(', '):'ninguém'),components:[],allowedMentions:{parse:[]}}).catch(()=>{});
    },30000);timer.unref?.();
  }
+ async rpsButton(interaction){return this.rps.choose(interaction);}
  async gameButton(interaction){
    const parts=interaction.customId.split(':');
    const choice=Number(parts.pop()),id=parts.pop(),key=parts.slice(1).join(':');
@@ -135,5 +138,5 @@ export class DuckCommunity{
    await interaction.editReply('✅ Você enviou **'+amount+' moedas de pato** para <@'+recipient.id+
      '>!\nSeu saldo atual é **'+result.balance+' moedas**.');
  }
- shutdown(){this.coin.shutdown();}
+ shutdown(){this.coin.shutdown();this.rps.shutdown();}
 }
