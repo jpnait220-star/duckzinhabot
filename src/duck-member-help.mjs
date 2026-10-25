@@ -7,7 +7,7 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
   ['/website','Mostra o endereço do site e como usar os projetos.'],
   ['/projetos','Mostra o catálogo de mods, aplicativos e downloads.'],
   ['/novidades','Consulta as últimas atualizações de projetos.'],
-  ['/boxpvp','Lista IPs BoxPvP aprovados; novos cadastros são solicitados por ticket.'],
+  ['/boxpvp','Lista IPs aprovados. Para cadastrar um IP BoxPvP, abra um ticket; a equipe confere antes.'],
   ['/ticket','Ensina onde abrir um atendimento com a equipe.'],
   ['/explicarproblema','Ajuda a descrever um problema em um ticket.'],
   ['/faq','Responde perguntas frequentes da comunidade.'],
