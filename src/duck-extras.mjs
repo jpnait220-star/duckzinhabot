@@ -72,7 +72,7 @@ export class DuckExtras{
   constructor({store}={}){
     this.store=store;
     this.settings={...DEFAULT_SETTINGS};
-    this.quiz=new DuckPublicQuiz();
+    this.quiz=new DuckPublicQuiz({store});
     this.lastImage=new Map();
   }
   async load(){
