@@ -271,3 +271,14 @@ Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente nov
 - /minigame tipo:Anime, Desafio de emojis, Lógica, Minecraft, Geografia, Matemática, Verdadeiro ou falso ou Adivinhe o mob: cada tipo possui **16 perguntas**, totalizando **128**. Cada rodada é pública, dura 30 segundos e os resultados aparecem no canal; cada pessoa responde de forma privada. As últimas 12 perguntas do mesmo canal não são repetidas enquanto houver alternativas.
 - **/minigame tipo:Pedra, Papel e Tesoura**: três botões (✊ Pedra, ✋ Papel, ✌️ Tesoura). Cada pessoa pode participar uma vez na rodada de 30 segundos. O confronto com a escolha aleatória da Duckzinha é privado e no fim o resultado público mostra o total de vitórias, derrotas e empates. Não envolve apostas, moedas nem recompensa.
 - Atualize a branch asasa na FadeHost e reinicie para os comandos novos serem registrados no Discord. Nenhuma ENV ou SQL novo é necessário para esses jogos.
+
+
+### Ajustes outubro 2026: imagem do Coinflip, voz e contexto público
+
+- /coinflip: deixa de gerar vídeos e GIFs. Depois do aceite, calcula três rodadas, apresenta uma única imagem estática PNG com cara e coroa, e mantém as 15 moedas virtuais de prêmio para quem vence (sem apostas).
+- /duckzinha entrar: estando numa call pública, execute num canal público de texto. Duckzinha verifica suas permissões para entrar na call da pessoa que solicitou.
+- /duckzinha sair: sai apenas quando a pessoa está na mesma call.
+- Também é possível mencionar a bot num chat público enquanto a pessoa está na call, sem precisar digitar no chat da própria call.
+- A leitura de contexto público agora inclui as últimas mensagens de membros, Duckzinha, outros bots e embeds de comandos, em um recorte de até 60 mensagens / quatro horas. DMs, canais privados, tickets e respostas efêmeras não ficam acessíveis no histórico compartilhado.
+- Quando a pessoa pede para pesquisar isso, a bot tenta localizar o assunto anterior do mesmo membro. Se não houver tema claro, pede uma especificação.
+- Para voz, o bot precisa de Ver canal, Conectar, Falar e também da disponibilidade de conectividade de voz na hospedagem. Para ler o contexto, precisa de Ler histórico de mensagens.
