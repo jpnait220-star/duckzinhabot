@@ -20,8 +20,13 @@ export function voiceMentionContext(message,{allowPrivateVoice=false}={}){
  if(source?.type!==ChannelType.GuildText&&source?.type!==ChannelType.GuildAnnouncement&&
     source?.type!==ChannelType.GuildVoice)return null;
  if(source.type===ChannelType.GuildVoice&&source.id!==voice.id)return null;
- if(!source.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
- if(source.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(source.name||''))return null;
+ const directlyFromVoice=source.type===ChannelType.GuildVoice&&source.id===voice.id;
+ // Em calls privadas, o texto da própria call é um pedido explícito de
+ // alguém presente. Também aceitamos /duckzinha entrar em canal restrito.
+ if(!directlyFromVoice&&!allowPrivateVoice&&
+    !source.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
+ if(!directlyFromVoice&&!allowPrivateVoice&&
+    (source.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(source.name||'')))return null;
  // Call privada: somente pedido explícito de alguém conectado nela. O bot ainda
  // precisa de Ver canal, Conectar e Falar (validado em mention()).
  // Menção no chat da própria call é um pedido explícito; do contrário,
