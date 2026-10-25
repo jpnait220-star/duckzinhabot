@@ -99,9 +99,36 @@ async function testDuckVoice(interaction){
     'Se não ouviu, confira volume, silenciamento e logs da FadeHost.';
 }
 
+async function joinDuckVoice(interaction){
+  const member=await interaction.guild.members.fetch(interaction.user.id);
+  if(!member.voice?.channel)return 'Entre primeiro em uma call de voz pública e execute **/duckzinha entrar**.';
+  const request={guild:interaction.guild,guildId:interaction.guildId,
+    channel:interaction.channel,channelId:interaction.channelId,
+    author:interaction.user,member,inGuild:()=>true};
+  const result=await voiceVisits.mention(request);
+  if(!result.ok){
+    if(result.reason==='not-in-this-voice-chat')
+      return 'Não posso entrar nesta call pelo canal atual. Use um chat público e uma call pública.';
+    if(result.reason==='missing-permissions')
+      return 'Preciso de **Ver canal, Conectar e Falar** nesta call. Confira as permissões específicas do canal e meu cargo.';
+    return 'Falha ao conectar à voz: '+(result.error||result.reason)+
+      '. Confira os logs da FadeHost e se a call tem vagas.';
+  }
+  console.log('[Duckzinha] Conectada à call '+result.channelId+' por /duckzinha entrar.');
+  return result.joined?'🦆🎤 Entrei na sua call! Agora me mencione aqui no chat para conversar.':
+    '🦆🎤 Já estou nesta call! Pode me mencionar no chat.';
+}
+async function leaveDuckVoice(interaction){
+  const member=await interaction.guild.members.fetch(interaction.user.id);
+  const result=voiceVisits.leave(interaction.guildId,member.voice?.channelId);
+  if(result.ok)return '👋 Saí da call! Até mais! 🦆';
+  return result.reason==='not-connected'?'Não estou em nenhuma call agora.':
+    'Entre na mesma call que eu para usar **/duckzinha sair**.';
+}
+
 async function speakDuckReply(guildId,channelId,messageText,question=''){
   if(!voiceVisits.sessions.has(guildId))return;
-  if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
+  if(voiceVisits.sessions.get(guildId)?.textChannelId!==channelId)return;
   const detectedTone=extras.settings.mood==='auto'
     ?conversationVoiceMood(question,messageText):extras.mood(question||messageText);
   const mood=extras.settings.emotionalVoice?detectedTone:'auto';
@@ -112,7 +139,7 @@ async function speakDuckReply(guildId,channelId,messageText,question=''){
     });
     console.log('[Duckzinha] Expressão: '+mood+' • voz '+voiceLabel(voiceAtRequest)+
       ' • motor '+(audio.duckTtsProvider||'?'));
-    if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
+    if(voiceVisits.sessions.get(guildId)?.textChannelId!==channelId)return;
     const played=await voiceVisits.speak(guildId,audio);
     if(!played)throw Error('O player de voz não iniciou o áudio');
   }catch(error){
@@ -608,18 +635,29 @@ client.on(Events.MessageCreate,async message=>{
       return;
     }
   }
-  // O chat da call só pode chamar a Duckzinha quando o autor participa dessa call.
-  if(mentioned&&message.channel?.type===ChannelType.GuildVoice){
-    if(!voiceMentionContext(message)){
-      // Não entra em call privada ou quando a pessoa está fora dela.
+  // Menção no chat da call OU em um canal público enquanto o usuário
+  // está conectado à voz. Sem entrada automática por canais privados/tickets.
+  if(mentioned&&(isPublic||message.channel?.type===ChannelType.GuildVoice)){
+    const target=voiceMentionContext(message);
+    if(target){
+      const joined=await voiceVisits.mention(message);
+      if(!joined.ok){
+        const reason=joined.reason==='missing-permissions'
+          ?'Não consigo entrar: preciso de **Ver canal, Conectar e Falar** nessa call.'
+          :'Não consegui entrar na call: '+(joined.error||joined.reason)+
+            '. Use **/duckzinha entrar** para testar.';
+        const sent=await message.reply({content:reason,
+          allowedMentions:{parse:[],repliedUser:false}}).catch(()=>null);
+        if(sent)void schedule(sent).catch(()=>{});
+        return;
+      }
+      console.log('[Duckzinha] Call '+target.id+' conectada para conversa em '+message.channelId);
+    }else if(message.channel?.type===ChannelType.GuildVoice){
+      await message.reply({content:'Entre nessa call e confira se ela é pública. 💛',
+        allowedMentions:{parse:[],repliedUser:false}}).catch(()=>{});
       return;
-    }
-    const joined=await voiceVisits.mention(message);
-    if(!joined.ok){
-      const reason=joined.reason==='missing-permissions'
-        ?'Preciso das permissões **Ver canal** e **Conectar** nessa call para entrar.'
-        :'Não consegui entrar nessa call agora. Tenta novamente! 💛';
-      const sent=await message.reply({content:reason,
+    }else if(/\b(entra|entre|entrar|venha|vem)\b.{0,25}\b(call|voz|canal)\b/i.test(rawQuestion)){
+      const sent=await message.reply({content:'Entre primeiro em uma call pública e tente **/duckzinha entrar**.',
         allowedMentions:{parse:[],repliedUser:false}}).catch(()=>null);
       if(sent)void schedule(sent).catch(()=>{});
       return;
@@ -803,12 +841,13 @@ client.on(Events.MessageCreate,async message=>{
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
-    if(message.channel?.type===ChannelType.GuildVoice&&mentioned){
+    if(voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId&&mentioned){
       const joke=playfulCallReply(question,Number(String(message.id).slice(-4)));
       if(joke){answer=joke;aiAnswered=true;}
     }
     answer=helpWithTicket(question,answer);
-    const isVoiceChat=message.channel?.type===ChannelType.GuildVoice;
+    const isVoiceChat=message.channel?.type===ChannelType.GuildVoice||
+      voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId;
     // Oferecer pesquisa somente quando a resposta é incerta (inclusive no
     // modo básico, sem IA), ou quando não houve resposta e o assunto é factual.
     const shouldOffer=!searching&&(uncertainty(answer)||
@@ -1064,7 +1103,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
     if(await runNewCommand(interaction,{store,extras,studio,community,communityPlus,selectedVoice:()=>selectedVoice,findReactionFile}))return;
-    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,edgeVoiceReady:true});
+    await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,onVoiceJoin:joinDuckVoice,onVoiceLeave:leaveDuckVoice,edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
     const data={content:'Aii, não consegui fazer isso agora 🥺💛 Tenta de novo daqui a pouquinho!',ephemeral:true};
