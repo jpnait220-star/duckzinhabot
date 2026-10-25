@@ -3,6 +3,8 @@ import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
 import {newCommands} from './duck-features.mjs';
 import {contextCommands} from './duck-message-menu.mjs';
+import {memberHelpEmbeds} from './duck-member-help.mjs';
+import {showBoxPvp,manageBoxPvp} from './duck-boxpvp-directory.mjs';
 
 const gold=0xf7d65b;
 const choice=[
@@ -11,7 +13,7 @@ const choice=[
   ['ticket','Saiba onde abrir um ticket'],
   ['explicarproblema','Como explicar um problema à equipe em um ticket'],
   ['projetos','Mods, apps e downloads da comunidade'],
-  ['boxpvp','Entenda o que é BoxPvP'],
+  ['boxpvp','Veja IPs de servidores BoxPvP cadastrados pela equipe'],
   ['faq','Perguntas frequentes'],
   ['sobre','Quem é a Duckzinha'],
   ['ping','Confira se estou online']
@@ -35,7 +37,7 @@ export function commandPayloads(){
     .addSubcommand(x=>x.setName('reset').setDescription('Apagar memória dos membros (admin)'))
     .addSubcommand(x=>x.setName('apagar-me').setDescription('Apagar meus dados da memória'))
     .addSubcommand(x=>x.setName('minhas-memorias').setDescription('Consultar informações pessoais lembradas'))
-    .addSubcommand(x=>x.setName('entrar').setDescription('Entrar na call pública em que você está'))
+    .addSubcommand(x=>x.setName('entrar').setDescription('Entrar na sua call, inclusive privada quando tiver permissão'))
     .addSubcommand(x=>x.setName('sair').setDescription('Sair da call em que você está'))
     .addSubcommand(x=>x.setName('testevoz').setDescription('Ouvir uma expressão específica na sua call (admin)')
       .addStringOption(o=>o.setName('estilo').setDescription('Compare estilos distintos de voz')
@@ -64,6 +66,14 @@ export function commandPayloads(){
     .addSubcommand(s=>s.setName('apagar').setDescription('Apagar um assunto da memória da comunidade')
       .addStringOption(o=>o.setName('assunto').setDescription('Nome do assunto').setRequired(true)))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false).toJSON());
+  list.push(new SlashCommandBuilder().setName('boxpvpadmin')
+    .setDescription('Gerenciar IPs BoxPvP aprovados nos tickets (admin)')
+    .addSubcommand(s=>s.setName('adicionar').setDescription('Cadastrar servidor após aprovar um ticket')
+      .addStringOption(o=>o.setName('nome').setDescription('Nome do servidor').setRequired(true).setMaxLength(56))
+      .addStringOption(o=>o.setName('ip').setDescription('Endereço ou IP com porta opcional').setRequired(true).setMaxLength(253)))
+    .addSubcommand(s=>s.setName('remover').setDescription('Remover um IP do catálogo')
+      .addIntegerOption(o=>o.setName('id').setDescription('ID exibido ao cadastrar').setRequired(true)))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false).toJSON());
   list.push(...newCommands(),...contextCommands());
   return list;
 }
@@ -206,11 +216,7 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
     const list=await store.loadKnowledge();return respond(list.length?'📚 Assuntos que conheço: '+list.map(x=>'`'+x.topic+'`').join(', ').slice(0,1500):'📭 Ainda não há ensinamentos extras.',true);
   }
   const panel=panelId?`https://discord.com/channels/${interaction.guildId}/${panelId}`:null;
-  if(cmd==='ajuda')return respond({embeds:[embed('🦆 Central de ajuda da Duckzinha',
-    'Oiee, patinho! 💛 Eu sou a ajudante da comunidade!\n\n'+
-    '🌐 **/website** — conhecer nosso site\n🎫 **/ticket** — atendimento humano\n📦 **/projetos** — mods, apps e arquivos\n🎮 **/boxpvp** — modo de jogo e gírias\n❓ **/faq** — dúvidas comuns\n💛 **/sobre** — saber mais sobre mim\n🏓 **/ping** — estou online?\n🧠 **/memoria** — controle sua memória\n🪙 **/coinflip** — 3 rodadas de cara e coroa, sem apostas\n💛 **/enviar** — enviar moedas para outro membro\n🏷️ **/emblema loja** — consultar emblemas e cargos\n🎁 **/diario publicar** — painel diário (admin)\n🪙 **/moedas** — consultar suas moedas\n\n'+
-    '💬 **Para conversar comigo**, escreva `@Duckzinha` e sua pergunta. Só respondo quando sou mencionada!\n\n'+
-    '⚠️ Para bugs e problemas de verdade, abra um ticket e aguarde a equipe.') ]});
+  if(cmd==='ajuda')return respond({embeds:memberHelpEmbeds(embed)});
   if(cmd==='website')return respond(publicInfoPayload('website',{site}));
   if(cmd==='explicarproblema')return respond('🎫 **Guia da Duckzinha para tickets**\n\n'+ticketGuide(),true);
   if(cmd==='ticket')return respond({embeds:[embed('🎫 Precisa de um atendente?',
@@ -218,8 +224,8 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
     (panel?`🔗 **Abrir o painel:** ${panel}`:'📌 Procure o canal de abrir tickets no servidor.')+
     '\n\n🔒 Seu atendimento é privado para você e a equipe autorizada. Eu não leio nem respondo dentro do ticket.') ]});
   if(cmd==='projetos')return respond(publicInfoPayload('projetos',{site}));
-  if(cmd==='boxpvp')return respond({embeds:[embed('🎮 BoxPvP? W demais!',
-    'BoxPvP é um PvP de Minecraft com mapas em caixas, minas de vários temas, kits muito fortes, elytras e até jaulas de vidro em alguns servidores!\n\n💛 Na comunidade, **W** pode ser uma reação de admiração e **GG** pode significar um bom jogo.\n\nExemplos de servidores conhecidos por essa comunidade: BawMC e RaizuMC. As regras podem mudar em cada servidor!') ]});
+  if(cmd==='boxpvp')return showBoxPvp(interaction,{store,panelId});
+  if(cmd==='boxpvpadmin')return manageBoxPvp(interaction,{store});
   if(cmd==='faq')return respond({embeds:[embed('❓ Perguntinhas frequentes',
     `**Como baixar?** Entre em ${site}, abra um projeto e escolha a versão disponível.\n\n**Meu download não funciona!** Abra um ticket e aguarde um atendente humano.\n\n**Como falo com você?** Me mencione no servidor: \`@Duckzinha oi!\`.\n\n**Você lembra das pessoas?** Guardo um histórico curto de conversa, e você pode apagar com \`/duckzinha apagar-me\`!`)]});
   if(cmd==='sobre')return respond({embeds:[embed('🦆 Oiee, eu sou a Duckzinha!',
