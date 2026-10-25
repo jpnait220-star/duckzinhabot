@@ -269,7 +269,7 @@ Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente nov
 - /campeonato iniciar: quiz público com 35 segundos por rodada. Acertadores avançam e as perguntas aumentam de dificuldade.
 - Os dois usam **170 perguntas** em cinco níveis (antes: 60), com Minecraft, anime, matemática, ciências, geografia, português, tecnologia, história e lógica.
 - /minigame tipo:Anime, Desafio de emojis, Lógica, Minecraft, Geografia, Matemática, Verdadeiro ou falso ou Adivinhe o mob: cada tipo possui **16 perguntas**, totalizando **128**. Cada rodada é pública, dura 30 segundos e os resultados aparecem no canal; cada pessoa responde de forma privada. As últimas 12 perguntas do mesmo canal não são repetidas enquanto houver alternativas.
-- **/minigame tipo:Pedra, Papel e Tesoura**: três botões (✊ Pedra, ✋ Papel, ✌️ Tesoura). Cada pessoa pode participar uma vez na rodada de 30 segundos. O confronto com a escolha aleatória da Duckzinha é privado e no fim o resultado público mostra o total de vitórias, derrotas e empates. Não envolve apostas, moedas nem recompensa.
+- **/minigame tipo:Pedra, Papel e Tesoura**: três botões (✊ Pedra, ✋ Papel, ✌️ Tesoura). Cada pessoa pode participar uma vez na rodada de 30 segundos. Cada jogada e seu resultado aparecem no chat normal (sem pingar o jogador), para que a Duckzinha consiga acompanhar no histórico público. No fim, o resultado geral mostra as vitórias, derrotas e empates. Não envolve apostas, moedas nem recompensa.
 - Atualize a branch asasa na FadeHost e reinicie para os comandos novos serem registrados no Discord. Nenhuma ENV ou SQL novo é necessário para esses jogos.
 
 
