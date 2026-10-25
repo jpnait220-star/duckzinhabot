@@ -47,36 +47,55 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
   ['/evento listar','Mostra os próximos eventos agendados.']
  ]}
 ]);
+// Valores compartilhados com o seletor de /ajuda. O padrão continua exibindo tudo.
+export const MEMBER_HELP_CATEGORIES=Object.freeze([
+ {name:'Todos os comandos',value:'todas'},
+ {name:'Informações e suporte',value:'informacoes'},
+ {name:'Perfil, amizade e voz',value:'perfil'},
+ {name:'Jogos e moedas',value:'jogos'},
+ {name:'Comunidade e lembretes',value:'comunidade'}
+]);
+const CATEGORY_IDS=['informacoes','perfil','jogos','comunidade'];
 export const MEMBER_HELP_COMMANDS=Object.freeze(
  MEMBER_HELP_SECTIONS.flatMap(s=>s.commands.map(([command])=>command))
 );
-export function memberHelpEmbeds(embed){
- const entries=MEMBER_HELP_SECTIONS.map(section=>embed(section.title,
+export function memberHelpEmbeds(embed,category='todas'){
+ const index=CATEGORY_IDS.indexOf(category);
+ const sections=index>=0?[MEMBER_HELP_SECTIONS[index]]:MEMBER_HELP_SECTIONS;
+ const entries=sections.map(section=>embed(section.title,
   section.commands.map(([command,description])=>
    '**'+command+'** — '+description).join('\n')));
- const count=MEMBER_HELP_COMMANDS.length;
+ const count=sections.reduce((n,section)=>n+section.commands.length,0);
  entries[0].setDescription(
   '📖 **Guia para membros • '+count+' comandos e opções**\n'+
-  'Mostro somente o que membros podem usar, sem comandos de administração.\n\n'+
-  entries[0].data.description+
+  (category==='todas'
+    ?'Mostro todos os comandos que membros podem usar, sem ações restritas à equipe.'
+    :'Categoria selecionada. Use `/ajuda` sem filtro para ver todos os comandos.')+
+  '\n\n'+entries[0].data.description+
   '\n\n💬 Para conversar, marque `@Duckzinha` em um canal público. '+
   'Ela acompanha o contexto recente, mas não lê tickets ou DMs de outras pessoas.'
  );
- entries[2].setDescription(entries[2].data.description+
-  '\n\n🧩 **Modos do /minigame:** aleatório, verdadeiro/falso, anime, '+
-  'adivinhe personagem, mob ou bloco, Minecraft, geografia, matemática, '+
-  'emojis, lógica, Jogo da Velha, Pedra-Papel-Tesoura e Quiz Streak.\n'+
-  '🏆 **Recompensas:** +5 moedas por vitória ou acerto nos minigames; '+
-  'Coinflip: 15 moedas ao vencedor. Sem apostas. '+
-  'O Jogo da Velha limita a cinco vitórias premiadas a cada duas horas.\n'+
-  '🔒 Ela não revela as respostas enquanto uma rodada de quiz estiver ativa.'
- );
- entries[3].setDescription(entries[3].data.description+
-  '\n\n🎁 **Diário:** resgate 20 moedas pelo botão do painel publicado pela equipe.\n'+
-  '🏷️ **Emblemas:** a equipe publica a loja; membros usam os botões para comprar.\n'+
-  '🖱️ **Menu de mensagem:** clique com o botão direito em uma mensagem para '+
-  'Explicar, Resumir, Traduzir ou Pesquisar.\n'+
-  '📩 Banimentos e avisos podem chegar por DM se a pessoa permitir mensagens privadas.'
- );
+ const gamesIndex=sections.findIndex(x=>x===MEMBER_HELP_SECTIONS[2]);
+ if(gamesIndex>=0){
+  entries[gamesIndex].setDescription(entries[gamesIndex].data.description+
+   '\n\n🧩 **Modos do /minigame:** aleatório, verdadeiro/falso, anime, '+
+   'adivinhe personagem, mob ou bloco, Minecraft, geografia, matemática, '+
+   'emojis, lógica, Jogo da Velha, Pedra-Papel-Tesoura e Quiz Streak.\n'+
+   '🏆 **Recompensas:** +5 moedas por vitória ou acerto nos minigames; '+
+   'Coinflip: 15 moedas ao vencedor. Sem apostas. '+
+   'O Jogo da Velha limita a cinco vitórias premiadas a cada duas horas.\n'+
+   '🔒 Ela não revela respostas enquanto uma rodada de quiz estiver ativa.'
+  );
+ }
+ const communityIndex=sections.findIndex(x=>x===MEMBER_HELP_SECTIONS[3]);
+ if(communityIndex>=0){
+  entries[communityIndex].setDescription(entries[communityIndex].data.description+
+   '\n\n🎁 **Diário:** resgate 20 moedas pelo botão do painel publicado pela equipe.\n'+
+   '🏷️ **Emblemas:** a equipe publica a loja; membros usam os botões para comprar.\n'+
+   '🖱️ **Menu de mensagem:** clique com o botão direito em uma mensagem para '+
+   'Explicar, Resumir, Traduzir ou Pesquisar.\n'+
+   '📩 Banimentos e avisos podem chegar por DM se a pessoa permitir mensagens privadas.'
+  );
+ }
  return entries;
 }
