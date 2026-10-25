@@ -282,3 +282,12 @@ Essas alterações ficam na branch asasa. Não exigem variáveis de ambiente nov
 - A leitura de contexto público agora inclui as últimas mensagens de membros, Duckzinha, outros bots e embeds de comandos, em um recorte de até 60 mensagens / quatro horas. DMs, canais privados, tickets e respostas efêmeras não ficam acessíveis no histórico compartilhado.
 - Quando a pessoa pede para pesquisar isso, a bot tenta localizar o assunto anterior do mesmo membro. Se não houver tema claro, pede uma especificação.
 - Para voz, o bot precisa de Ver canal, Conectar, Falar e também da disponibilidade de conectividade de voz na hospedagem. Para ler o contexto, precisa de Ler histórico de mensagens.
+
+
+### Minigames novos: Jogo da Velha e Quiz Streak
+
+- Use **/minigame tipo:Jogo da Velha** para jogar contra a Duckzinha. O tabuleiro 3×3 aparece no canal, com 9 botões. Você é X e ela é O. Somente quem iniciou pode fazer jogadas; a Duckzinha responde automaticamente, tentando vencer ou bloquear. Há 90 segundos por jogada e não existem apostas nem recompensas em moedas.
+- Use **/minigame tipo:Quiz Streak (níveis e sequência)** para jogar quiz público progressivo com as 170 perguntas do banco já existente: nível 1 Iniciante, nível 2 Aprendiz, nível 3 Intermediário, nível 4 Avançado e nível 5 Mestre. Cada rodada dura 30 segundos. Só quem acerta avança; depois de quatro segundos surge outra pergunta automaticamente. O jogo mostra a sequência e o recorde da sessão e termina quando ninguém acerta ou após 30 rodadas. O recorde dessa sessão fica em memória até reiniciar.
+- As categorias de minigame já existentes permanecem disponíveis em partidas curtas. O **Quiz Streak** é a opção para perguntas contínuas, níveis e sequência.
+- O sistema de proteção de respostas continua ativo para o Quiz Streak enquanto a pergunta está aberta. As respostas certas só aparecem ao final das rodadas.
+- O comando /jogo quiz e os demais jogos continuam funcionando. Não precisa de nova ENV ou migração SQL; atualizar a branch **asasa** e reiniciar na FadeHost registra os novos tipos.
