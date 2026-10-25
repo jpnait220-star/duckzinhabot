@@ -321,3 +321,13 @@ no Supabase é necessário em instalações novas. Não há ENV adicional.
 - No **/minigame tipo:Jogo da Velha**, **quem começa é sorteado (50% jogador, 50% Duckzinha)**. Se a bot começar, ela já ocupa uma casa antes do jogador. A estratégia da Duckzinha passou a antecipar várias jogadas, dificultando ganhar sempre da mesma forma.
 - O prêmio do Jogo da Velha continua sendo **5 moedas por vitória**, porém o banco limita a **5 vitórias premiadas por pessoa a cada 2 horas**. Mesmo depois do limite a pessoa pode continuar jogando; só não recebe moedas extras até renovar a janela. Outros minigames mantêm suas regras de recompensa.
 - A migração de limite está em sql/duck-ttt-reward-limit.sql. No Supabase ligado ao projeto, a migração já foi aplicada e validada numa transação desfeita.
+
+
+### /ajuda para membros e diretório /boxpvp
+
+- `/ajuda` envia quatro embeds com todos os comandos que membros podem usar: informações, suporte, perfil, voz, memória pessoal, minigames, moedas, eventos, sugestões e lembretes. Não mostra comandos ou operações restritas a administradores.
+- `/boxpvp` passa a exibir um catálogo de nomes e endereços de servidores Minecraft BoxPvP realmente registrados e aprovados. Não inventa IPs, e informa quando ainda não há cadastro.
+- Para solicitar que um IP seja incluído, o membro abre um ticket com o nome e o IP do servidor. **O cadastro não é automático**; um administrador precisa conferir o pedido.
+- Após aprovar, use `/boxpvpadmin adicionar nome:<nome> ip:<endereço>`. Para remover um registro, use `/boxpvpadmin remover id:<número>`. É possível informar a porta, por exemplo `box.example.net:25565`.
+- A migração `sql/duck-boxpvp-directory.sql` cria a tabela protegida. Foi aplicada ao Supabase conectado; acesso público foi negado. Nenhum IP foi adicionado sem aprovação.
+- A função exibe servidores no Discord pelo bot da FadeHost. Ela não modifica os projetos no site nem os canais do espelhamento.
