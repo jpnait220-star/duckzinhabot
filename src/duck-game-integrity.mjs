@@ -33,8 +33,8 @@ export function isGameAnswerRequest(input,questions=[]){
  if(!questions.length)return false;
  const q=normalize(input);
  if(!q)return false;
- const hasGame=/\b(quiz|minigame|pergunta|questao|rodada|alternativa|opcao|pista|dica|resposta|gabarito|acertar)\b/.test(q);
- const wantsAnswer=/\b(resposta|correta|certa|alternativa|opcao|gabarito|pista|dica|resolve|resolva|responda|responde|ajuda|ajude|marca|marque|escolhe|escolha|pesquisa|pesquise|fala|diz|diga|qual|quem|quanto|onde|como)\b/.test(q);
+ const hasGame=/\b(quiz|minigame|pergunta|questao|rodada|alternativa|opcao|letra|pista|dica|resposta|gabarito|acertar)\b/.test(q);
+ const wantsAnswer=/\b(resposta|correta|certa|alternativa|opcao|gabarito|pista|dica|resolve|resolva|responda|responde|ajuda|ajude|marca|marque|escolhe|escolha|pesquisa|pesquise|fala|diz|diga|qual|que|quem|quanto|onde|como)\b/.test(q);
  if(hasGame&&wantsAnswer)return true;
  if(/^(?:qual (?:e|seria|a)?\s*(?:resposta|certa|correta)?|(?:me\s+)?(?:diz|fala|responde|responda|manda)\s+(?:a\s+)?(?:resposta|certa|qual|isso)|(?:e\s+)?(?:letra|opcao|alternativa)\s+[abcd])$/.test(q))return true;
  const tokenList=terms(q);
