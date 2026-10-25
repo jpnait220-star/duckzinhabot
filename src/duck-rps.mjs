@@ -66,8 +66,16 @@ export class DuckRockPaperScissors{
   const label=outcome==='vitoria'?'🏆 Você ganhou! GG!':
     outcome==='derrota'?'🦆 A Duckzinha ganhou! Hehehe!':
       '🤝 Empate! Bora de novo!';
-  return interaction.reply(hidden('**Você:** '+RPS_MOVES[choice].emoji+' '+RPS_MOVES[choice].name+
-    '\n**Duckzinha:** '+RPS_MOVES[bot].emoji+' '+RPS_MOVES[bot].name+'\n\n'+label));
+  // Publica o resultado no chat normal: o bot também consegue considerar
+  // essa mensagem no contexto público recente da conversa.
+  return interaction.reply({
+    content:'## ✊✋✌️ Pedra, Papel e Tesoura\n'+
+      '👤 **Jogador:** <@'+interaction.user.id+'>\n'+
+      '**Sua jogada:** '+RPS_MOVES[choice].emoji+' '+RPS_MOVES[choice].name+'\n'+
+      '🦆 **Duckzinha:** '+RPS_MOVES[bot].emoji+' '+RPS_MOVES[bot].name+
+      '\n\n'+label,
+    allowedMentions:{parse:[]}
+  });
  }
  shutdown(){
   for(const game of this.games.values())if(game.timer)this.clearTimer(game.timer);
