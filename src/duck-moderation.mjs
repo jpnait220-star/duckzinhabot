@@ -127,7 +127,7 @@ async function resolveBanned(message,action,botId){
       ?'Nome ambíguo na lista de banidos; use o ID.'
       :'Não achei o username exato nos bans consultados. Confira o @username (não nome de exibição), ou use o ID.'};
 }
-export async function handleModerationRequest(message,action,{botId,store}={}){
+export async function handleModerationRequest(message,action,{botId,store,banNotifier}={}){
   const respond=content=>message.reply({content,allowedMentions:{parse:[],repliedUser:false}});
   const niceName=user=>String(user?.username||'usuario').replace(/[@*_~`<>\\]/g,'').slice(0,32);
   const success=async (content,{target,reason,durationMs}={})=>{
@@ -165,7 +165,20 @@ export async function handleModerationRequest(message,action,{botId,store}={}){
     if(action.kind==='ban'){
       if(member.bannable!==true)
         return respond('⚠️ Não posso banir esse membro. Confira a hierarquia dos cargos.');
-      await member.ban({reason,deleteMessageSeconds:0});
+      // Reserva antes do ban: GuildBanAdd não pode mandar uma DM duplicada
+      // enquanto este fluxo envia a notificação com o nome do administrador.
+      banNotifier?.reserve(message.guild.id,id);
+      try{await member.ban({reason,deleteMessageSeconds:0});}
+      catch(error){banNotifier?.release(message.guild.id,id);throw error;}
+      if(banNotifier){
+        const explanation=reason.replace(/\s+\(por [^)]+\)$/,'');
+        const dm=await banNotifier.botBanCompleted({
+          guild:message.guild,user:target,
+          moderator:message.author?.username||'administrador',
+          reason:explanation
+        });
+        if(!dm.ok)console.warn('[Duckzinha] Ban aplicado, mas a DM não chegou ao usuário.');
+      }
       return success('## 🔨 Membro banido!\n'+
         '🦆 **'+niceName(target)+'** foi de ban, bobão! 👀\n'+
         '✨ Punição aplicada com sucesso.',{target,reason});
