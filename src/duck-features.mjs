@@ -56,7 +56,9 @@ export function newCommands(){
         {name:'Adivinhe o personagem de anime',value:'adivinhe-anime'},
         {name:'Adivinhe o bloco do Minecraft',value:'adivinhe-bloco'},
         {name:'Adivinhe o mob por pistas',value:'adivinhe-mob'},
-        {name:'Pedra, Papel e Tesoura',value:'pedra-papel-tesoura'})).setDMPermission(false),
+        {name:'Pedra, Papel e Tesoura',value:'pedra-papel-tesoura'},
+        {name:'Jogo da Velha',value:'jogo-da-velha'},
+        {name:'Quiz Streak (níveis e sequência)',value:'quiz-streak'})).setDMPermission(false),
     new SlashCommandBuilder().setName('moedas').setDescription('Consultar suas moedas de pato').setDMPermission(false),
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
       .addStringOption(x=>x.setName('acao').setDescription('Começar ou resgatar').setRequired(true)
