@@ -28,7 +28,7 @@ test('Contexto coletivo acompanha as falas de pessoas diferentes, em ordem',()=>
  const input=[
    mk('Duck','2','@Duckzinha eu não!',-1000),
    mk('João','1','@Duckzinha o Duck é doidinho KKK',-3000),
-   mk('Pessoa','3','mensagem muito antiga',-40*60*1000),
+   mk('Pessoa','3','mensagem muito antiga',-5*60*60*1000),
  ];
  const context=formatChannelContext(input,'bot',now);
  assert.match(context,/João: @Duckzinha o Duck é doidinho KKK/);
