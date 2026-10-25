@@ -14,13 +14,13 @@ import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {parseModerationRequest,handleModerationRequest} from './duck-moderation.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
-import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech} from './duck-tts.mjs';
+import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
 import {DuckCommunity,naturalTeaching} from './duck-community.mjs';
 import {DuckCommunityPlus} from './duck-community-plus.mjs';
-import {dynamicPersonality,voiceTone,expressiveSpeech,parseNaturalReminder} from './duck-smart.mjs';
+import {dynamicPersonality,conversationVoiceMood,playfulCallReply,expressiveSpeech,parseNaturalReminder} from './duck-smart.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -70,31 +70,48 @@ async function testDuckVoice(interaction){
   if(!joined.ok)return 'Não consegui conectar: '+joined.reason+
     (joined.error?' ('+joined.error+')':'')+
     '. Confira as permissões Ver canal, Conectar e Falar.';
-  const sampleText='Oiê! Sou a Duckzinha. Essa é minha voz de teste!'; 
-  const audio=await synthesizeDuckSpeech({text:sampleText,voice:selectedVoice});
+  const style=interaction.options?.getString?.('estilo')||'normal';
+  const examples={
+    normal:'Oiê! Sou a Duckzinha. Essa é minha voz normal!',
+    animada:'Uhuuul! GG! Ganhei o PvP! Hehehe! Que jogada incrível!',
+    calma:'Tudo bem. Vamos resolver isso com calma, uma coisa de cada vez.',
+    curiosa:'Ué, você sabia que alguns patos podem dormir com um olho aberto?',
+    sonolenta:'Aii... que soninho. Boa noite, pessoal. Hora de descansar.',
+    piada:'Hehehe! Por que o pato entrou no Minecraft? Para fazer um quack de diamante! Kkkkk!'
+  };
+  const mood=style==='piada'?'animada':style==='normal'?'auto':style;
+  const voice=mood==='auto'?selectedVoice:expressiveVoice(selectedVoice,mood,true);
+  const options=edgeVoiceOptions(voice,mood);
+  const audio=await synthesizeDuckSpeech({text:examples[style]||examples.normal,voice,mood});
   const played=await voiceVisits.speak(interaction.guildId,audio);
-  if(!played)return 'O áudio foi gerado, mas o player não conseguiu reproduzir. Confira os logs.';
-  const playbackMs=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
-  const selected=audio.duckTtsProvider==='google-styled'
-    ?'Google TTS com o estilo '+voiceLabel(selectedVoice)+
-      ' (tom e velocidade ajustados, não é voz Edge original)'
-    :audio.duckTtsProvider==='google'
-      ?'Google TTS sem ajuste (Edge e filtro de voz indisponíveis)'
-      :'Edge TTS ('+voiceLabel(selectedVoice)+')';
-  return 'O player processou '+playbackMs+'ms de áudio na call '+voice.name+
-    ' com '+selected+'. Isso não garante que o Discord transmitiu som. '+
-    'Se não ouviu, confira se a bot está silenciada no servidor, o volume dela e os logs da FadeHost.';
+  if(!played)return 'O áudio foi gerado, mas a reprodução não terminou. Confira os logs.';
+  const processed=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
+  const provider=audio.duckTtsProvider||'desconhecido';
+  const notice=provider==='google'
+    ?' ⚠️ O Google TTS não recebeu o filtro de voz; pode soar igual. Confira o FFmpeg nos logs.'
+    :provider==='google-styled'?' A voz Google recebeu o filtro de estilo.'
+    :' A voz neural Edge recebeu variação de tom e ritmo.';
+  return '🎙️ **Teste: '+style+'** • '+voiceLabel(voice)+
+    '\nMotor: **'+provider+'** • Tom: **'+options.pitch+'** • Ritmo: **'+options.rate+
+    '** • Processados: **'+processed+' ms**.'+
+    '\nVoz expressiva automática: **'+(extras.settings.emotionalVoice?'ligada':'desligada')+
+    '**.'+notice+'\nIsso confirma processamento, não que o Discord transmitiu áudio. '+
+    'Se não ouviu, confira volume, silenciamento e logs da FadeHost.';
 }
 
-async function speakDuckReply(guildId,channelId,messageText){
+async function speakDuckReply(guildId,channelId,messageText,question=''){
   if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
-  const detectedTone=extras.settings.mood==='auto'?voiceTone(messageText):extras.mood(messageText);
-  const voiceAtRequest=expressiveVoice(selectedVoice,detectedTone==='auto'?'calma':detectedTone,extras.settings.emotionalVoice);
+  const detectedTone=extras.settings.mood==='auto'
+    ?conversationVoiceMood(question,messageText):extras.mood(question||messageText);
+  const mood=extras.settings.emotionalVoice?detectedTone:'auto';
+  const voiceAtRequest=expressiveVoice(selectedVoice,mood,extras.settings.emotionalVoice);
   try{
     const audio=await synthesizeDuckSpeech({
-      text:expressiveSpeech(messageText),voice:voiceAtRequest
+      text:expressiveSpeech(messageText),voice:voiceAtRequest,mood
     });
+    console.log('[Duckzinha] Expressão: '+mood+' • voz '+voiceLabel(voiceAtRequest)+
+      ' • motor '+(audio.duckTtsProvider||'?'));
     if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
     const played=await voiceVisits.speak(guildId,audio);
     if(!played)throw Error('O player de voz não iniciou o áudio');
@@ -786,6 +803,10 @@ client.on(Events.MessageCreate,async message=>{
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
     if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
+    if(message.channel?.type===ChannelType.GuildVoice&&mentioned){
+      const joke=playfulCallReply(question,Number(String(message.id).slice(-4)));
+      if(joke){answer=joke;aiAnswered=true;}
+    }
     answer=helpWithTicket(question,answer);
     const isVoiceChat=message.channel?.type===ChannelType.GuildVoice;
     // Oferecer pesquisa somente quando a resposta é incerta (inclusive no
@@ -815,7 +836,7 @@ client.on(Events.MessageCreate,async message=>{
           .catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
       void schedule(sent).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
       if(isPublic&&member?.enabled!==false)void community.awardTalk(id,message.id);
-      if(voiceText)void speakDuckReply(message.guildId,message.channelId,voiceText);
+      if(voiceText)void speakDuckReply(message.guildId,message.channelId,voiceText,question);
       console.log('[Duckzinha] Resposta enviada ao Discord.');
     }
   }catch(error){
