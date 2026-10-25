@@ -34,97 +34,87 @@ test('efeitos de moeda geram WAV PCM diferentes por lado e MP3 válido',async()=
  assert.equal(await coinMp3('cara'),a);
 });
 
-test('coinflip prepara novo vídeo antes do 3-2-1, 3 rodadas e recompensa de 15 moedas',async()=>{
- const sent=[],edits=[],waits=[],calls=[],rendered=[];
- const message={edit:async payload=>{edits.push(payload);return message;}};
- const store={persistent:true,startCoinflip:async(game,host,guest)=>{
-   calls.push(['start',game,host,guest]);return {ok:true};
- },finishCoinflip:async(game,winner)=>{
-   calls.push(['finish',game,winner]);return {ok:true,credited:true,balance:150};
- }};
- const coin=new DuckCoinflip({
-   store,randomSide:(()=>{let i=0;return ()=>[0,1,0][i++];})(),
-   sleep:async ms=>{waits.push(ms);},
-   renderVideo:async side=>{rendered.push(side);return Buffer.from('MP4'+side);}
+test('Coinflip envia uma imagem estática e três resultados sem vídeos nem demoras',async()=>{
+ const replies=[],updates=[],calls=[];
+ const message={edit:async payload=>{updates.push(payload);return message;}};
+ const fakePng=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]);
+ const game=new DuckCoinflip({
+  store:{persistent:true,startCoinflip:async(id,host,guest)=>{
+    calls.push(['start',id,host,guest]);return {ok:true};
+  },finishCoinflip:async(id,winner)=>{
+    calls.push(['finish',id,winner]);return {ok:true,credited:true,balance:115};
+  }},
+  randomSide:(()=>{let i=0;return ()=>[0,1,0][i++];})(),
+  renderImage:()=>fakePng
  });
  const interaction={
-   user:{id:'111111111111111111'},guildId:'333333333333333333',
-   guild:{members:{fetch:async()=>({})}},
-   options:{getUser:()=>({id:'222222222222222222',bot:false})},
-   channel:{send:async payload=>{sent.push(payload);}},
-   reply:async payload=>{sent.push(payload);},
-   fetchReply:async()=>message
- };
- await coin.challenge(interaction);
- const id=[...coin.games.keys()][0];
- assert.match(sent[0].content,/Melhor de 3 rodadas/);
- assert.match(sent[0].content,/15 moedas/);
- assert.match(sent[0].content,/5 partidas a cada 2 horas/);
- await coin.button({
-   user:{id:'222222222222222222'},
-   customId:'duckcoin:'+id+':yes',
-   update:async payload=>{edits.push(payload);},
-   reply:async()=>{throw Error('Não deveria responder');}
- });
- assert.equal(sent.length,1,'apenas o convite cria mensagem');
- assert.deepEqual(rendered,['cara','coroa']);
- assert.equal(edits.filter(x=>/vai girar em \*\*[123]\*\*/.test(x.content)).length,9);
- assert.equal(waits.filter(x=>x===1000).length,9);
- const videoPosts=edits.filter(x=>x.files?.length===1);
- assert.equal(videoPosts.length,3);
- assert.ok(videoPosts.every(x=>x.files[0].name.endsWith('.mp4')));
- assert.ok(videoPosts[0].files[0].name.includes('-cara-'));
- assert.ok(videoPosts[1].files[0].name.includes('-coroa-'));
- assert.ok(videoPosts[2].files[0].name.includes('-cara-'));
- assert.equal(waits.filter(x=>x>=3000).length,3);
- assert.equal(calls[0][0],'start');
- assert.deepEqual(calls[1],['finish',id,'111111111111111111']);
- assert.match(edits.at(-1).content,/15 moedas/);
- assert.match(edits.at(-1).content,/2\*\*  ×  \*\*1/);
- assert.equal(coin.games.size,0);
- assert.equal(coin.players.size,0);
-});
-
-test('recusa não consome partidas e usuário de fora não pode aceitar',async()=>{
- let received;
- const game=new DuckCoinflip({
-   store:{persistent:true},
-   renderVideo:async()=>Buffer.from('mp4')
- });
- const host={user:{id:'111111111111111111'},guildId:'333333333333333333',
+  user:{id:'111111111111111111'},guildId:'333333333333333333',
   guild:{members:{fetch:async()=>({})}},
   options:{getUser:()=>({id:'222222222222222222',bot:false})},
-  channel:{send:async()=>{}},reply:async()=>{},
-  fetchReply:async()=>({edit:async()=>{}})};
- await game.challenge(host);
+  reply:async payload=>{replies.push(payload);},
+  fetchReply:async()=>message
+ };
+ await game.challenge(interaction);
+ assert.match(replies[0].content,/Melhor de 3 rodadas/);
+ assert.match(replies[0].content,/15 moedas/);
+ assert.equal(replies[0].components.length,1);
+ const id=[...game.games.keys()][0];
+ await game.button({
+  user:{id:'222222222222222222'},customId:'duckcoin:'+id+':yes',
+  update:async payload=>{updates.push(payload);},
+  reply:async()=>{throw Error('não deveria responder');}
+ });
+ assert.equal(replies.length,1);
+ assert.equal(updates.filter(x=>x.files?.length).length,1);
+ const result=updates.find(x=>x.files?.length);
+ assert.ok(result.files[0].name.endsWith('.png'));
+ assert.match(result.content,/1ª rodada/);
+ assert.match(result.content,/2ª rodada/);
+ assert.match(result.content,/3ª rodada/);
+ assert.match(result.content,/15 moedas/);
+ assert.doesNotMatch(updates.map(x=>x.content).join(''),/girando|vai girar em \*\*[123]\*\*/i);
+ assert.deepEqual(calls[1],['finish',id,'111111111111111111']);
+ assert.equal(game.games.size,0);
+ assert.equal(game.players.size,0);
+});
+
+test('desafio recusado não registra partida, e visitantes não podem aceitar',async()=>{
+ let answer;
+ const game=new DuckCoinflip({store:{persistent:true}});
+ await game.challenge({
+  user:{id:'111111111111111111'},guildId:'333333333333333333',
+  guild:{members:{fetch:async()=>({})}},
+  options:{getUser:()=>({id:'222222222222222222',bot:false})},
+  reply:async()=>{},fetchReply:async()=>({edit:async()=>{}})
+ });
  const id=[...game.games.keys()][0];
  await game.button({user:{id:'444444444444444444'},customId:'duckcoin:'+id+':yes',
- reply:async msg=>{received=msg;}});
- assert.match(received.content,/Somente a pessoa desafiada/);
- assert.equal(received.flags,MessageFlags.Ephemeral);
+  reply:async msg=>{answer=msg;}});
+ assert.match(answer.content,/Somente a pessoa desafiada/);
+ assert.equal(answer.flags,MessageFlags.Ephemeral);
  await game.button({user:{id:'222222222222222222'},customId:'duckcoin:'+id+':no',
- update:async()=>{}});
+  update:async()=>{}});
  assert.equal(game.games.size,0);
 });
 
-test('quota de 2 horas impede começar a partida e não dá recompensa',async()=>{
- const messages=[],calls=[];
- const game=new DuckCoinflip({store:{persistent:true,
-   startCoinflip:async()=>({ok:false,reason:'host_limit'}),
-   finishCoinflip:async()=>{calls.push('reward');}},
-   renderVideo:async side=>Buffer.from(side),sleep:async()=>{}});
- const message={edit:async p=>{messages.push(p);return message}};
- const interaction={
-   user:{id:'111111111111111111'},guildId:'333333333333333333',
-   guild:{members:{fetch:async()=>({})}},
-   options:{getUser:()=>({id:'222222222222222222',bot:false})},
-   reply:async()=>{},fetchReply:async()=>message
- };
- await game.challenge(interaction);
+test('limite de partidas impede prêmio e não envia imagem',async()=>{
+ const changes=[],calls=[];
+ const game=new DuckCoinflip({
+  store:{persistent:true,startCoinflip:async()=>({ok:false,reason:'host_limit'}),
+    finishCoinflip:async()=>{calls.push('reward');}},
+  renderImage:()=>{throw Error('não pode gerar imagem se bloqueado');}
+ });
+ const message={edit:async change=>{changes.push(change);return message}};
+ await game.challenge({
+  user:{id:'111111111111111111'},guildId:'333333333333333333',
+  guild:{members:{fetch:async()=>({})}},
+  options:{getUser:()=>({id:'222222222222222222',bot:false})},
+  reply:async()=>{},fetchReply:async()=>message
+ });
  const id=[...game.games.keys()][0];
  await game.button({user:{id:'222222222222222222'},customId:'duckcoin:'+id+':yes',
-   update:async()=>{}});
- assert.match(messages.at(-1).content,/Limite de Coinflip/);
+  update:async()=>{}});
+ assert.match(changes.at(-1).content,/Limite de Coinflip/);
  assert.equal(calls.length,0);
  assert.equal(game.players.size,0);
 });
