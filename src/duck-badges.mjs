@@ -51,7 +51,7 @@ export function badgePanel(items){
 export const dailyPanel=()=>({
  content:'## 🪙 Recompensa Diária\n'+
    '🎁 **20 moedas** para resgatar todos os dias!\n\n'+
-   '⏰ Disponível novamente à meia-noite (horário da Bahia).\n'+
+   '⏰ Volte amanhã para resgatar novamente!\n'+
    '🏷️ Use suas moedas na Loja de Emblemas.\n\n'+
    '✨ Clique no botão abaixo para resgatar as suas.',
  components:[new ActionRowBuilder().addComponents(
