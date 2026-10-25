@@ -3,7 +3,7 @@ import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
 import {newCommands} from './duck-features.mjs';
 import {contextCommands} from './duck-message-menu.mjs';
-import {memberHelpEmbeds} from './duck-member-help.mjs';
+import {memberHelpEmbeds,MEMBER_HELP_CATEGORIES} from './duck-member-help.mjs';
 import {showBoxPvp,manageBoxPvp} from './duck-boxpvp-directory.mjs';
 
 const gold=0xf7d65b;
@@ -20,7 +20,14 @@ const choice=[
 ];
 
 export function commandPayloads(){
-  const list=choice.map(([name,description])=>new SlashCommandBuilder().setName(name).setDescription(description).setDMPermission(false).toJSON());
+  const list=choice.map(([name,description])=>{
+    const builder=new SlashCommandBuilder().setName(name)
+      .setDescription(description).setDMPermission(false);
+    if(name==='ajuda')builder.addStringOption(option=>option
+      .setName('categoria').setDescription('Ver todos os comandos ou apenas uma categoria')
+      .setRequired(false).addChoices(...MEMBER_HELP_CATEGORIES));
+    return builder.toJSON();
+  });
   list.push(new SlashCommandBuilder().setName('testarreacao')
     .setDescription('Testar o emoji da Duckzinha na sua última mensagem')
     .addStringOption(o=>o.setName('tipo').setDescription('Qual reação verificar?')
@@ -216,7 +223,7 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
     const list=await store.loadKnowledge();return respond(list.length?'📚 Assuntos que conheço: '+list.map(x=>'`'+x.topic+'`').join(', ').slice(0,1500):'📭 Ainda não há ensinamentos extras.',true);
   }
   const panel=panelId?`https://discord.com/channels/${interaction.guildId}/${panelId}`:null;
-  if(cmd==='ajuda')return respond({embeds:memberHelpEmbeds(embed)});
+  if(cmd==='ajuda')return respond({embeds:memberHelpEmbeds(embed,interaction.options.getString('categoria')||'todas')});
   if(cmd==='website')return respond(publicInfoPayload('website',{site}));
   if(cmd==='explicarproblema')return respond('🎫 **Guia da Duckzinha para tickets**\n\n'+ticketGuide(),true);
   if(cmd==='ticket')return respond({embeds:[embed('🎫 Precisa de um atendente?',
