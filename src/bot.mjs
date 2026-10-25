@@ -18,6 +18,7 @@ import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-vis
 import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resolveResearchSubject} from './duck-channel-context.mjs';
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
+import {tryOpenTtsSpeech} from './duck-open-tts.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
@@ -86,7 +87,8 @@ async function testDuckVoice(interaction){
   const mood=style==='piada'?'animada':style==='normal'?'auto':style;
   const sampleVoice=mood==='auto'?selectedVoice:expressiveVoice(selectedVoice,mood,true);
   const options=edgeVoiceOptions(sampleVoice,mood);
-  const audio=await synthesizeDuckSpeech({text:examples[style]||examples.normal,voice:sampleVoice,mood});
+  const audio=(await tryOpenTtsSpeech(examples[style]||examples.normal))||
+    await synthesizeDuckSpeech({text:examples[style]||examples.normal,voice:sampleVoice,mood});
   const played=await voiceVisits.speak(interaction.guildId,audio);
   if(!played)return 'O áudio foi gerado, mas a reprodução não terminou. Confira os logs.';
   const processed=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
@@ -138,9 +140,10 @@ async function speakDuckReply(guildId,channelId,messageText,question=''){
   const mood=extras.settings.emotionalVoice?detectedTone:'auto';
   const voiceAtRequest=expressiveVoice(selectedVoice,mood,extras.settings.emotionalVoice);
   try{
-    const audio=await synthesizeDuckSpeech({
-      text:expressiveSpeech(messageText),voice:voiceAtRequest,mood
-    });
+    const audio=(await tryOpenTtsSpeech(expressiveSpeech(messageText)))||
+      await synthesizeDuckSpeech({
+        text:expressiveSpeech(messageText),voice:voiceAtRequest,mood
+      });
     console.log('[Duckzinha] Expressão: '+mood+' • voz '+voiceLabel(voiceAtRequest)+
       ' • motor '+(audio.duckTtsProvider||'?'));
     if(voiceVisits.sessions.get(guildId)?.textChannelId!==channelId)return;
