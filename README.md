@@ -331,3 +331,10 @@ no Supabase é necessário em instalações novas. Não há ENV adicional.
 - Após aprovar, use `/boxpvpadmin adicionar nome:<nome> ip:<endereço>`. Para remover um registro, use `/boxpvpadmin remover id:<número>`. É possível informar a porta, por exemplo `box.example.net:25565`.
 - A migração `sql/duck-boxpvp-directory.sql` cria a tabela protegida. Foi aplicada ao Supabase conectado; acesso público foi negado. Nenhum IP foi adicionado sem aprovação.
 - A função exibe servidores no Discord pelo bot da FadeHost. Ela não modifica os projetos no site nem os canais do espelhamento.
+
+### /ajuda completo e funções prontas para /ensinar (2026-10-25)
+
+- `/ajuda` mostra todos os **36 caminhos de comandos e subcomandos de membros** em quatro embeds: Informações/suporte, Perfil/voz, Jogos/moedas e Comunidade/lembretes. A ajuda não anuncia comandos exclusivos de moderação e administração.
+- `/ajuda categoria:<categoria>` é opcional. Escolha `informacoes`, `perfil`, `jogos` ou `comunidade` para visualizar só aquela categoria; sem filtro, tudo continua visível no chat.
+- A suíte de testes cruza o catálogo de ajuda com os comandos slash registrados: comandos de membros novos ou removidos exigem atualização da lista.
+- O arquivo [FUNCOES-DUCKZINHA-PARA-ENSINAR.txt](./FUNCOES-DUCKZINHA-PARA-ENSINAR.txt) apresenta oito textos em português brasileiro sobre conversa, suporte, Studio, voz, minigames, moedas, lembretes e permissões. Cada texto tem menos de 1.000 caracteres para o campo `/ensinar texto`, que requer permissão Gerenciar servidor. Não é preciso ensinar novamente os comandos que já estão no código: o material é útil para a IA explicar as funções.
