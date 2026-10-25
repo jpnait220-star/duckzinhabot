@@ -33,6 +33,45 @@ test('Também aceita menção em chat público quando o membro já está na call
   assert.equal(voiceMentionContext({...message,member:{voice:{channel:null,channelId:null}}}),null);
 });
 
+test('Permite entrar em call privada pela menção direta no chat da própria call',async()=>{
+  const {message,voice}=fixture({publicChannel:false});
+  let joins=0;
+  const manager=new DuckVoiceVisits({
+    join:()=>{joins++;return {state:{status:VoiceConnectionStatus.Ready},destroy:()=>{}};},
+    waitReady:async()=>{}
+  });
+  const result=await manager.mention(message);
+  assert.deepEqual(result,{ok:true,joined:true,channelId:voice.id});
+  assert.equal(joins,1);
+  manager.shutdown();
+});
+
+test('Comando explícito entra em call privada via canal de texto, com permissões',async()=>{
+  const {message,voice}=fixture({publicChannel:false});
+  const textChannel={id:'texto',name:'geral',type:ChannelType.GuildText,nsfw:false,
+    permissionsFor:()=>({has:()=>true})};
+  const request={...message,channel:textChannel,channelId:textChannel.id};
+  assert.equal(voiceMentionContext(request),null);
+  assert.equal(voiceMentionContext(request,{allowPrivateVoice:true}),voice);
+  let joins=0;
+  const manager=new DuckVoiceVisits({
+    join:()=>{joins++;return {state:{status:VoiceConnectionStatus.Ready},destroy:()=>{}};},
+    waitReady:async()=>{}
+  });
+  assert.equal((await manager.mention(request)).reason,'not-in-this-voice-chat');
+  const result=await manager.mention(request,{allowPrivateVoice:true});
+  assert.equal(result.ok,true);
+  assert.equal(joins,1);
+  assert.equal(manager.sessions.get(message.guildId).textChannelId,textChannel.id);
+  manager.shutdown();
+});
+
+test('Call privada ainda precisa de Ver canal, Conectar e Falar para o bot',async()=>{
+  const {message}=fixture({publicChannel:false,connect:false});
+  const result=await new DuckVoiceVisits().mention(message,{allowPrivateVoice:true});
+  assert.equal(result.reason,'missing-permissions');
+});
+
 test('Se não houver permissão de voz, devolve erro claro mesmo a partir do chat',async()=>{
   const {message}=fixture({connect:false});
   const result=await new DuckVoiceVisits().mention(message);
@@ -43,7 +82,8 @@ test('Uma menção válida ocorre no chat público da mesma call',()=>{
   const {message}=fixture();
   assert.equal(voiceMentionContext(message),message.channel);
   assert.equal(voiceMentionContext(fixture({sameCall:false}).message),null);
-  assert.equal(voiceMentionContext(fixture({publicChannel:false}).message),null);
+  const privateVoice=fixture({publicChannel:false});
+  assert.equal(voiceMentionContext(privateVoice.message),privateVoice.voice);
 });
 
 test('Entra preparada para falar, renova prazo com menções, sai após cinco minutos',async()=>{
