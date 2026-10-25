@@ -6,7 +6,7 @@ import {
 import {ChannelType,PermissionFlagsBits} from 'discord.js';
 
 export const VOICE_IDLE_MS=5*60_000;
-export function voiceMentionContext(message){
+export function voiceMentionContext(message,{allowPrivateVoice=false}={}){
  if(!message?.inGuild?.())return null;
  const source=message.channel;
  const guild=message.guild;
@@ -22,8 +22,17 @@ export function voiceMentionContext(message){
  if(source.type===ChannelType.GuildVoice&&source.id!==voice.id)return null;
  if(!source.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
  if(source.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(source.name||''))return null;
- if(!voice.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
- if(voice.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(voice.name||''))return null;
+ // Call privada: somente pedido explícito de alguém conectado nela. O bot ainda
+ // precisa de Ver canal, Conectar e Falar (validado em mention()).
+ // Menção no chat da própria call é um pedido explícito; do contrário,
+ // require allowPrivateVoice=true do comando /duckzinha entrar.
+ const sameVoiceChat=source.type===ChannelType.GuildVoice&&source.id===voice.id;
+ if(!allowPrivateVoice&&!sameVoiceChat){
+   if(!voice.permissionsFor(publicRoles)?.has(PermissionFlagsBits.ViewChannel))return null;
+   if(voice.nsfw||/(?:staff|admin|modera|ticket|atendimento|suporte|denuncia|logs?)/i.test(voice.name||''))return null;
+ }
+ // Não ler nem armazenar conversa de call privada no histórico público.
+ // Este método apenas escolhe o destino de voz do participante.
  return voice;
 }
 export function voiceIdleAt(lastMentionAt){return lastMentionAt+VOICE_IDLE_MS;}
@@ -63,8 +72,8 @@ export class DuckVoiceVisits{
     },Math.max(0,next));
     session.timer?.unref?.();
   }
-  async mention(message){
-    const channel=voiceMentionContext(message);
+  async mention(message,{allowPrivateVoice=false}={}){
+    const channel=voiceMentionContext(message,{allowPrivateVoice});
     if(!channel)return {ok:false,reason:'not-in-this-voice-chat'};
     const guildId=message.guildId;
     const me=message.guild.members.me||await message.guild.members.fetchMe();
