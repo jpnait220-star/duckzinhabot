@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {EXTRA_QUIZ_BANK} from './duck-extra-quiz-questions.mjs';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 
 const q=(topic,text,choices,right)=>Object.freeze({topic,text,choices,right});
@@ -74,7 +75,10 @@ export const QUIZ_BANK=Object.freeze([
     q('Lógica','Qual é o próximo número: 1, 1, 2, 3, 5, 8, ...?', ['11','12','13','15'],2),
     q('Tecnologia','Na codificação UTF-8, quantos bytes pode ocupar um caractere Unicode?', ['Sempre 1','De 1 a 4','Sempre 2','De 5 a 8'],1)
   ]
-].map(level=>Object.freeze(level)));
+].map((level,i)=>Object.freeze([
+  ...level,
+  ...EXTRA_QUIZ_BANK[i].map(([topic,text,choices,right])=>q(topic,text,choices,right))
+])));
 
 export function levelForStreak(streak){
   return Math.min(5,Math.max(1,1+Math.floor(Math.max(0,streak)/3)));
