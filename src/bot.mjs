@@ -13,6 +13,7 @@ import {isSnowflake,isTicketChannel,ticketOpeningMessage,welcomeMessage} from '.
 import {commandPayloads,runCommand,publicInfoPayload} from './commands.mjs';
 import {requestedAction,musicBotMessage,ttsBotMessage} from './action-router.mjs';
 import {parseModerationRequest,handleModerationRequest} from './duck-moderation.mjs';
+import {DuckBanNotifier} from './duck-ban-dm.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
 import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resolveResearchSubject} from './duck-channel-context.mjs';
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
@@ -52,7 +53,7 @@ if(process.env.TICKET_CATEGORY_ID&&!TICKET_CATEGORY_ID)
 
 const client=new Client({intents:[
   GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent,
-  GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildVoiceStates,GatewayIntentBits.GuildModeration,
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
 ]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
@@ -60,6 +61,7 @@ const extras=new DuckExtras({store});
 const studio=new DuckStudio({store,extras,client});
 const community=new DuckCommunity({store,extras});
 const communityPlus=new DuckCommunityPlus({store,client});
+const banNotifier=new DuckBanNotifier();
 let selectedVoice=DEFAULT_VOICE;
 const voiceNoticeTimes=new Map();
 async function testDuckVoice(interaction){
@@ -634,7 +636,7 @@ client.on(Events.MessageCreate,async message=>{
   if(mentioned){
     const moderation=parseModerationRequest(message.content,client.user.id);
     if(moderation){
-      try{await handleModerationRequest(message,moderation,{botId:client.user.id,store});}
+      try{await handleModerationRequest(message,moderation,{botId:client.user.id,store,banNotifier});}
       catch(err){
         console.warn('[Duckzinha] Falha na moderação: '+String(err?.message||err));
         await message.reply({content:'⚠️ Não consegui concluir a ação de moderação.',
@@ -1146,6 +1148,11 @@ client.on(Events.InteractionCreate,async interaction=>{
     if(interaction.replied||interaction.deferred)await interaction.followUp(data).catch(()=>{});
     else await interaction.reply(data).catch(()=>{});
   }
+});
+client.on(Events.GuildBanAdd,ban=>{
+  if(ban.guild?.id!==GUILD_ID)return;
+  void banNotifier.onBanEvent(ban,{botId:client.user?.id}).catch(error=>
+    console.warn('[Duckzinha] Aviso DM banimento: '+String(error?.message||error)));
 });
 client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
   if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
