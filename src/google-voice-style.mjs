@@ -30,13 +30,20 @@ const PRESETS={
   'pt-BR-ManuelaNeural':[0.99,1.0],
   'pt-BR-YaraNeural':[1.04,1.0]
 };
-export function googleVoicePreset(voice){
+export function googleVoicePreset(voice,tone='auto'){
   const item=PRESETS[voice];
   if(!item)throw Error('Estilo de voz desconhecido: '+String(voice));
-  return {pitch:item[0],speed:item[1]};
+  const variation={
+    auto:[1,1],animada:[1.10,1.13],calma:[0.92,0.84],
+    curiosa:[1.06,1.06],sonolenta:[0.90,0.79]
+  }[tone]||[1,1];
+  return {
+    pitch:Math.min(1.52,Math.max(0.72,item[0]*variation[0])),
+    speed:Math.min(1.50,Math.max(0.72,item[1]*variation[1]))
+  };
 }
-export function googleVoiceFilter(voice){
-  const {pitch,speed}=googleVoicePreset(voice);
+export function googleVoiceFilter(voice,tone='auto'){
+  const {pitch,speed}=googleVoicePreset(voice,tone);
   // O Google retorna MP3. A taxa é primeiro normalizada para evitar
   // que variações no arquivo de entrada afetem a afinação.
   const sampleRate=Math.round(24000*pitch);
@@ -46,13 +53,13 @@ export function googleVoiceFilter(voice){
 }
 
 export async function styleGoogleSpeechMp3(mp3,voice,{
-  ffmpeg=ffmpegStatic,spawnProcess=spawn,timeoutMs=12000
+  ffmpeg=ffmpegStatic,spawnProcess=spawn,timeoutMs=12000,tone='auto'
 }={}){
   if(!Buffer.isBuffer(mp3)||mp3.length<128)throw Error('MP3 de entrada inválido');
   if(!ffmpeg)throw Error('ffmpeg-static indisponível nesta hospedagem');
   const args=[
     '-hide_banner','-loglevel','error','-nostdin',
-    '-i','pipe:0','-vn','-af',googleVoiceFilter(voice),
+    '-i','pipe:0','-vn','-af',googleVoiceFilter(voice,tone),
     '-c:a','libopus','-b:a','48k','-f','webm','pipe:1'
   ];
   return new Promise((resolve,reject)=>{
