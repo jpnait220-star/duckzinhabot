@@ -33,7 +33,7 @@ test('quiz não repete questões de um nível antes de esgotar 34',()=>{
  assert.equal(keys.size,34);
 });
 test('minigames somam 128 perguntas com 16 por categoria',()=>{
- assert.equal(SAFE_GAMES.length,128);
+ assert.equal(SAFE_GAMES.length,143);
  for(const category of CATEGORIES){
   const questions=SAFE_GAMES.filter(q=>q.name===category);
   assert.equal(questions.length,16,category);
@@ -67,5 +67,5 @@ test('seleção alterna pelo menos 12 perguntas de minigame antes de repetir',as
 });
 test('comando /minigame oferece os oito tipos, aleatório e Pedra, Papel e Tesoura',()=>{
  const options=newCommands().find(x=>x.name==='minigame').options[0].choices;
- assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'pedra-papel-tesoura']);
+ assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'adivinhe-anime','adivinhe-bloco','adivinhe-mob','pedra-papel-tesoura']);
 });
