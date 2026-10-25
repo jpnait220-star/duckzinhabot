@@ -16,7 +16,7 @@ test('pedra, papel e tesoura avalia os nove confrontos',()=>{
    assert.equal(rockPaperScissorsResult(player,bot),results[player][bot]);
  assert.throws(()=>rockPaperScissorsResult(5,0));
 });
-test('botões permitem a cada participante jogar uma vez, com resultado privado',async()=>{
+test('jogadas válidas aparecem no chat público; erros continuam privados',async()=>{
  let now=Date.now(),callback,posted,reply;
  const game=new DuckRockPaperScissors({
   now:()=>now,randomMove:()=>2,
@@ -34,12 +34,17 @@ test('botões permitem a cada participante jogar uma vez, com resultado privado'
  const id=game.games.get(guildId+':'+channelId).id;
  await game.choose({...interaction,customId:'duckrps:'+id+':0'});
  assert.match(reply.content,/Você ganhou/);
- assert.equal(reply.flags,MessageFlags.Ephemeral);
+ assert.match(reply.content,/Jogador:.*<@333333333333333333>/);
+ assert.equal(reply.flags,undefined,'jogada bem-sucedida não deve ser efêmera');
+ assert.deepEqual(reply.allowedMentions,{parse:[]});
  await game.choose({...interaction,customId:'duckrps:'+id+':1'});
  assert.match(reply.content,/já jogou/);
+ assert.equal(reply.flags,MessageFlags.Ephemeral,'erro de jogada repetida é privado');
  await game.choose({...interaction,user:{id:'444444444444444444'},
   customId:'duckrps:'+id+':2'});
  assert.match(reply.content,/Empate/);
+ assert.equal(reply.flags,undefined);
+ assert.match(reply.content,/Duckzinha/);
  now+=30000;
  await callback();
  assert.match(posted.content,/1.*vitórias contra a Duckzinha/);
