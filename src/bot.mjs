@@ -80,9 +80,9 @@ async function testDuckVoice(interaction){
     piada:'Hehehe! Por que o pato entrou no Minecraft? Para fazer um quack de diamante! Kkkkk!'
   };
   const mood=style==='piada'?'animada':style==='normal'?'auto':style;
-  const voice=mood==='auto'?selectedVoice:expressiveVoice(selectedVoice,mood,true);
-  const options=edgeVoiceOptions(voice,mood);
-  const audio=await synthesizeDuckSpeech({text:examples[style]||examples.normal,voice,mood});
+  const sampleVoice=mood==='auto'?selectedVoice:expressiveVoice(selectedVoice,mood,true);
+  const options=edgeVoiceOptions(sampleVoice,mood);
+  const audio=await synthesizeDuckSpeech({text:examples[style]||examples.normal,voice:sampleVoice,mood});
   const played=await voiceVisits.speak(interaction.guildId,audio);
   if(!played)return 'O áudio foi gerado, mas a reprodução não terminou. Confira os logs.';
   const processed=voiceVisits.sessions.get(interaction.guildId)?.lastPlaybackMs||0;
@@ -91,7 +91,7 @@ async function testDuckVoice(interaction){
     ?' ⚠️ O Google TTS não recebeu o filtro de voz; pode soar igual. Confira o FFmpeg nos logs.'
     :provider==='google-styled'?' A voz Google recebeu o filtro de estilo.'
     :' A voz neural Edge recebeu variação de tom e ritmo.';
-  return '🎙️ **Teste: '+style+'** • '+voiceLabel(voice)+
+  return '🎙️ **Teste: '+style+'** • '+voiceLabel(sampleVoice)+
     '\nMotor: **'+provider+'** • Tom: **'+options.pitch+'** • Ritmo: **'+options.rate+
     '** • Processados: **'+processed+' ms**.'+
     '\nVoz expressiva automática: **'+(extras.settings.emotionalVoice?'ligada':'desligada')+
