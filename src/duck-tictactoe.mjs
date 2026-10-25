@@ -9,20 +9,48 @@ export function tictactoeOutcome(board){
  for(const [a,b,c] of LINES)if(board[a]&&board[a]===board[b]&&board[a]===board[c])return board[a];
  return board.every(Boolean)?'draw':null;
 }
+function minimax(board,turn,depth=0){
+ const end=tictactoeOutcome(board);
+ if(end==='O')return 10-depth;
+ if(end==='X')return depth-10;
+ if(end==='draw')return 0;
+ const scores=[];
+ for(let p=0;p<9;p++){
+  if(board[p])continue;
+  board[p]=turn;
+  scores.push(minimax(board,turn==='O'?'X':'O',depth+1));
+  board[p]='';
+ }
+ return turn==='O'?Math.max(...scores):Math.min(...scores);
+}
 export function chooseDuckMove(board,random=()=>randomInt(999999)){
  if(tictactoeOutcome(board))return -1;
  const available=board.map((v,i)=>v===''?i:-1).filter(i=>i>=0);
+ // Sempre vence ou bloqueia um lance imediato. Em 80% das jogadas
+ // antecipa as próximas posições, dificultando vitórias repetidas.
  for(const piece of ['O','X']){
   for(const pos of available){
-   const simulated=[...board];simulated[pos]=piece;
-   if(tictactoeOutcome(simulated)===piece)return pos;
+   const trial=[...board];trial[pos]=piece;
+   if(tictactoeOutcome(trial)===piece)return pos;
   }
+ }
+ const roll=Math.max(0,Math.floor(Number(random())||0));
+ if(roll%10<8){
+  let max=-Infinity,best=[];
+  for(const pos of available){
+   const trial=[...board];trial[pos]='O';
+   const score=minimax(trial,'X');
+   if(score>max){max=score;best=[pos]}
+   else if(score===max)best.push(pos);
+  }
+  return best[roll%best.length];
  }
  if(available.includes(4))return 4;
  const corners=available.filter(i=>[0,2,6,8].includes(i));
  const pool=corners.length?corners:available;
- return pool[Math.max(0,Math.floor(Number(random())||0))%pool.length];
+ return pool[roll%pool.length];
 }
+
 export function tictactoeButtons(game){
  const rows=[];
  for(let r=0;r<3;r++){
@@ -46,14 +74,15 @@ function scoreText(game,result=''){
     result==='draw'?'🤝 **Deu velha! Empatamos!**':'⌛ **Jogo encerrado por inatividade.**')
   :'🎮 **Vez de <@'+game.userId+'>!** Você é ❌ e a Duckzinha é ⭕.';
  return '## ❌⭕ Jogo da Velha • Duckzinha\n'+
-  '👤 **Jogador:** <@'+game.userId+'>\n'+status+'\n\n'+
+  '👤 **Jogador:** <@'+game.userId+'>\n'+
+  '🎲 **Quem começou:** '+(game.firstPlayer==='O'?'Duckzinha ⭕':'Jogador ❌')+'\n'+status+'\n\n'+
   (game.closed?'Jogue novamente usando /minigame tipo:Jogo da Velha.':
     'Clique em uma casa vazia. ⏳ 90 segundos por jogada.');
 }
 export class DuckTicTacToe{
- constructor({store,now=Date.now,random=()=>randomInt(999999),
+ constructor({store,now=Date.now,random=()=>randomInt(999999),starter=()=>randomInt(2),
   setTimer=setTimeout,clearTimer=clearTimeout,timeoutMs=90000}={}){
-  Object.assign(this,{store,now,random,setTimer,clearTimer,timeoutMs});
+  Object.assign(this,{store,now,random,starter,setTimer,clearTimer,timeoutMs});
   this.games=new Map();
  }
  key(interaction){return interaction.guildId+':'+interaction.channelId;}
@@ -82,8 +111,10 @@ export class DuckTicTacToe{
    return interaction.reply(hidden('❌⭕ Já existe uma partida de Jogo da Velha neste canal. Termine a atual primeiro.'));
   const game={
    key,id:randomUUID().slice(0,16),userId:interaction.user.id,
-   board:Array(9).fill(''),closed:false,timer:null,message:null,lastMoveAt:this.now()
+   board:Array(9).fill(''),firstPlayer:this.starter()===1?'O':'X',
+   closed:false,timer:null,message:null,lastMoveAt:this.now()
   };
+  if(game.firstPlayer==='O')game.board[chooseDuckMove(game.board,this.random)]='O';
   this.games.set(key,game);
   try{
    await interaction.reply({
@@ -117,8 +148,10 @@ export class DuckTicTacToe{
   });
   if(result==='X'){
    const reward=await awardMinigameWin(this.store,game.userId,'ttt:'+game.id);
-   if(reward.credited&&typeof interaction.editReply==='function'){
-    await interaction.editReply({content:resultText+'\n'+winRewardLabel,
+   if((reward.credited||reward.reason==='reward_limit')&&typeof interaction.editReply==='function'){
+    const note=reward.credited?winRewardLabel:
+      '⏳ Você atingiu o limite de 5 recompensas do Jogo da Velha a cada 2 horas.';
+    await interaction.editReply({content:resultText+'\n'+note,
       allowedMentions:{parse:[]}}).catch(error=>
         console.warn('[Duckzinha] Mensagem de prêmio Jogo da Velha: '+String(error?.message||error)));
    }
