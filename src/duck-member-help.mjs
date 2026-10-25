@@ -69,7 +69,7 @@ export function memberHelpEmbeds(embed,category='todas'){
  entries[0].setDescription(
   '📖 **Guia para membros • '+count+' comandos e opções**\n'+
   (category==='todas'
-    ?'Mostro todos os comandos que membros podem usar, sem ações restritas à equipe.'
+    ?'Mostro todos os comandos que membros podem usar, sem ações restritas à equipe. Use `/ajuda categoria:` para filtrar por assunto.'
     :'Categoria selecionada. Use `/ajuda` sem filtro para ver todos os comandos.')+
   '\n\n'+entries[0].data.description+
   '\n\n💬 Para conversar, marque `@Duckzinha` em um canal público. '+
