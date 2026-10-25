@@ -20,6 +20,30 @@ export function voiceTone(text){
   if(/\b(boa noite|soninho|dormir)\b/.test(s))return 'sonolenta';
   return 'auto';
 }
+export function conversationVoiceMood(question,answer=''){
+ // Prioritize the speaker's explicit request. Neutral AI replies shouldn't
+ // erase a celebratory, sleepy or concerned tone in the original message.
+ const request=voiceTone(question);
+ if(request!=='auto')return request;
+ return voiceTone(answer);
+}
+const DUCK_JOKES=[
+ 'Hehehe! Por que o pato nunca perde no Minecraft? Porque ele já nasce com o QUACK de habilidade! Kkkkk!',
+ 'Hehehe! O Creeper chamou o pato pra uma festa. O pato respondeu: só vou se não for uma festa explosiva! Kkkkk!',
+ 'Sabe por que o pato virou programador? Porque ele era ótimo em resolver bugs... nadando de boa! Hehehe!',
+ 'O pato entrou no PvP e perguntou: alguém viu meu combo? O inimigo respondeu: eu só vi pena voando! Kkkkk!'
+];
+export function playfulCallReply(text,seed=0){
+ const input=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/\b(?:conta|conte|manda|faz|faca|solta)\b.{0,35}\b(?:piada|trocadilho|graca|brincadeira)\b/.test(input)||
+    /\b(?:me faz rir|conta algo engracado)\b/.test(input)){
+   const index=Math.abs(Number(seed)||0)%DUCK_JOKES.length;
+   return DUCK_JOKES[index];
+ }
+ if(/\b(?:da uma risada|de uma risada|ri pra mim|faz uma risada)\b/.test(input))
+   return 'Hehehe! Kkkkk! Tá, essa foi engraçada! 🦆';
+ return null;
+}
 export function expressiveSpeech(text){
   return String(text||'').replace(/https?:\/\/\S+/gi,'link no chat')
     .replace(/\s*[;:]\s*/g,', ').replace(/\s+/g,' ').trim().slice(0,330);
