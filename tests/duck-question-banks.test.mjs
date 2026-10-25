@@ -65,7 +65,7 @@ test('seleção alterna pelo menos 12 perguntas de minigame antes de repetir',as
  assert.equal(community.recentMinigames.get(mock.guildId+':'+mock.channelId).length,12);
  community.shutdown();
 });
-test('comando /minigame oferece os oito tipos e aleatório',()=>{
+test('comando /minigame oferece os oito tipos, aleatório e Pedra, Papel e Tesoura',()=>{
  const options=newCommands().find(x=>x.name==='minigame').options[0].choices;
- assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES]);
+ assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'pedra-papel-tesoura']);
 });
