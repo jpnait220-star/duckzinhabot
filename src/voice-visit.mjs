@@ -5,6 +5,39 @@ import {
 } from '@discordjs/voice';
 import {ChannelType,PermissionFlagsBits} from 'discord.js';
 
+// Converte WAV PCM16 mono para PCM16 stereo 48 kHz (entrada Raw do discord.js).
+// Piper costuma gerar WAV; fazemos resampling linear sem FFmpeg.
+export function wavToDiscordRaw(wav){
+  if(wav.subarray(0,4).toString()!=='RIFF'||wav.subarray(8,12).toString()!=='WAVE')
+    throw Error('Piper não retornou WAV válido');
+  let pos=12,fmt=null,data=null;
+  while(pos+8<=wav.length){
+    const tag=wav.toString('ascii',pos,pos+4),size=wav.readUInt32LE(pos+4);
+    const start=pos+8,end=start+size;
+    if(end>wav.length)throw Error('WAV incompleto');
+    if(tag==='fmt '){
+      if(size<16)throw Error('WAV fmt inválido');
+      fmt={codec:wav.readUInt16LE(start),channels:wav.readUInt16LE(start+2),
+        sampleRate:wav.readUInt32LE(start+4),bits:wav.readUInt16LE(start+14)};
+    }
+    if(tag==='data')data=wav.subarray(start,end);
+    pos=end+(size%2);
+  }
+  if(!fmt||!data||fmt.codec!==1||fmt.bits!==16||
+    fmt.channels!==1||fmt.sampleRate<8000||fmt.sampleRate>48000)
+    throw Error('Piper precisa retornar WAV PCM16 mono');
+  const samples=data.length>>1, count=Math.ceil(samples*48000/fmt.sampleRate);
+  if(count>48000*30)throw Error('WAV com duração excessiva');
+  const out=Buffer.allocUnsafe(count*4);
+  for(let i=0;i<count;i++){
+    const x=i*fmt.sampleRate/48000,j=Math.min(samples-1,Math.floor(x));
+    const k=Math.min(samples-1,j+1);
+    const a=data.readInt16LE(j*2),b=data.readInt16LE(k*2);
+    const v=Math.max(-32768,Math.min(32767,Math.round(a+(b-a)*(x-j))));
+    out.writeInt16LE(v,i*4);out.writeInt16LE(v,i*4+2);
+  }
+  return out;
+}
 export const VOICE_IDLE_MS=5*60_000;
 export function voiceMentionContext(message,{allowPrivateVoice=false}={}){
  if(!message?.inGuild?.())return null;
@@ -147,12 +180,14 @@ export class DuckVoiceVisits{
         });
       }
       const webm=audio[0]===0x1a&&audio[1]===0x45&&audio[2]===0xdf&&audio[3]===0xa3;
+      const ogg=audio.subarray(0,4).toString('ascii')==='OggS';
+      const wav=audio.subarray(0,4).toString('ascii')==='RIFF'&&audio.subarray(8,12).toString('ascii')==='WAVE';
       const mp3=audio.subarray(0,3).toString('ascii')==='ID3'||
         (audio[0]===0xff&&(audio[1]&0xe0)===0xe0);
-      if(!webm&&!mp3)throw Error('TTS retornou áudio com formato desconhecido');
+      if(!webm&&!ogg&&!wav&&!mp3)throw Error('TTS retornou áudio com formato desconhecido');
       // MP3 alternativo precisa de FFmpeg + Opus; WebM/Opus do Edge é direto.
-      const resource=createAudioResource(Readable.from([audio]),{
-        inputType:webm?StreamType.WebmOpus:StreamType.Arbitrary
+      const resource=createAudioResource(Readable.from([wav?wavToDiscordRaw(audio):audio]),{
+        inputType:webm?StreamType.WebmOpus:ogg?StreamType.OggOpus:wav?StreamType.Raw:StreamType.Arbitrary
       });
       console.log('[Duckzinha] Fonte de áudio: '+(webm?'Edge WebM/Opus':'HTTPS MP3 (FFmpeg)')+'.');
       const player=session.player;
