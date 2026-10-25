@@ -37,7 +37,7 @@ export const SAFE_GAMES=[
 ];
 
 export class DuckCommunity{
- constructor({store,extras}={}){this.store=store;this.extras=extras;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.rps=new DuckRockPaperScissors({store});this.ttt=new DuckTicTacToe({store});this.games=new Map();this.recentMinigames=new Map();}
+ constructor({store,extras,setTimer=setTimeout}={}){this.store=store;this.extras=extras;this.setTimer=setTimer;this.coin=new DuckCoinflip({store});this.badges=new DuckBadgeShop({store});this.rps=new DuckRockPaperScissors({store});this.ttt=new DuckTicTacToe({store});this.games=new Map();this.recentMinigames=new Map();}
  async awardTalk(userId,eventKey){
    if(!this.store?.persistent)return null;
    try{return await this.store.awardCoins(userId,'conversa:'+eventKey,'conversa',3,30);}
@@ -93,7 +93,7 @@ export class DuckCommunity{
      new ButtonBuilder().setCustomId('duckmini:'+key+':'+id+':'+i).setLabel(v).setStyle(ButtonStyle.Primary)));
    await interaction.reply({content:'🦆 '+q.label+'\n'+q.question+'\n⏳ 30 segundos. Todos podem participar!',components:[row],allowedMentions:{parse:[]}});
    const message=await interaction.fetchReply();
-   const timer=setTimeout(async()=>{
+   const timer=this.setTimer(async()=>{
      const current=this.games.get(key);if(current?.id!==id)return;
      this.games.delete(key);
      const winners=[...current.answers].filter(([,v])=>v===q.answer).map(([uid])=>uid);
