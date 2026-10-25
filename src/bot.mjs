@@ -19,6 +19,8 @@ import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
 import {DuckCommunity,naturalTeaching} from './duck-community.mjs';
+import {DuckCommunityPlus} from './duck-community-plus.mjs';
+import {dynamicPersonality,voiceTone,expressiveSpeech,parseNaturalReminder} from './duck-smart.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -55,6 +57,7 @@ const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.S
 const extras=new DuckExtras({store});
 const studio=new DuckStudio({store,extras,client});
 const community=new DuckCommunity({store,extras});
+const communityPlus=new DuckCommunityPlus({store,client});
 let selectedVoice=DEFAULT_VOICE;
 const voiceNoticeTimes=new Map();
 async function testDuckVoice(interaction){
@@ -86,10 +89,11 @@ async function testDuckVoice(interaction){
 async function speakDuckReply(guildId,channelId,messageText){
   if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
-  const voiceAtRequest=expressiveVoice(selectedVoice,extras.mood(messageText),extras.settings.emotionalVoice);
+  const detectedTone=extras.settings.mood==='auto'?voiceTone(messageText):extras.mood(messageText);
+  const voiceAtRequest=expressiveVoice(selectedVoice,detectedTone==='auto'?'calma':detectedTone,extras.settings.emotionalVoice);
   try{
     const audio=await synthesizeDuckSpeech({
-      text:messageText,voice:voiceAtRequest
+      text:expressiveSpeech(messageText),voice:voiceAtRequest
     });
     if(voiceVisits.sessions.get(guildId)?.channelId!==channelId)return;
     const played=await voiceVisits.speak(guildId,audio);
@@ -467,6 +471,7 @@ client.once(Events.ClientReady,async me=>{
   });
   console.log('[Duckzinha] Voz escolhida: '+voiceLabel(selectedVoice)+' (Edge TTS online, sem chave).');
   await extras.load();
+  communityPlus.start();
   me.user.setActivity('🦆💛 | /ajuda • mencione a Duckzinha',{type:ActivityType.Custom});
   try{
     const guild=await me.guilds.fetch(GUILD_ID);
@@ -564,6 +569,14 @@ client.on(Events.MessageCreate,async message=>{
   // Conserva as mensagens normais de canais públicos somente em RAM.
   const isPublic=addRecent(message);
   const rawQuestion=stripMentions(message.content,client.user.id);
+  if(mentioned&&isPublic){
+    const reminder=parseNaturalReminder(rawQuestion);
+    if(reminder){
+      await communityPlus.naturalReminder(message,reminder).catch(err=>
+        console.warn('[Duckzinha] Lembrete natural: '+String(err?.message||err)));
+      return;
+    }
+  }
   // Moderação natural: ação explícita, com permissão Administrador confirmada
   // pelo Discord. Nunca passar ordens de punição para a IA interpretar.
   if(mentioned){
@@ -745,7 +758,8 @@ client.on(Events.MessageCreate,async message=>{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
           question,history,channelContext:mergedChannelContext,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
-          customPersonality:personality+'\n'+moodInstruction(extras.mood(question)),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
+          customPersonality:personality+'\n'+moodInstruction(extras.mood(question))+'\n'+
+             dynamicPersonality(question,{recent:mergedChannelContext,mood:extras.mood(question)}),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           familiarity:member?.enabled===false?'novo por aqui':familiarityLabel(friendshipTurns),
           affinity:affinityStyle(affinityScore),
@@ -990,6 +1004,8 @@ client.on(Events.InteractionCreate,async interaction=>{
       if(interaction.customId.startsWith('duckcoin:'))return await community.coinButton(interaction);
       if(interaction.customId.startsWith('duckbadge:'))return await community.badgeButton(interaction);
       if(interaction.customId.startsWith('duckdaily:'))return await community.dailyButton(interaction);
+      if(interaction.customId.startsWith('duckidea:'))return await communityPlus.suggestionButton(interaction);
+      if(interaction.customId.startsWith('duckevent:'))return await communityPlus.eventButton(interaction);
       if(interaction.customId.startsWith('duckmini:'))return await community.gameButton(interaction);
       await handleDuckButton(interaction);
     }
@@ -1025,7 +1041,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
-    if(await runNewCommand(interaction,{store,extras,studio,community,selectedVoice:()=>selectedVoice,findReactionFile}))return;
+    if(await runNewCommand(interaction,{store,extras,studio,community,communityPlus,selectedVoice:()=>selectedVoice,findReactionFile}))return;
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,edgeVoiceReady:true});
   }catch(error){
     console.error('[Duckzinha] Comando '+interaction.commandName+': '+error.message);
@@ -1037,8 +1053,8 @@ client.on(Events.InteractionCreate,async interaction=>{
 client.on(Events.VoiceStateUpdate,(_oldState,newState)=>{
   if(newState.id===client.user?.id)voiceVisits.onBotVoiceState(newState.guild.id,newState.channelId);
 });
-process.once('SIGTERM',()=>{community.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
-process.once('SIGINT',()=>{community.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGTERM',()=>{community.shutdown();communityPlus.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
+process.once('SIGINT',()=>{community.shutdown();communityPlus.shutdown();extras.shutdown();studio.close();voiceVisits.shutdown();client.destroy();process.exit(0)});
 client.on(Events.ShardDisconnect,(event,shardId)=>
   console.warn('[Duckzinha] Gateway desconectado (shard '+shardId+', código '+event.code+').'));
 client.on(Events.ShardReconnecting,shardId=>
