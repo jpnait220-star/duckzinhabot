@@ -58,7 +58,7 @@ test('pedra papel tesoura premia apenas vitória, jamais derrota ou empate',asyn
 });
 test('vitória no Jogo da Velha premia o jogador uma única vez',async()=>{
  const {store,calls}=rewardingStore();
- const game=new DuckTicTacToe({store,setTimer:()=>({unref:()=>{}}),clearTimer:()=>{}});
+ const game=new DuckTicTacToe({store,starter:()=>0,setTimer:()=>({unref:()=>{}}),clearTimer:()=>{}});
  let reply,update,edited;
  const call={
   guildId,channelId,user:{id:userId},
