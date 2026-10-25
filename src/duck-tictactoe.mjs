@@ -1,5 +1,6 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 export function tictactoeOutcome(board){
@@ -50,9 +51,9 @@ function scoreText(game,result=''){
     'Clique em uma casa vazia. ⏳ 90 segundos por jogada.');
 }
 export class DuckTicTacToe{
- constructor({now=Date.now,random=()=>randomInt(999999),
+ constructor({store,now=Date.now,random=()=>randomInt(999999),
   setTimer=setTimeout,clearTimer=clearTimeout,timeoutMs=90000}={}){
-  Object.assign(this,{now,random,setTimer,clearTimer,timeoutMs});
+  Object.assign(this,{store,now,random,setTimer,clearTimer,timeoutMs});
   this.games=new Map();
  }
  key(interaction){return interaction.guildId+':'+interaction.channelId;}
@@ -110,10 +111,18 @@ export class DuckTicTacToe{
   }
   if(result)this.stop(game);
   else this.arm(game);
-  return interaction.update({
-   content:scoreText(game,result||''),
-   components:tictactoeButtons(game),allowedMentions:{parse:[]}
+  const resultText=scoreText(game,result||'');
+  await interaction.update({
+   content:resultText,components:tictactoeButtons(game),allowedMentions:{parse:[]}
   });
+  if(result==='X'){
+   const reward=await awardMinigameWin(this.store,game.userId,'ttt:'+game.id);
+   if(reward.credited&&typeof interaction.editReply==='function'){
+    await interaction.editReply({content:resultText+'\n'+winRewardLabel,
+      allowedMentions:{parse:[]}}).catch(error=>
+        console.warn('[Duckzinha] Mensagem de prêmio Jogo da Velha: '+String(error?.message||error)));
+   }
+  }
  }
  shutdown(){for(const game of [...this.games.values()])this.stop(game);}
 }
