@@ -102,14 +102,14 @@ async function testDuckVoice(interaction){
 
 async function joinDuckVoice(interaction){
   const member=await interaction.guild.members.fetch(interaction.user.id);
-  if(!member.voice?.channel)return 'Entre primeiro em uma call de voz pública e execute **/duckzinha entrar**.';
+  if(!member.voice?.channel)return 'Entre primeiro em uma call de voz e execute **/duckzinha entrar**.';
   const request={guild:interaction.guild,guildId:interaction.guildId,
     channel:interaction.channel,channelId:interaction.channelId,
     author:interaction.user,member,inGuild:()=>true};
-  const result=await voiceVisits.mention(request);
+  const result=await voiceVisits.mention(request,{allowPrivateVoice:true});
   if(!result.ok){
     if(result.reason==='not-in-this-voice-chat')
-      return 'Não posso entrar nesta call pelo canal atual. Use um chat público e uma call pública.';
+      return 'Você precisa estar dentro da call. A Duckzinha também entra em calls privadas quando tem permissão.';
     if(result.reason==='missing-permissions')
       return 'Preciso de **Ver canal, Conectar e Falar** nesta call. Confira as permissões específicas do canal e meu cargo.';
     return 'Falha ao conectar à voz: '+(result.error||result.reason)+
@@ -649,11 +649,11 @@ client.on(Events.MessageCreate,async message=>{
       }
       console.log('[Duckzinha] Call '+target.id+' conectada para conversa em '+message.channelId);
     }else if(message.channel?.type===ChannelType.GuildVoice){
-      await message.reply({content:'Entre nessa call e confira se ela é pública. 💛',
+      await message.reply({content:'Entre nessa call e verifique se tenho permissão para acessar, conectar e falar. 💛',
         allowedMentions:{parse:[],repliedUser:false}}).catch(()=>{});
       return;
     }else if(/\b(entra|entre|entrar|venha|vem)\b.{0,25}\b(call|voz|canal)\b/i.test(rawQuestion)){
-      const sent=await message.reply({content:'Entre primeiro em uma call pública e tente **/duckzinha entrar**.',
+      const sent=await message.reply({content:'Entre em uma call e tente **/duckzinha entrar**. Funciona também em calls privadas quando tenho permissão.',
         allowedMentions:{parse:[],repliedUser:false}}).catch(()=>null);
       if(sent)void schedule(sent).catch(()=>{});
       return;
