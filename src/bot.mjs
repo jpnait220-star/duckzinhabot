@@ -1027,6 +1027,7 @@ client.on(Events.InteractionCreate,async interaction=>{
       if(interaction.customId.startsWith('duckdaily:'))return await community.dailyButton(interaction);
       if(interaction.customId.startsWith('duckidea:'))return await communityPlus.suggestionButton(interaction);
       if(interaction.customId.startsWith('duckevent:'))return await communityPlus.eventButton(interaction);
+      if(interaction.customId.startsWith('duckrps:'))return await community.rpsButton(interaction);
       if(interaction.customId.startsWith('duckmini:'))return await community.gameButton(interaction);
       await handleDuckButton(interaction);
     }
