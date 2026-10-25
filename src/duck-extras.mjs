@@ -57,10 +57,14 @@ const emotionMap={
 export function expressiveVoice(current,mood,enabled=true){
   if(!enabled||mood==='auto')return current;
   // Também adapta variantes escolhidas no /duckzinha voice, não somente vozes naturais.
-  const family=Object.keys(emotionMap).find(base=>{
-    const stem=base.replace(/Neural$/,'');
-    return current===base||current.startsWith(stem);
-  });
+  const familyPrefix=[
+    ['pt-BR-Francisca','pt-BR-FranciscaNeural'],
+    ['pt-BR-Thalita','pt-BR-ThalitaMultilingualNeural'],
+    ['pt-BR-Raquel','pt-BR-RaquelPortugalNeural'],
+    ['pt-BR-Antonio','pt-BR-AntonioNeural'],
+    ['pt-BR-Duarte','pt-BR-DuartePortugalNeural']
+  ];
+  const family=familyPrefix.find(([prefix])=>String(current).startsWith(prefix))?.[1];
   return (emotionMap[family]?.[mood]||current);
 }
 
