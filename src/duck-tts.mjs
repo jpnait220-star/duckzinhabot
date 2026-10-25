@@ -42,12 +42,22 @@ export function voiceLabel(value){return voiceMap.get(value)?.name||'Francisca �
 export function voiceChoices(){return PT_BR_VOICES.map(x=>({name:x.name,value:x.id}));}
 export function edgeSpeechReady(){return true;}
 
-export function edgeVoiceOptions(value){
+export const VOICE_MOOD_ADJUSTMENTS=Object.freeze({
+  auto:{pitch:0,rate:0},
+  animada:{pitch:18,rate:20},
+  calma:{pitch:-15,rate:-19},
+  curiosa:{pitch:12,rate:10},
+  sonolenta:{pitch:-20,rate:-25}
+});
+export function edgeVoiceOptions(value,mood='auto'){
   const voice=voiceMap.get(value);
   if(!voice)throw Error('Voz ou estilo inválido para Edge TTS');
+  const adjust=VOICE_MOOD_ADJUSTMENTS[mood]||VOICE_MOOD_ADJUSTMENTS.auto;
+  const pitch=Math.max(-45,Math.min(75,voice.pitch+adjust.pitch));
+  const rate=Math.max(-38,Math.min(48,voice.rate+adjust.rate));
   return {
-    pitch:(voice.pitch>=0?'+':'')+voice.pitch+'Hz',
-    rate:(voice.rate>=0?'+':'')+voice.rate+'%',
+    pitch:(pitch>=0?'+':'')+pitch+'Hz',
+    rate:(rate>=0?'+':'')+rate+'%',
     volume:'+0%',
     outputFormat:Constants.OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS,
     timeout:25000
@@ -110,7 +120,7 @@ export async function googleSpeechFallback(text,voice=DEFAULT_VOICE,fetchImpl=fe
 }
 
 export async function synthesizeDuckSpeech({
-  text,voice=DEFAULT_VOICE,ttsFactory,fallbackFetch,fallbackStyler=styleGoogleSpeechMp3
+  text,voice=DEFAULT_VOICE,mood='auto',ttsFactory,fallbackFetch,fallbackStyler=styleGoogleSpeechMp3
 }={}){
   const selection=voiceMap.get(voice);
   if(!selection)throw Error('Voz indisponível no Edge TTS: '+voice);
@@ -119,7 +129,7 @@ export async function synthesizeDuckSpeech({
   let edgeError;
   try{
     const tts=ttsFactory?ttsFactory():new EdgeTTS();
-    const generated=await tts.generate(content,selection.edgeId,edgeVoiceOptions(voice));
+    const generated=await tts.generate(content,selection.edgeId,edgeVoiceOptions(voice,mood));
     const audio=Buffer.from(generated?.audio||[]);
     if(audio.length<24||audio.length>3*1024*1024||
       audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
@@ -137,7 +147,7 @@ export async function synthesizeDuckSpeech({
     const mp3=await googleSpeechFallback(content,voice,fallbackFetch||fetch);
     let audio=mp3,provider='google';
     try{
-      audio=await fallbackStyler(mp3,voice);
+      audio=await fallbackStyler(mp3,voice,{tone:mood});
       if(!Buffer.isBuffer(audio)||audio.length<24||
         audio[0]!==0x1a||audio[1]!==0x45||audio[2]!==0xdf||audio[3]!==0xa3)
         throw Error('Filtro de estilo não retornou WebM/Opus válido');
@@ -150,7 +160,7 @@ export async function synthesizeDuckSpeech({
     }
     Object.defineProperty(audio,'duckTtsProvider',{value:provider});
     console.log('[Duckzinha] Voz alternativa ('+provider+'): '+
-      audio.length+' bytes, preset '+selection.name+'.');
+      audio.length+' bytes, preset '+selection.name+', emoção '+mood+'.');
     return audio;
   }catch(fallbackError){
     throw Error('Edge TTS: '+String(edgeError?.message||edgeError).slice(0,160)+
