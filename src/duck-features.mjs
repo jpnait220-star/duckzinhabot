@@ -53,6 +53,9 @@ export function newCommands(){
         {name:'Anime',value:'anime'},
         {name:'Desafio de emojis',value:'emoji'},
         {name:'Lógica',value:'logica'},
+        {name:'Adivinhe o personagem de anime',value:'adivinhe-anime'},
+        {name:'Adivinhe o bloco do Minecraft',value:'adivinhe-bloco'},
+        {name:'Adivinhe o mob por pistas',value:'adivinhe-mob'},
         {name:'Pedra, Papel e Tesoura',value:'pedra-papel-tesoura'})).setDMPermission(false),
     new SlashCommandBuilder().setName('moedas').setDescription('Consultar suas moedas de pato').setDMPermission(false),
     new SlashCommandBuilder().setName('afk').setDescription('Iniciar ou resgatar recompensa AFK')
