@@ -32,13 +32,13 @@ test('botões permitem a cada participante jogar uma vez, com resultado privado'
  assert.match(reply.content,/Pedra, Papel e Tesoura/);
  assert.equal(reply.components[0].components.length,3);
  const id=game.games.get(guildId+':'+channelId).id;
- await game.choose({...interaction,customId:'duckrps:'+id+':0});
+ await game.choose({...interaction,customId:'duckrps:'+id+':0'});
  assert.match(reply.content,/Você ganhou/);
  assert.equal(reply.flags,MessageFlags.Ephemeral);
- await game.choose({...interaction,customId:'duckrps:'+id+':1});
+ await game.choose({...interaction,customId:'duckrps:'+id+':1'});
  assert.match(reply.content,/já jogou/);
  await game.choose({...interaction,user:{id:'444444444444444444'},
-  customId:'duckrps:'+id+':2});
+  customId:'duckrps:'+id+':2'});
  assert.match(reply.content,/Empate/);
  now+=30000;
  await callback();
