@@ -65,7 +65,7 @@ test('seleção alterna pelo menos 12 perguntas de minigame antes de repetir',as
  assert.equal(community.recentMinigames.get(mock.guildId+':'+mock.channelId).length,12);
  community.shutdown();
 });
-test('comando /minigame oferece os oito tipos, aleatório e Pedra, Papel e Tesoura',()=>{
+test('comando /minigame inclui Quiz Streak e Jogo da Velha além dos modos anteriores',()=>{
  const options=newCommands().find(x=>x.name==='minigame').options[0].choices;
- assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'adivinhe-anime','adivinhe-bloco','adivinhe-mob','pedra-papel-tesoura']);
+ assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'adivinhe-anime','adivinhe-bloco','adivinhe-mob','pedra-papel-tesoura','jogo-da-velha','quiz-streak']);
 });
