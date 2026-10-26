@@ -28,7 +28,7 @@ const PRESETS={
   'pt-BR-GiovannaNeural':[1.03,1.0],
   'pt-BR-LeilaNeural':[1.01,1.0],
   'pt-BR-ManuelaNeural':[0.99,1.0],
-  'pt-BR-YaraNeural':[1.04,1.0]
+  'pt-BR-ThalitaConversaNeural':[1.00,0.97]
 };
 export function googleVoicePreset(voice,tone='auto'){
   const item=PRESETS[voice];
