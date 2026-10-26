@@ -37,6 +37,11 @@ export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,des
   Object.freeze({name,id,edgeId,pitch,rate,description})));
 export const DEFAULT_VOICE='pt-BR-ThalitaConversaNeural';
 const voiceMap=new Map(PT_BR_VOICES.map(x=>[x.id,x]));
+// Apenas a fala reproduzida na call: fixa a entonação curiosa sem alterar
+// as respostas escritas nem trocar o timbre selecionado por variantes fofinhas.
+export function callVoiceStyle(selectedVoice=DEFAULT_VOICE){
+  return {voice:voiceMap.has(selectedVoice)?selectedVoice:DEFAULT_VOICE,mood:'curiosa'};
+}
 export function validVoice(value){return voiceMap.has(value);}
 export function voiceLabel(value){return voiceMap.get(value)?.name||'Thalita • Conversa Natural';}
 // As variacoes legadas continuam aceitas no banco, mas o menu oferece
@@ -57,7 +62,7 @@ export const VOICE_MOOD_ADJUSTMENTS=Object.freeze({
   auto:{pitch:0,rate:0},
   animada:{pitch:18,rate:20},
   calma:{pitch:-15,rate:-19},
-  curiosa:{pitch:12,rate:10},
+  curiosa:{pitch:3,rate:10},
   sonolenta:{pitch:-20,rate:-25}
 });
 export function edgeVoiceOptions(value,mood='auto'){
