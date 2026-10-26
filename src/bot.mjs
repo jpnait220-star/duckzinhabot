@@ -2,8 +2,9 @@ import 'dotenv/config';
 import fs from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
-import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,Partials} from 'discord.js';
 import {DuckStore} from './store.mjs';
+import {ReactionRolePanels} from './duck-reaction-roles.mjs';
 import {DuckChatHistory} from './duck-chat-history.mjs';
 import {isSelfIdentityQuestion,findSelfNameInHistory,identityAnswer} from './duck-self-identity.mjs';
 import {familiarityLabel,imageReactionKind,complimentToDuck,maySendImageReaction,ticketGuide} from './community-social.mjs';
@@ -56,11 +57,13 @@ if(process.env.TICKET_CATEGORY_ID&&!TICKET_CATEGORY_ID)
   console.warn('[Duckzinha] TICKET_CATEGORY_ID inválido; detectando somente prefixos ticket-/atendimento-.');
 
 const client=new Client({intents:[
-  GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent,
+  GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.GuildMessageReactions,GatewayIntentBits.MessageContent,
   GatewayIntentBits.GuildVoiceStates,GatewayIntentBits.GuildModeration,
   ...(WELCOME_CHANNEL_ID?[GatewayIntentBits.GuildMembers]:[])
-]});
+],partials:[Partials.Message,Partials.Channel,Partials.Reaction,Partials.User]});
 const store=new DuckStore({url:process.env.SUPABASE_URL,serviceKey:process.env.SUPABASE_SERVICE_ROLE_KEY,guildId:GUILD_ID});
+const reactionRolePanels=new ReactionRolePanels({store,client,guildId:GUILD_ID,
+  onError:(step,error)=>console.warn('[Duckzinha] Cargos por reação ('+step+'): '+String(error?.message||error))});
 const extras=new DuckExtras({store});
 const studio=new DuckStudio({store,extras,client});
 const community=new DuckCommunity({store,extras});
@@ -1224,6 +1227,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
+    if(interaction.commandName==='cargosreacao')return await reactionRolePanels.handleCommand(interaction);
     if(await runNewCommand(interaction,{store,extras,studio,community,communityPlus,selectedVoice:()=>selectedVoice,findReactionFile}))return;
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,onVoiceJoin:joinDuckVoice,onVoiceLeave:leaveDuckVoice,edgeVoiceReady:true});
   }catch(error){
@@ -1232,6 +1236,12 @@ client.on(Events.InteractionCreate,async interaction=>{
     if(interaction.replied||interaction.deferred)await interaction.followUp(data).catch(()=>{});
     else await interaction.reply(data).catch(()=>{});
   }
+});
+client.on(Events.MessageReactionAdd,(reaction,user)=>{
+  void reactionRolePanels.handleReaction(reaction,user,true);
+});
+client.on(Events.MessageReactionRemove,(reaction,user)=>{
+  void reactionRolePanels.handleReaction(reaction,user,false);
 });
 client.on(Events.GuildBanAdd,ban=>{
   if(ban.guild?.id!==GUILD_ID)return;
