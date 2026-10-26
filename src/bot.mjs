@@ -283,7 +283,7 @@ async function maybeReactWithDuckEmoji(message,content=message.content){
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,
     lastUser:lastImageByUser.get(message.author.id)||0,
-    roll:Math.random(),isGreeting:type==='ola',isCompliment:type==='fofo'&&praise
+    roll:Math.random(),isGreeting:type==='ola',isCompliment:type==='fofo'&&(praise||botDirected)
   }))return;
   replyingWithImage=true;
   try{
