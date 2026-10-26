@@ -1,98 +1,69 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MessageFlags} from 'discord.js';
-import {DuckPublicQuiz,PUBLIC_NEXT_MS} from '../src/duck-public-quiz.mjs';
+import {DuckPublicQuiz,PUBLIC_ROUND_MS} from '../src/duck-public-quiz.mjs';
 import {DuckCommunity} from '../src/duck-community.mjs';
-import {DuckTicTacToe} from '../src/duck-tictactoe.mjs';
 import {newCommands} from '../src/duck-features.mjs';
 import {activeGameQuestions} from '../src/duck-game-integrity.mjs';
 
-const guildId='111111111111111111',channelId='222222222222222222',userId='333333333333333333';
-test('Quiz Streak aparece como tipo do /minigame e reutiliza o banco de 170 perguntas',async()=>{
- let opts;
- const community=new DuckCommunity({extras:{startGame:async (_interaction,options)=>{opts=options;}}});
- const mock={guildId,channelId,options:{getString:()=> 'quiz-streak'}};
- await community.game(mock);
- assert.deepEqual(opts,{streakMode:true});
- community.shutdown();
+const guildId='111111111111111111';
+const channelId='222222222222222222';
+const userId='333333333333333333';
+
+test('Quiz Streak foi removido do menu e não pode ser iniciado',async()=>{
  const choices=newCommands().find(x=>x.name==='minigame').options[0].choices;
- assert.ok(choices.some(x=>x.value==='quiz-streak'));
+ assert.equal(choices.some(x=>x.value==='quiz-streak'),false);
  assert.ok(choices.some(x=>x.value==='jogo-da-velha'));
-});
-test('comando Jogo da Velha usa engine real com jogo público',async()=>{
+ let notice;
  const community=new DuckCommunity();
- let response;
- const request={guildId,channelId,user:{id:userId},
-  options:{getString:()=> 'jogo-da-velha'},
-  reply:async value=>{response=value;},
-  fetchReply:async()=>({edit:async()=>{}})
- };
- await community.game(request);
- assert.match(response.content,/Jogo da Velha/);
- assert.equal(community.ttt.games.size,1);
+ await community.game({guildId,channelId,
+   options:{getString:()=> 'quiz-streak'},reply:async value=>{notice=value;}});
+ assert.match(notice.content,/não está disponível/);
  community.shutdown();
 });
-test('Quiz Streak inicia em nível 1, registra acertos e avança automaticamente',async()=>{
- let now=500000,firstReply,nextMessage,confirm;
- const timers=[];
- const quiz=new DuckPublicQuiz({
-  now:()=>now,random:()=>0,
-  setTimer:(callback,ms)=>{const handle={callback,ms,unref:()=>{}};timers.push(handle);return handle;},
-  clearTimer:()=>{}
- });
- const initialMessage={edit:async data=>{firstReply=data;return initialMessage;}};
- const channel={send:async data=>{nextMessage=data;return {edit:async()=>{}};}};
- const interaction={guildId,channelId,channel,user:{id:userId},
-  reply:async data=>{firstReply=data;},
-  fetchReply:async()=>initialMessage
- };
- assert.equal(await quiz.start(interaction,{streakMode:true}),true);
- assert.match(firstReply.content,/QUIZ STREAK/);
- assert.match(firstReply.content,/Iniciante/);
- assert.match(firstReply.content,/30 segundos/);
- const room=quiz.rooms.get(guildId+':'+channelId);
- assert.equal(room.current.number,1);
- assert.equal(timers[0].ms,30000);
- const round=room.current;
+
+test('quiz público não exibe streak, mantém perguntas e oferece Jogar novamente no final',async()=>{
+ let now=500000,initial,answer,updated;
+ const msg={edit:async data=>{updated=data;return msg;}};
+ const quiz=new DuckPublicQuiz({now:()=>now,random:()=>0,maxRounds:1,
+   setTimer:()=>({unref:()=>{}}),clearTimer:()=>{}});
+ const interaction={guildId,channelId,channel:{send:async()=>msg},
+   reply:async data=>{initial=data;},
+   fetchReply:async()=>msg};
+ assert.equal(await quiz.start(interaction),true);
+ assert.match(initial.content,/QUIZ DA GALERA/);
+ assert.match(initial.content,/Iniciante/);
+ assert.match(initial.content,new RegExp(String(Math.ceil(PUBLIC_ROUND_MS/1000))+' segundos'));
+ assert.doesNotMatch(initial.content,/streak|sequência em jogo/i);
+ const round=quiz.rooms.get(guildId+':'+channelId).current;
  await quiz.answer({
-  customId:'duckpublic:'+round.id+':'+round.question.right,
-  user:{id:userId},
-  reply:async data=>{confirm=data;}
+   customId:'duckpublic:'+round.id+':'+round.question.right,
+   user:{id:userId},reply:async value=>{answer=value;}
  });
- assert.equal(confirm.flags,MessageFlags.Ephemeral);
- assert.match(confirm.content,/Resposta registrada/);
+ assert.equal(answer.flags,MessageFlags.Ephemeral);
  assert.equal(activeGameQuestions({publicQuiz:quiz,guildId,now}).length,1);
- now+=30000;
+ now+=PUBLIC_ROUND_MS;
  await quiz.closeRound(round);
- assert.match(firstReply.content,/Melhor streak da sessão: \*\*1\*\*/);
- assert.equal(quiz.score(userId),1);
- assert.equal(timers[1].ms,PUBLIC_NEXT_MS);
- now+=PUBLIC_NEXT_MS;
- await quiz.advance(room,round,new Set([userId]));
- assert.equal(room.current.number,2);
- assert.match(nextMessage.content,/QUIZ STREAK/);
- assert.match(nextMessage.content,/Sequência em jogo: \*\*1\*\*/);
- assert.notEqual(room.current.question.key,round.question.key);
- assert.equal(activeGameQuestions({publicQuiz:quiz,guildId,now}).length,1);
+ assert.match(updated.content,/Partida concluída/);
+ assert.doesNotMatch(updated.content,/streak/i);
+ assert.equal(updated.components[0].components[0].data.custom_id,'duckagain:quiz');
+ assert.equal(quiz.rooms.size,0);
  quiz.shutdown();
 });
-test('quando ninguém acerta, streak termina sem emitir nova pergunta',async()=>{
- let now=600000,result;
- const quiz=new DuckPublicQuiz({
-  now:()=>now,random:()=>0,
-  setTimer:()=>({unref:()=>{}}),clearTimer:()=>{}
- });
- const msg={edit:async data=>{result=data;}};
- const interaction={guildId,channelId,
-  channel:{send:async()=>msg},user:{id:userId},
-  reply:async()=>{},fetchReply:async()=>msg
- };
- await quiz.start(interaction,{streakMode:true});
- const r=quiz.rooms.get(guildId+':'+channelId).current;
- r.answers.set(userId,(r.question.right+1)%4);
- now+=30000;
- await quiz.closeRound(r);
- assert.match(result.content,/Fim da streak/);
+
+test('quiz sem acertos encerra com botão para tentar novamente',async()=>{
+ let now=600000,updated;
+ const msg={edit:async data=>{updated=data;return msg;}};
+ const quiz=new DuckPublicQuiz({now:()=>now,random:()=>0,
+   setTimer:()=>({unref:()=>{}}),clearTimer:()=>{}});
+ await quiz.start({guildId,channelId,channel:{send:async()=>msg},
+   reply:async()=>{},fetchReply:async()=>msg});
+ const round=quiz.rooms.get(guildId+':'+channelId).current;
+ round.answers.set(userId,(round.question.right+1)%round.question.choices.length);
+ now+=PUBLIC_ROUND_MS;
+ await quiz.closeRound(round);
+ assert.match(updated.content,/Fim da partida/);
+ assert.equal(updated.components[0].components[0].data.label,'Jogar novamente');
  assert.equal(quiz.rooms.size,0);
  assert.equal(quiz.rounds.size,0);
  quiz.shutdown();
