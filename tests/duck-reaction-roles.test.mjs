@@ -4,7 +4,7 @@ import {reactionRoleCommands,validReactionRole,emojiKey,validEmojiText,panelEmbe
 test('comando tem criação, edição, visualização e exclusão',()=>{
  const command=reactionRoleCommands()[0];
  assert.equal(command.name,'cargosreacao');
- assert.deepEqual(command.options.map(x=>x.name),['criar','adicionar','remover','apagar','ver']);
+ assert.deepEqual(command.options.map(x=>x.name),['criar','adicionar','remover','apagar','ver','diagnostico']);
 });
 test('emojis padrão e customizados geram chaves',()=>{
  assert.equal(validEmojiText('🧩'),true);
