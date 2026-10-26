@@ -13,8 +13,8 @@ test('Vinte e cinco estilos de voz aparecem no /duckzinha voice nome',()=>{
   assert.equal(PT_BR_VOICES.length,25);
   assert.equal(voiceChoices().length,25);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
-  assert.equal(DEFAULT_VOICE,'pt-BR-ThalitaMultilingualNeural');
-  assert.equal(voiceLabel(DEFAULT_VOICE),'Thalita • Natural');
+  assert.equal(DEFAULT_VOICE,'pt-BR-ThalitaConversaNeural');
+  assert.equal(voiceLabel(DEFAULT_VOICE),'Thalita • Conversa Natural');
   assert.equal(validVoice('pt-BR-ThalitaMultilingualNeural'),true);
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
