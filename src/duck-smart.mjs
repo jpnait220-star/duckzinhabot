@@ -45,8 +45,16 @@ export function playfulCallReply(text,seed=0){
  return null;
 }
 export function expressiveSpeech(text){
-  return String(text||'').replace(/https?:\/\/\S+/gi,'link no chat')
-    .replace(/\s*[;:]\s*/g,', ').replace(/\s+/g,' ').trim().slice(0,330);
+  const result=String(text||'')
+    .replace(/https?:\/\/\S+/gi,'o link que mandei no chat')
+    .replace(/<@!?[0-9]+>/g,'')
+    .replace(/[\\*_~`#]/g,'')
+    .replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,' ')
+    .replace(/\b(?:k{3,}|h{3,})\b/gi,'haha')
+    .replace(/\bvc\b/gi,'você').replace(/\bvcs\b/gi,'vocês')
+    .replace(/\s*[;:]\s*/g,', ').replace(/\s+/g,' ')
+    .trim().slice(0,330);
+  return result && !/[.!?…]$/.test(result)?result+'.':result;
 }
 const THEMES=[
  ['Minecraft',/\b(minecraft|mine|pvp|creeper|survival|mod|shader|server)\b/i],
