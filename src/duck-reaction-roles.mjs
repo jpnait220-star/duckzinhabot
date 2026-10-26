@@ -16,6 +16,9 @@ export function reactionRoleCommands(){
   .addSubcommand(s=>emoji(id(s.setName('remover').setDescription('Remover uma opção de cargo'))))
   .addSubcommand(s=>id(s.setName('apagar').setDescription('Excluir painel')))
   .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas')))
+  .addSubcommand(s=>id(s.setName('editar').setDescription('Editar título ou descrição do painel')
+    .addStringOption(o=>o.setName('titulo').setDescription('Novo título (opcional)').setMaxLength(90))
+    .addStringOption(o=>o.setName('descricao').setDescription('Nova descrição (opcional)').setMaxLength(700))))
   .addSubcommand(s=>id(s.setName('migrar').setDescription('Trocar painel antigo de webhook por mensagem da Duckzinha')))
   .addSubcommand(s=>s.setName('diagnostico').setDescription('Verificar permissões e banco antes de criar um painel')).toJSON()];
 }
@@ -163,6 +166,30 @@ export class ReactionRolePanels{
    const channel=await i.guild.channels.fetch(row.channel_id);
    if(!channel)throw Error('Canal do painel não encontrado.');
    if(sub==='ver')return send('**'+row.title+'**\n'+row.emoji_roles.map(x=>x.emoji+' → <@&'+x.role_id+'>').join('\n'));
+   if(sub==='editar'){
+    const nextTitle=i.options.getString('titulo');
+    const nextDescription=i.options.getString('descricao');
+    if(nextTitle===null&&nextDescription===null)
+      throw Error('Preencha o novo título, a nova descrição ou ambos.');
+    if(nextTitle!==null&&!nextTitle.trim()||nextDescription!==null&&!nextDescription.trim())
+      throw Error('O título e a descrição não podem ficar vazios.');
+    const updated={...row,
+      title:nextTitle===null?row.title:nextTitle.trim(),
+      description:nextDescription===null?row.description:nextDescription.trim()};
+    if(updated.title.length>90||updated.description.length>700)
+      throw Error('O título aceita até 90 caracteres e a descrição até 700.');
+    const msg=await channel.messages.fetch(id);
+    if(row.webhook_id){
+      const hook=await this.webhook(channel,row.webhook_id);
+      await hook.editMessage(id,{embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+    }else{
+      if(msg.author.id!==this.client.user.id)
+        throw Error('A mensagem não pertence à Duckzinha.');
+      await msg.edit({embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+    }
+    await this.save(updated);
+    return send('✅ Texto do painel atualizado na mesma mensagem. Os emojis, cargos e reações foram preservados.');
+   }
    if(sub==='migrar'){
     if(!row.webhook_id)return send('✅ Esse painel já é uma mensagem da própria Duckzinha, com o avatar dela.');
     const me=i.guild.members.me||await i.guild.members.fetchMe();
