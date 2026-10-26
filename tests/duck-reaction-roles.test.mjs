@@ -84,13 +84,13 @@ test('Editar descrição mantém mensagem, reações, emojis e cargos',async()=>
  const channel={messages:{fetch:async id=>{assert.equal(id,before.message_id);return message}}};
  let saved,answer;
  const db={from:()=>({
-   select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:before,error:null})})})}),
-   upsert:data=>({data,error:null,value:data})
+   select:()=>({eq:()=>({eq:()=>({maybeSingle:()=>({action:'read'})})})}),
+   upsert:data=>({action:'write',value:data})
  })};
  const store={persistent:true,db,requireResult:async query=>{
-   if(query.value){saved=query.value;return saved}
-   if(Object.hasOwn(query,'data'))return query.data;
-   return query;
+   if(query.action==='read')return before;
+   if(query.action==='write'){saved=query.value;return saved;}
+   throw Error('Unexpected database query');
  }};
  const handler=new ReactionRolePanels({store,client:{user:{id:botId}},guildId});
  const result=await handler.handleCommand({
