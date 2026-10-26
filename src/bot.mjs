@@ -825,6 +825,7 @@ client.on(Events.MessageCreate,async message=>{
     // Use tanto o histórico desta pessoa quanto as falas públicas recentes.
     // O contexto do canal NÃO substitui a conversa anterior do usuário.
     const history=await getHistory(id);
+    console.log('[Duckzinha] Histórico de conversa recuperado: '+Math.floor(history.length/2)+' trocas.');
     const memorySaved=await memoryTask;
     const profileFacts=await store.getProfileFacts(id).catch(()=>[]);
     // Só considerar atitudes em mensagens dirigidas à Duckzinha em canal público.
@@ -888,7 +889,8 @@ client.on(Events.MessageCreate,async message=>{
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           familiarity:history.length||focusedExchange
             ?'já conversaram antes; continue a conversa normalmente'
-            :member?.enabled===false?'sem histórico disponível':familiarityLabel(friendshipTurns),
+            :friendshipTurns>=5?familiarityLabel(friendshipTurns)
+            :'histórico limitado; não presuma que seja a primeira conversa',
           affinity:affinityStyle(affinityScore),
           pastResearch,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
