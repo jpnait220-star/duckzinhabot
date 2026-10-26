@@ -7,85 +7,93 @@ import {askCloudflare,followUpReference,compactWorkersAIPayload}
 
 const exchange={
  channelId:'111111111111111111',botMessageId:'222222222222222222',
- at:1_700_000,userText:'Meu minecraft fechou e perdi meus itens',
+ at:1_700_000,userText:'Meu Minecraft fechou e perdi meus itens',
  botText:'Poxa, que situação chata! O jogo fechou antes de você salvar?'
 };
 const now=1_700_800;
 
-test('reconhece ixi, eita, vish e reações comuns como parte do papo',()=>{
- for(const x of ['ixi','IXXXI','ixiii','eita!','vish','vixi','mds','ué','aff',
-  'nossa','puts','caraca','ata','sério?','kkkkk','não acredito']){
-  // Some creatively misspelled variants are optional.
-  if(x==='IXXXI')continue;
-  assert.equal(isBriefReaction(x),true,x);
-  assert.equal(isShortContextualTurn(x),true,x);
+test('contexto funciona com palavras aleatórias e gírias não cadastradas',()=>{
+ for(const text of ['ixi','oxe','talokoooo','rapazzzz','slk q doidera',
+  'ué mano','mds','n acredito nisso','kkkkkkk', 'õxe da mulesta',
+  'essa foi de lascar', '???', 'hmmmm', 'num creiooo', 'pff']){
+  assert.equal(isShortContextualTurn(text),true,text);
+  const cue=conversationalCue({question:text,lastExchange:exchange,
+    channelId:exchange.channelId,now});
+  assert.match(cue,/CONTEXTO CONVERSACIONAL/,text);
+  assert.match(cue,/Meu Minecraft fechou/,text);
+  assert.match(cue,/O jogo fechou/,text);
+  assert.match(cue,/gírias desconhecidas/,text);
  }
- assert.equal(isBriefReaction('como fazer um servidor de Minecraft?'),false);
- assert.equal(isShortContextualTurn('me ensina como instalar Sodium na versão 1.21'),false);
+ assert.equal(isShortContextualTurn('x'.repeat(170)),false);
+ assert.equal(isShortContextualTurn('  '),false);
+ assert.equal(isBriefReaction('ixi'),true);
 });
-test('retoma sem menção somente após última fala da Duckzinha no mesmo canal',()=>{
+test('continua sem mencionar apenas após resposta da bot no mesmo canal e pessoa',()=>{
+ for(const text of ['ixi','slk q doidera','essa foi de lascar','que tu acha?', 'como assim mano']){
+  assert.equal(canContinueChat({text,channelId:exchange.channelId,
+   previousChannelMessageId:exchange.botMessageId,lastExchange:exchange,now}),true,text);
+ }
  assert.equal(canContinueChat({text:'ixi',channelId:exchange.channelId,
-   previousChannelMessageId:exchange.botMessageId,lastExchange:exchange,now}),true);
- assert.equal(canContinueChat({text:'ixi',channelId:exchange.channelId,
-   previousChannelMessageId:'OUTRO',lastExchange:exchange,now}),false);
+   previousChannelMessageId:'OUTRA_MENSAGEM',lastExchange:exchange,now}),false);
  assert.equal(canContinueChat({text:'ixi',channelId:'outro',
    previousChannelMessageId:exchange.botMessageId,lastExchange:exchange,now}),false);
  assert.equal(canContinueChat({text:'ixi',channelId:exchange.channelId,
    previousChannelMessageId:exchange.botMessageId,lastExchange:exchange,now:now+120_000}),false);
- assert.equal(canContinueChat({text:'oi',channelId:exchange.channelId,
-   previousChannelMessageId:exchange.botMessageId,lastExchange:exchange,now}),false);
- assert.equal(canContinueChat({text:'e o jogo?',channelId:exchange.channelId,
-   replyMessageId:exchange.botMessageId,lastExchange:exchange,now}),true);
+ assert.equal(canContinueChat({text:'nova mensagem com texto maior que limite '.repeat(8),
+  channelId:exchange.channelId,previousChannelMessageId:exchange.botMessageId,
+  lastExchange:exchange,now}),false);
+ assert.equal(canContinueChat({text:'uma resposta bem detalhada',
+  channelId:exchange.channelId,replyMessageId:exchange.botMessageId,
+  lastExchange:exchange,now:now+61_000}),true);
 });
-test('transforma ixi em reação à conversa, não saudação ou nova dúvida',()=>{
- const cue=conversationalCue({question:'ixi',channelId:exchange.channelId,
-   lastExchange:exchange,now});
- assert.match(cue,/REAÇÃO AO DIÁLOGO RECENTE/);
- assert.match(cue,/minecraft fechou/);
- assert.match(cue,/O jogo fechou/);
- assert.match(cue,/não recomece a conversa/i);
- assert.equal(conversationalCue({question:'nova dúvida longa sobre mods 1.21.4',
-   lastExchange:exchange,channelId:exchange.channelId,now}), '');
- assert.equal(conversationalCue({question:'ixi',lastExchange:exchange,
-   channelId:'outro',now,history:[]}), '');
+test('a IA decide se há reação ou assunto novo, sem conclusão pré-definida',()=>{
+ const cue=conversationalCue({question:'vou mudar de assunto: filmes',
+  lastExchange:exchange,channelId:exchange.channelId,now});
+ assert.match(cue,/Quando o usuário mudar claramente de assunto/);
+ assert.match(cue,/assunto novo/);
+ assert.doesNotMatch(cue,/mensagem atual é uma interjeição|mensagem atual retoma/);
+ assert.equal(conversationalCue({question:'oxi',lastExchange:exchange,
+  channelId:'outro',history:[],now}), '');
 });
-test('as duas tentativas de Workers AI preservam o mesmo contexto de ixi',async()=>{
- const old=globalThis.fetch;
- let req=[];
+test('as duas requisições da Cloudflare preservam o assunto sem prefixo obrigatório',async()=>{
+ const saved=globalThis.fetch;const sent=[];
  try{
   globalThis.fetch=async(_url,opts)=>{
-   req.push(JSON.parse(opts.body));
-   if(req.length===1)return {ok:false,status:400,text:async()=>
-    JSON.stringify({errors:[{code:5004,message:'unsupported parameter'}]})};
+   sent.push(JSON.parse(opts.body));
+   if(sent.length===1)return {ok:false,status:400,
+    text:async()=>JSON.stringify({errors:[{code:5004,message:'unsupported parameter'}]})};
    return {ok:true,json:async()=>({choices:[{message:{
-    content:'Ixi, perder itens assim é complicado! Você tinha backup?'}}]})};
+    content:'Nossa, perder itens depois do jogo fechar é complicado mesmo.'}}]})};
   };
   const response=await askCloudflare({accountId:'test',token:'test',
-   question:'ixi',model:'@cf/google/gemma-4-26b-a4b-it',
+   question:'oxi que coisa',model:'@cf/google/gemma-4-26b-a4b-it',
    history:[{role:'user',content:exchange.userText},
     {role:'assistant',content:exchange.botText}],
    lastExchange:exchange,channelId:exchange.channelId});
   assert.match(response,/perder itens/);
-  assert.equal(req.length,2);
-  for(const payload of req){
-   assert.match(payload.messages[0].content,/REAÇÃO AO DIÁLOGO RECENTE/);
+  assert.equal(sent.length,2);
+  for(const payload of sent){
+   assert.match(payload.messages[0].content,/CONTEXTO CONVERSACIONAL/);
    assert.match(payload.messages[0].content,/perdi meus itens/);
+   assert.match(payload.messages[0].content,/O jogo fechou/);
+   assert.match(payload.messages[0].content,/assunto novo/);
   }
- }finally{globalThis.fetch=old;}
+  assert.match(sent[1].messages.at(-1).content,/oxi que coisa/);
+ }finally{globalThis.fetch=saved;}
 });
-test('continuations still support old questions and reaction references',()=>{
+test('histórico permite continuação após reinício, sem inventar resposta',()=>{
  const history=[{role:'user',content:exchange.userText},
   {role:'assistant',content:exchange.botText}];
- assert.match(followUpReference('ixi',history),/REAÇÃO CURTA/);
- assert.equal(followUpReference('fala do Minecraft e dê dicas de servidor',history),'');
- assert.match(compactWorkersAIPayload({model:'test',question:'ixi',history,
-   lastExchange:exchange,channelId:exchange.channelId}).messages[0].content,/REAÇÃO AO DIÁLOGO/);
+ assert.match(followUpReference('ixi',history),/CONTEXTO CONVERSACIONAL/);
+ assert.match(followUpReference('rapazzzz',history),/O jogo fechou/);
+ assert.match(compactWorkersAIPayload({model:'test',question:'qui doidera',history,
+  lastExchange:exchange,channelId:exchange.channelId}).messages[0].content,
+  /CONTEXTO CONVERSACIONAL/);
 });
-
-test('quando IA cair, o fallback continua sobre o último tema',()=>{
- const x=reactionFallback('ixi',{lastExchange:exchange,channelId:exchange.channelId,now});
- assert.match(x,/complicada/);
- assert.doesNotMatch(x,/tudo bem\?|não consegui responder|problema com a IA/);
+test('quando a IA falha não simula uma interpretação que nunca gerou',()=>{
+ const result=reactionFallback('oxi qq foi isso',{lastExchange:exchange,
+  channelId:exchange.channelId,now});
+ assert.match(result,/minha IA não conseguiu responder/);
+ assert.doesNotMatch(result,/jogo fechou|perder itens|tá tudo bem/i);
  assert.equal(reactionFallback('ixi',{lastExchange:exchange,channelId:'outro',now}),null);
- assert.equal(reactionFallback('oi',{lastExchange:exchange,channelId:exchange.channelId,now}),null);
 });
