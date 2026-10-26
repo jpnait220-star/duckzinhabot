@@ -57,7 +57,7 @@ export function commandPayloads(){
           {name:'Piada',value:'piada'}
         )))
     .addSubcommand(x=>x.setName('voice').setDescription('Escolher a voz brasileira da Duckzinha (admin)')
-      .addStringOption(o=>o.setName('nome').setDescription('Selecione uma voz pt-BR').setRequired(true)
+      .addStringOption(o=>o.setName('nome').setDescription('Vozes-base com timbres Edge distintos').setRequired(true)
         .addChoices(...voiceChoices())))
     .setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('configurar')
@@ -183,10 +183,10 @@ export async function runCommand(interaction,{store,site,panelId,localKnowledge,
       if(!validVoice(chosen))return respond('Escolha uma das vozes em português brasileiro da lista.',true);
       await store.setVoice(chosen,interaction.user.id);
       onVoiceChanged?.(chosen);
-      return respond('🎙️ Estilo selecionado: **'+voiceLabel(chosen)+'**. A escolha foi salva! '+
-        'Se o Edge TTS funcionar, ouviremos essa voz neural. '+
-        'Quando o Edge falhar, o Google TTS usa ajustes de tom e velocidade '+
-        '(não é a voz original do Edge). Teste com /duckzinha testevoz.',true);
+      return respond('🎙️ Voz selecionada: **'+voiceLabel(chosen)+'**. Salvei sua escolha! '+
+        'Os timbres são diferentes quando o Edge TTS funciona. '+
+        'Se o Edge falhar, TODAS as opções usam a mesma voz do Google, com ajustes de tom e ritmo. '+
+        'Use **/duckzinha testevoz** para descobrir o motor que está tocando.',true);
     }
     if(!store.persistent)return respond('A memória do Supabase não está configurada.',true);
     if(sub==='minhas-memorias'){
