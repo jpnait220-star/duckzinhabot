@@ -49,7 +49,7 @@ test('sintetizador entrega emoção ao Edge e filtro Google',async()=>{
     }})
   });
   assert.equal(edge.duckTtsProvider,'edge');
-  assert.equal(edgeOptions.rate,'+20%');
+  assert.equal(edgeOptions.rate,'+18%');
   const mp3=Buffer.concat([Buffer.from('ID3'),Buffer.alloc(256)]);
   await synthesizeDuckSpeech({
     text:'Tudo bem. Vamos com calma.',mood:'calma',
