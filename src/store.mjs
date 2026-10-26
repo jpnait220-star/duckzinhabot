@@ -1,6 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {adjustedAffinity,nextAffinity} from './affinity.mjs';
 import {DEFAULT_VOICE,validVoice} from './duck-tts.mjs';
+import {HISTORY_WINDOW} from './duck-chat-history.mjs';
 
 export class DuckStore {
   constructor({url,serviceKey,guildId}) {
@@ -41,13 +42,13 @@ export class DuckStore {
       .select('history,expires_at').eq('guild_id',this.guildId)
       .eq('discord_user_id',discordId).maybeSingle());
     if(!row||Date.parse(row.expires_at)<=Date.now())return [];
-    return Array.isArray(row.history)?row.history.slice(-12)
+    return Array.isArray(row.history)?row.history.slice(-HISTORY_WINDOW)
       .filter(item=>['user','assistant'].includes(item?.role)&&typeof item.content==='string')
       .map(item=>({role:item.role,content:item.content.slice(0,850)})):[];
   }
   async saveConversation(discordId,items) {
     if(!this.db)return;
-    const history=items.slice(-12).filter(item=>['user','assistant'].includes(item?.role)&&typeof item.content==='string')
+    const history=items.slice(-HISTORY_WINDOW).filter(item=>['user','assistant'].includes(item?.role)&&typeof item.content==='string')
       .map(item=>({role:item.role,content:item.content.slice(0,850)}));
     await this.requireResult(this.db.from('duckzinha_conversations').upsert({
       guild_id:this.guildId,discord_user_id:discordId,history,
