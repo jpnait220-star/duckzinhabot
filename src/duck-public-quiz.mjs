@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {MessageFlags} from 'discord.js';
 import {chooseQuestion,levelForStreak,LEVEL_NAMES,questionButtons} from './duck-quiz.mjs';
 import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
+import {replayRow} from './duck-replay.mjs';
 
 export const PUBLIC_ROUND_MS=35_000;
 export const PUBLIC_NEXT_MS=4_000;
@@ -11,9 +12,8 @@ const listNames=ids=>ids.slice(0,25).map(id=>'<@'+id+'>').join(', ')+
   (ids.length>25?' e mais '+(ids.length-25)+' participantes':'');
 export function publicQuestionText(round){
   const level=levelForStreak(round.number-1);
-  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':round.room.streakMode?'QUIZ STREAK':'QUIZ DA GALERA')+' — RODADA '+round.number+'**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+'**\n'+
     '⭐ Dificuldade: **'+LEVEL_NAMES[level-1]+' ('+level+'/5)**\n'+
-    '🔥 Sequência em jogo: **'+(round.number-1)+'**\n'+
     (round.number===1?'👥 **Todos podem entrar nesta rodada!**':
       '👥 **'+round.eligible.size+'** pessoas passaram da rodada anterior.')+'\n'+
     '⏳ **'+Math.ceil(round.room.roundMs/1000)+' segundos** para responder, uma vez por pessoa.\n\n'+
@@ -22,18 +22,15 @@ export function publicQuestionText(round){
 }
 export function publicResultText(round,winners,{last=false}={}){
   const level=levelForStreak(round.number-1);
-  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':round.room.streakMode?'QUIZ STREAK':'QUIZ DA GALERA')+' — RODADA '+round.number+' ENCERRADA**\n'+
+  return '🦆 **'+(round.room.championship?'CAMPEONATO DE QUIZ':'QUIZ DA GALERA')+' — RODADA '+round.number+' ENCERRADA**\n'+
     '⭐ Nível: **'+LEVEL_NAMES[level-1]+'**\n'+
     '📚 '+round.question.text+'\n'+
     '✅ Resposta correta: **'+round.question.choices[round.question.right]+'**\n\n'+
-    (round.room.streakMode?'🔥 Streak acumulada: **'+round.number+'** acerto(s) dos classificados.\n'+
-      '🏆 Melhor streak da sessão: **'+round.room.bestStreak+'**\n':'')+
     '🏅 **QUEM PASSOU ('+winners.length+'):**\n'+
     (winners.length?listNames(winners):'Ninguém passou desta rodada.')+'\n\n'+
     (winners.length&&!last?'🔥 Próxima pergunta em 4 segundos! Somente quem passou continua.':
       winners.length?'🏆 **Parabéns aos campeões! Partida concluída.**':
-        (round.room.streakMode?'🏁 **Fim da streak!** Use /minigame tipo:Quiz Streak para jogar novamente.':
-          '🏁 **Fim da partida!** Use /jogo quiz para começar de novo.'));
+        '🏁 **Fim da partida!** Clique em Jogar novamente.');
 }
 export class DuckPublicQuiz {
   constructor({store,now=Date.now,random=Math.random,setTimer=setTimeout,
@@ -79,7 +76,7 @@ export class DuckPublicQuiz {
       console.error('[Duckzinha] Quiz público: '+String(error?.message||error)));},round.room.roundMs);
     round.timer?.unref?.();
   }
-  async start(interaction,{championship=false,streakMode=false}={}){
+  async start(interaction,{championship=false}={}){
     const key=this.key(interaction.guildId,interaction.channelId);
     if(this.rooms.has(key)){
       await interaction.reply(privateReply('🦆 Já existe um quiz público neste canal! Use os botões da pergunta atual.'));
@@ -90,7 +87,7 @@ export class DuckPublicQuiz {
       return false;
     }
     const room={key,channel:interaction.channel,nextNumber:1,used:[],current:null,timer:null,
-      championship,streakMode,roundMs:streakMode?30000:this.roundMs,bestStreak:0};
+      championship,roundMs:this.roundMs};
     this.rooms.set(key,room);
     const round=this.makeRound(room);
     room.current=round;
@@ -150,11 +147,11 @@ export class DuckPublicQuiz {
     if(round.timer!=null)this.clearTimer(round.timer);
     const winners=[...round.answers].filter(([,choice])=>choice===round.question.right).map(([user])=>user);
     for(const user of winners)if(round.number>this.score(user))this.best.set(user,round.number);
-    if(winners.length)room.bestStreak=Math.max(room.bestStreak,round.number);
     const last=round.number>=(room.championship?6:this.maxRounds);
     try{
       await round.message.edit({content:publicResultText(round,winners,{last}),
-        components:[],allowedMentions:{parse:[]}});
+        components:(!winners.length||last)?[replayRow(room.championship?'championship':'quiz')]:[],
+        allowedMentions:{parse:[]}});
     }catch(error){
       console.warn('[Duckzinha] Quiz: erro ao editar resultado: '+String(error?.message||error));
       this.stopRoom(room);
@@ -171,7 +168,8 @@ export class DuckPublicQuiz {
       if(rewarded){
         await round.message.edit({content:publicResultText(round,winners,{last})+
           '\n\n'+winRewardLabel+' para '+rewarded+' participante(s) que acertaram.',
-          components:[],allowedMentions:{parse:[]}}).catch(error=>
+          components:(!winners.length||last)?[replayRow(room.championship?'championship':'quiz')]:[],
+          allowedMentions:{parse:[]}}).catch(error=>
           console.warn('[Duckzinha] Mensagem prêmio quiz: '+String(error?.message||error)));
       }
     }
