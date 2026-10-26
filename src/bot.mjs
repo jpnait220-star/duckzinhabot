@@ -19,6 +19,7 @@ import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resol
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
 import {tryOpenTtsSpeech} from './duck-open-tts.mjs';
+import {tiktokRelayRequest} from './duck-conversation-intents.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
@@ -766,6 +767,20 @@ client.on(Events.MessageCreate,async message=>{
     return;
   }
   if(question.length<2)return;
+  // Resolver pedidos simples em PT-BR antes da geração de texto.
+  if(mentioned&&!confirmation){
+    const relay=tiktokRelayRequest(message.content,{
+      botId:client.user.id,mentionedIds:[...message.mentions.users.keys()]
+    });
+    if(relay){
+      cooldown.set(id,Date.now());
+      const sent=await message.reply({content:relay.text,
+        allowedMentions:{parse:[],users:relay.kind==='ask'?[relay.userId]:[],repliedUser:false}
+      }).catch(err=>{console.warn('[Duckzinha] Pedido informal: '+err.message);return null;});
+      if(sent)void schedule(sent).catch(()=>{});
+      return;
+    }
+  }
   if(mentioned&&isPublic&&!confirmation){
     const action=requestedAction(question);
     if(action){
