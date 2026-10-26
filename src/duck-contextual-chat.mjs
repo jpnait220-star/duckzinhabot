@@ -1,63 +1,66 @@
-// Context-aware replies without indiscriminately listening to the whole channel.
-// Only the same member replying to the bot or reacting immediately to the bot's
-// own last public message may continue without another mention.
-const normalize=text=>String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-  .toLowerCase().replace(/\s+/g,' ').trim();
+// Each chat continuation is about conversation chronology, not a keyword
+// dictionary. The language model decides whether the next text is a reaction,
+// a related question, a joke, or a genuinely new subject.
+const textOf=value=>String(value??'').replace(/\s+/g,' ').trim();
+
 export function isBriefReaction(input){
- const text=normalize(input).replace(/[!?.,:;…~\s]+$/g,'').trim();
- if(text.length<2||text.length>38)return false;
- return /^(?:i+x+i+|eita+|vish+|vixi+|ixe+|ox(e+|i+)|ue+|mds+|meu deus+|nossa+|aff+|puts+|putz+|caraca+|caramba+|serio+|ata+|entendi+|pior+|fato+|real+|que isso+|ta doido+|kkkk+|haha+|rsrs+|nem ferrando+|nao acredito+|nao creio+|complicado+|pesado+|coitado+|surreal+)$/u.test(text);
+ // Compatibility helper for older tests; it does NOT decide context.
+ const text=textOf(input);
+ return text.length>=1&&text.length<=40&&!/[?.]\s+\S/.test(text);
 }
 export function isShortContextualTurn(input){
- const text=normalize(input);
- if(text.length>110)return false;
- if(isBriefReaction(text))return true;
- return /^(?:e\s+(?:o|a|os|as|ele|ela|isso|esse|essa|depois|ai|entao)\b|mas\b|sobre (?:isso|ele|ela)\b|como assim\b|por que\b|pq\b|e agora\b|e dai\b|e d[aíi]\b|oque\b|o que\b)/u.test(text);
+ // Any short spontaneous message is eligible for contextual interpretation.
+ // This includes unknown slang, typos, random expressions and new vocabulary.
+ const text=textOf(input);
+ return text.length>0&&text.length<=160;
 }
 export function canContinueChat({text,channelId,replyMessageId='',lastExchange,
   previousChannelMessageId='',now=Date.now()}={}){
- if(!lastExchange||channelId!==lastExchange.channelId||!String(text||'').trim())return false;
- const age=now-lastExchange.at;
- if(age<0)return false;
+ if(!lastExchange||channelId!==lastExchange.channelId||!textOf(text))return false;
+ const elapsed=now-lastExchange.at;
+ if(elapsed<0)return false;
  if(replyMessageId&&replyMessageId===lastExchange.botMessageId)
-   return age<=10*60_000;
- return age<=60_000&&isBriefReaction(text)&&
+   return elapsed<=10*60_000;
+ // No unsolicited monitoring: a message without an @mention must be from
+ // this same person directly after the bot's own last reply in this channel.
+ return elapsed<=60_000&&isShortContextualTurn(text)&&
    previousChannelMessageId===lastExchange.botMessageId;
 }
-// The completion model receives this grounding even when it only sees a short
-// reaction. The assistant message is a reference, never an instruction.
 export function conversationalCue({question='',history=[],lastExchange=null,
   channelId='',now=Date.now()}={}){
- if(!isShortContextualTurn(question))return '';
+ const current=textOf(question);
+ if(!current)return '';
  const recent=lastExchange?.channelId===channelId&&
    now-lastExchange.at>=0&&now-lastExchange.at<=10*60_000?lastExchange:null;
+ // A prior exchange in the same channel is strongest evidence. When an
+ // in-memory exchange is unavailable (restart), use only supplied history;
+ // the AI is instructed to check whether the new subject is related.
  const previousUser=recent?.userText||
    [...history].reverse().find(x=>x?.role==='user'&&x.content?.trim())?.content||'';
  const previousBot=recent?.botText||
    [...history].reverse().find(x=>x?.role==='assistant'&&x.content?.trim())?.content||'';
  if(!previousUser&&!previousBot)return '';
- const reaction=isBriefReaction(question);
- const intro=reaction
-   ?'REAÇÃO AO DIÁLOGO RECENTE: a mensagem atual é uma interjeição/reação, NÃO uma saudação nem um novo pedido de ajuda.'
-   :'CONTINUAÇÃO DO DIÁLOGO: a mensagem atual retoma a conversa imediatamente anterior.';
- return '\n\n'+intro+
-  ' Interprete o sentido considerando principalmente o que a Duckzinha acabou de dizer e a conversa imediatamente anterior.'+
-  ' Seja natural e breve, como alguém acompanhando o papo. Não recomece a conversa, não diga "ixi, tá tudo bem?" ou "o que aconteceu?" sem motivo no contexto.'+
-  ' Não invente acontecimentos; se não houver assunto identificável, peça esclarecimento curto.'+
-  (previousUser?'\nMensagem anterior da pessoa: "'+String(previousUser).replace(/\s+/g,' ').slice(0,250)+'".':'')+
-  (previousBot?'\nResposta anterior da Duckzinha: "'+String(previousBot).replace(/\s+/g,' ').slice(0,350)+'".':'');
+ const mode=isShortContextualTurn(current)?'MENSAGEM CURTA':'NOVA MENSAGEM';
+ return '\n\nCONTEXTO CONVERSACIONAL ('+mode+'): Antes de responder à nova fala, '+
+  'compare-a com as últimas mensagens. Identifique por sentido e situação se '+
+  'é uma reação espontânea, uma resposta ao que a Duckzinha disse, uma continuação, '+
+  'uma brincadeira ou um assunto novo. Não dependa de uma lista de palavras: '+
+  'interjeições, gírias desconhecidas, risadas, erros de digitação e frases sem '+
+  'pergunta podem ser comentários sobre a fala imediatamente anterior. '+
+  'Quando fizer sentido, responda à conversa que já está acontecendo, como num chat '+
+  'natural, sem cumprimentar de novo, sem fingir que não houve conversa e sem '+
+  'perguntar genericamente "tá tudo bem?" ou "o que aconteceu?". '+
+  'Quando o usuário mudar claramente de assunto, acompanhe a mudança em vez '+
+  'de forçar relação com o anterior. Em caso de dúvida real, esclareça brevemente. '+
+  'NÃO invente fatos ausentes no contexto nem compartilhe conteúdo privado.'+
+  (previousUser?'\nMensagem anterior da pessoa: "'+textOf(previousUser).slice(0,290)+'".':'')+
+  (previousBot?'\nResposta anterior da Duckzinha: "'+textOf(previousBot).slice(0,390)+'".':'');
 }
 
-
-// Safe short fallback if the external AI is offline. Never invent a new topic,
-// ask for private details, or treat a contextual reaction as a greeting.
+// Used only if the external model is unavailable. Do not pretend to have
+// interpreted a reaction with AI when the AI did not respond.
 export function reactionFallback(input,{lastExchange=null,channelId='',now=Date.now()}={}){
- if(!isBriefReaction(input)||!lastExchange||lastExchange.channelId!==channelId||
-   now-lastExchange.at<0||now-lastExchange.at>10*60_000)return null;
- const discussion=normalize((lastExchange.userText||'')+' '+(lastExchange.botText||''));
- if(/\b(perd[ie]|sumiu|bug|erro|crash|quebrou|problema|falhou|triste)\b/.test(discussion))
-   return 'Vish, essa parte que a gente estava falando foi complicada mesmo 😕';
- if(/\b(kkk|haha|piada|engracad|zoeira)\b/.test(discussion))
-   return 'KKKKK, pois é! Essa foi boa 😁';
- return 'Eita, pois é! Olha só o que a gente estava conversando 😅';
+ if(!isShortContextualTurn(input)||!lastExchange||lastExchange.channelId!==channelId||
+  now-lastExchange.at<0||now-lastExchange.at>10*60_000)return null;
+ return 'Eu lembro do que estávamos falando, mas minha IA não conseguiu responder agora. Pode repetir essa parte? 💛';
 }
