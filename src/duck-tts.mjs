@@ -31,14 +31,14 @@ const rows=[
   ['Giovanna • Brasil','pt-BR-GiovannaNeural','pt-BR-GiovannaNeural',10,0,'Brasil • voz feminina diferente'],
   ['Leila • Brasil','pt-BR-LeilaNeural','pt-BR-LeilaNeural',10,0,'Brasil • voz feminina diferente'],
   ['Manuela • Brasil','pt-BR-ManuelaNeural','pt-BR-ManuelaNeural',10,0,'Brasil • voz feminina diferente'],
-  ['Yara • Brasil','pt-BR-YaraNeural','pt-BR-YaraNeural',10,0,'Brasil • voz feminina diferente']
+  ['Thalita • Conversa Natural','pt-BR-ThalitaConversaNeural','pt-BR-ThalitaMultilingualNeural',0,-2,'Brasil • voz suave, sem afinação artificial']
 ];
 export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
   Object.freeze({name,id,edgeId,pitch,rate,description})));
-export const DEFAULT_VOICE='pt-BR-ThalitaMultilingualNeural';
+export const DEFAULT_VOICE='pt-BR-ThalitaConversaNeural';
 const voiceMap=new Map(PT_BR_VOICES.map(x=>[x.id,x]));
 export function validVoice(value){return voiceMap.has(value);}
-export function voiceLabel(value){return voiceMap.get(value)?.name||'Thalita • Natural';}
+export function voiceLabel(value){return voiceMap.get(value)?.name||'Thalita • Conversa Natural';}
 export function voiceChoices(){return PT_BR_VOICES.map(x=>({name:x.name,value:x.id}));}
 export function edgeSpeechReady(){return true;}
 
