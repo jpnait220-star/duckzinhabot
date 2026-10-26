@@ -1,10 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {PermissionsBitField} from 'discord.js';
-import {reactionRoleCommands,validReactionRole,emojiKey,validEmojiText,panelEmbed} from '../src/duck-reaction-roles.mjs';
+import {ReactionRolePanels,reactionRoleCommands,validReactionRole,emojiKey,validEmojiText,panelEmbed} from '../src/duck-reaction-roles.mjs';
 test('comando tem criação, edição, visualização e exclusão',()=>{
  const command=reactionRoleCommands()[0];
  assert.equal(command.name,'cargosreacao');
- assert.deepEqual(command.options.map(x=>x.name),['criar','adicionar','remover','apagar','ver','diagnostico']);
+ assert.deepEqual(command.options.map(x=>x.name),['criar','adicionar','remover','apagar','ver','migrar','diagnostico']);
 });
 test('emojis padrão e customizados geram chaves',()=>{
  assert.equal(validEmojiText('🧩'),true);
@@ -26,4 +26,48 @@ test('painel informa como adicionar e retirar cargo',()=>{
   emoji_roles:[{emoji:'🧩',role_id:'123456789012345678'}]}).toJSON();
  assert.match(embed.description,/🧩/);
  assert.match(embed.description,/Retire sua reação/);
+});
+
+test('Criar painel publica como bot e não cria webhooks',async()=>{
+ const guildId='123456789012345678',botId='987654321098765432';
+ const role={id:'333333333333333333',name:'Mods',managed:false,guild:{id:guildId},
+   permissions:new PermissionsBitField(0n),comparePositionTo:()=>-1};
+ const permissions={has:()=>true};
+ const sent=[];
+ const channel={
+   id:'222222222222222222',guildId,type:0,permissionsFor:()=>permissions,
+   fetchWebhooks:()=>{throw Error('Não deveria buscar webhook');},
+   send:async payload=>{
+     sent.push(payload);
+     return {id:'444444444444444444',react:async()=>{},
+       delete:async()=>{throw Error('Não deveria excluir mensagem válida')}};
+   }
+ };
+ const botMember={permissions,roles:{highest:{id:'555555555555555555'}}};
+ const guild={id:guildId,members:{me:botMember},channels:{}};
+ role.guild=guild;
+ let saved,reply;
+ const store={persistent:true,db:{from:()=>({upsert:value=>({value})})},
+   requireResult:async query=>{saved=query.value}};
+ const handler=new ReactionRolePanels({store,client:{user:{id:botId}},guildId});
+ await handler.handleCommand({
+   commandName:'cargosreacao',guildId,guild,channel,memberPermissions:{has:()=>true},
+   options:{
+     getSubcommand:()=> 'criar',
+     getRole:()=>role,getChannel:()=>null,
+     getString:key=>({emoji:'🧩',titulo:'Escolha cargos',descricao:'Reaja'}[key])
+   },
+   deferReply:async()=>{},editReply:async text=>{reply=text;return text}
+ });
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].embeds[0].data.title,'Escolha cargos');
+ assert.equal(saved.message_id,'444444444444444444');
+ assert.equal(saved.webhook_id,'');
+ assert.match(reply.content,/Painel publicado/);
+});
+test('Comando migrar está disponível e informa que mensagens antigas mudam de autor',()=>{
+ const cmd=reactionRoleCommands()[0];
+ const migrating=cmd.options.find(x=>x.name==='migrar');
+ assert.ok(migrating);
+ assert.match(migrating.description,/webhook|Duckzinha/);
 });
