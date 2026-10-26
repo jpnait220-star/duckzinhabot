@@ -1,0 +1,47 @@
+name: Checar vozes naturais para Duckzinha
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [asasa]
+    paths:
+      - ".github/workflows/check-natural-voice.yml"
+
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Testar vozes neurais Edge sem API paga
+        env:
+          NODE_NO_WARNINGS: 1
+        run: |
+          node --input-type=module <<'EOF'
+          import {EdgeTTS,Constants} from '@andresaya/edge-tts';
+          const candidates=[
+            'pt-BR-GiovannaNeural','pt-BR-ManuelaNeural',
+            'pt-BR-BrendaNeural','pt-BR-LeilaNeural',
+            'pt-BR-ThalitaMultilingualNeural','pt-BR-FranciscaNeural'
+          ];
+          for(const voice of candidates){
+            try{
+              const tts=new EdgeTTS();
+              const audio=await tts.generate('Oi, pessoal! Tudo bem com vocês?',voice,{
+                pitch:'+0Hz',rate:'-2%',volume:'+0%',
+                outputFormat:Constants.OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS,
+                timeout:10000
+              });
+              const bytes=Buffer.from(audio?.audio||[]);
+              const valid=bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3]));
+              console.log(voice+': '+(valid?'OK':'INVALID')+' ('+bytes.length+' bytes)');
+            }catch(e){
+              console.log(voice+': FAIL '+String(e.message||e).slice(0,140));
+            }
+          }
+          EOF
