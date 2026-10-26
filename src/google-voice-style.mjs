@@ -35,7 +35,8 @@ export function googleVoicePreset(voice,tone='auto'){
   if(!item)throw Error('Estilo de voz desconhecido: '+String(voice));
   const variation={
     auto:[1,1],animada:[1.10,1.13],calma:[0.92,0.84],
-    curiosa:[1.02,1.06],sonolenta:[0.90,0.79]
+    // 8% mais afinada que a configuração curiosa anterior, sem acelerar a fala.
+    curiosa:[1.02*1.08,1.06],sonolenta:[0.90,0.79]
   }[tone]||[1,1];
   return {
     pitch:Math.min(1.52,Math.max(0.72,item[0]*variation[0])),
