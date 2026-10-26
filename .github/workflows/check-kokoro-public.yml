@@ -1,0 +1,35 @@
+name: Verificar acesso publico a imagem Kokoro
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [asasa]
+    paths:
+      - ".github/workflows/check-kokoro-public.yml"
+
+jobs:
+  anonymous-pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checar manifesto como visitante sem login
+        shell: bash
+        run: |
+          set -eu
+          repo='jpnait220-star/duckzinha-kokoro-altare'
+          resp=$(curl -sS -w '\n%{http_code}' "https://ghcr.io/token?scope=repository:$repo:pull&service=ghcr.io")
+          status=$(printf '%s\n' "$resp" | tail -n 1)
+          echo "Token HTTP status: $status"
+          [[ "$status" == 200 ]] || exit 1
+          token=$(printf '%s\n' "$resp" | sed '$d' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("token",""))')
+          [[ -n "$token" ]] || { echo 'Anonymous token unavailable'; exit 1; }
+          manifest_status=$(curl -sS -o /tmp/manifest.json -w '%{http_code}' \
+            -H "Authorization: Bearer $token" \
+            -H 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json' \
+            "https://ghcr.io/v2/$repo/manifests/latest")
+          echo "Anonymous manifest HTTP status: $manifest_status"
+          if [[ "$manifest_status" != 200 ]]; then
+            echo "Not available anonymously; set only this package to public."
+            exit 1
+          fi
+          echo 'Package is publicly readable.'
