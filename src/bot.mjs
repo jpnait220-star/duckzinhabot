@@ -6,7 +6,7 @@ import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,Channel
 import {DuckStore} from './store.mjs';
 import {DuckChatHistory} from './duck-chat-history.mjs';
 import {isSelfIdentityQuestion,findSelfNameInHistory,identityAnswer} from './duck-self-identity.mjs';
-import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
+import {familiarityLabel,imageReactionKind,complimentToDuck,maySendImageReaction,ticketGuide} from './community-social.mjs';
 import {affinitySignal,affinityStyle,nextAffinity} from './affinity.mjs';
 import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.mjs';
 import {customEmojiEnv,customEmojiId,findCustomEmoji} from './emoji-reactions.mjs';
@@ -249,7 +249,24 @@ async function findReactionFile(type){
 
 const lastImageByChannel=new Map(),lastImageByUser=new Map();
 async function maybeReactWithDuckEmoji(message,content=message.content){
-  let type=imageReactionKind(content);
+  const botId=client.user?.id;
+  const previous=recentExchange.get(message.author.id);
+  const replyToBot=Boolean(botId&&(
+    message.mentions?.users?.has(botId)||
+    message.mentions?.repliedUser?.id===botId||
+    (previous?.channelId===message.channelId&&
+      message.reference?.messageId===previous.botMessageId)
+  ));
+  // Allow conversational compliments like "vc é incrível" immediately after
+  // Duckzinha replied to the same member, without reacting to praise of others.
+  const channelTurns=[...serverRecent].reverse().find(entry=>
+    entry.channelId===message.channelId&&entry.id!==message.id);
+  const recentToBot=Boolean(previous?.channelId===message.channelId&&
+    Date.now()-previous.at<60_000&&channelTurns?.id===previous.botMessageId&&
+    /\b(?:voce|você|vc|cê|ce|tu|te|tua|sua|seu)\b/i.test(content));
+  const botDirected=replyToBot||recentToBot||/\bduckzinha+\b/i.test(content);
+  const praise=complimentToDuck(content,{directed:botDirected});
+  let type=imageReactionKind(content,{botDirected});
   if(!type && CF_ACCOUNT && CF_TOKEN && canAnalyzeReactionText(content)){
     // Usar a IA só para mensagens públicas que as regras locais não entenderam.
     // Limitar chamadas para não consultar toda mensagem comum do servidor.
@@ -266,7 +283,7 @@ async function maybeReactWithDuckEmoji(message,content=message.content){
     now:Date.now(),lastGlobal:lastImageReactionAt,
     lastChannel:lastImageByChannel.get(message.channelId)||0,
     lastUser:lastImageByUser.get(message.author.id)||0,
-    roll:Math.random(),isGreeting:type==='ola'
+    roll:Math.random(),isGreeting:type==='ola',isCompliment:type==='fofo'&&praise
   }))return;
   replyingWithImage=true;
   try{
