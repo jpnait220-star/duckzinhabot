@@ -8,6 +8,6 @@ test('bot speaks through Edge TTS without trying external Kyoko/Piper engines',a
  assert.equal(source.includes("from './duck-open-tts.mjs'"),false);
  assert.equal(source.includes('tryOpenTtsSpeech('),false);
  assert.ok(source.match(/const audio=await synthesizeDuckSpeech\(/g)?.length>=2);
- assert.equal(DEFAULT_VOICE,'pt-BR-ThalitaMultilingualNeural');
- assert.equal(voiceLabel(DEFAULT_VOICE),'Thalita • Natural');
+ assert.equal(DEFAULT_VOICE,'pt-BR-ThalitaConversaNeural');
+ assert.equal(voiceLabel(DEFAULT_VOICE),'Thalita • Conversa Natural');
 });
