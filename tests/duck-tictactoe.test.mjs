@@ -75,7 +75,8 @@ test('vitória conclui partida e desabilita todos os botões',async()=>{
  await f.game.choose({...f.interaction,customId:'duckttt:'+current.id+':2'});
  assert.match(f.updated.content,/Você venceu/);
  assert.equal(f.game.games.size,0);
- assert.ok(f.updated.components.every(row=>row.components.every(b=>b.data.disabled)));
+ assert.ok(f.updated.components.slice(0,3).every(row=>row.components.every(b=>b.data.disabled)));
+ assert.equal(f.updated.components[3].components[0].data.label,'Jogar novamente');
  await f.game.choose({...f.interaction,customId:'duckttt:'+current.id+':5'});
  assert.match(f.reply.content,/terminou/);
  f.game.shutdown();
@@ -85,6 +86,7 @@ test('encerra por inatividade, limpa a partida e permite iniciar outra',async()=
  f.advanceTime(90000);
  await f.callback();
  assert.match(f.edit.content,/inatividade/);
+ assert.equal(f.edit.components[3].components[0].data.custom_id,'duckagain:ttt:333333333333333333');
  assert.equal(f.game.games.size,0);
  await f.game.start(f.interaction);
  assert.equal(f.game.games.size,1);
