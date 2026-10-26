@@ -19,7 +19,7 @@ test('não pode atribuir cargo acima da bot ou com permissão perigosa',()=>{
   permissions:new PermissionsBitField(perms),comparePositionTo:()=>position-5};}
  assert.equal(validReactionRole(role(2),bot,guild),true);
  assert.equal(validReactionRole(role(7),bot,guild),false);
- assert.equal(validReactionRole(role(2,8),bot,guild),false);
+ assert.equal(validReactionRole(role(2,8n),bot,guild),false);
 });
 test('painel informa como adicionar e retirar cargo',()=>{
  const embed=panelEmbed({title:'Escolha cargos',description:'Clique nas reações',
