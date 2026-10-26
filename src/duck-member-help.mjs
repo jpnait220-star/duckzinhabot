@@ -17,7 +17,7 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
  {title:'🦆 Perfil, amizade e voz',commands:[
   ['/avatar','Abre o Studio para personalizar seu pato e salvar visuais.'],
   ['/ver pessoa','Mostra o avatar seu ou de outro membro.'],
-  ['/perfil','Mostra avatar, recorde e sequência de quiz.'],
+  ['/perfil','Mostra avatar e recorde de quiz.'],
   ['/card','Gera um cartão do membro com avatar e moedas.'],
   ['/inventario','Consulta os cinco visuais cosméticos salvos.'],
   ['/amizade','Consulta a familiaridade das suas conversas públicas com ela.'],
@@ -31,7 +31,7 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
  {title:'🎮 Jogos e economia',commands:[
   ['/jogo quiz','Quiz público com cinco níveis e perguntas em sequência.'],
   ['/campeonato iniciar','Campeonato público; só quem acerta avança de rodada.'],
-  ['/minigame','Escolha entre quiz, desafios de pistas, anime, mobs, blocos, emojis, lógica, matemática, Pedra-Papel-Tesoura, Jogo da Velha e Quiz Streak.'],
+  ['/minigame','Escolha entre quiz, desafios de pistas, anime, mobs, blocos, emojis, lógica, matemática, Pedra-Papel-Tesoura, Jogo da Velha. Ao final, use o botão Jogar novamente.'],
   ['/coinflip','Desafia outro membro em três rodadas de cara ou coroa, sem apostas.'],
   ['/moedas','Consulta seu saldo de moedas de pato.'],
   ['/enviar','Envia de 1 a 500 moedas para outro membro.'],
@@ -80,7 +80,7 @@ export function memberHelpEmbeds(embed,category='todas'){
   entries[gamesIndex].setDescription(entries[gamesIndex].data.description+
    '\n\n🧩 **Modos do /minigame:** aleatório, verdadeiro/falso, anime, '+
    'adivinhe personagem, mob ou bloco, Minecraft, geografia, matemática, '+
-   'emojis, lógica, Jogo da Velha, Pedra-Papel-Tesoura e Quiz Streak.\n'+
+   'emojis, lógica, Jogo da Velha, Pedra-Papel-Tesoura. Use o botão Jogar novamente ao fim das partidas.\n'+
    '🏆 **Recompensas:** +5 moedas por vitória ou acerto nos minigames; '+
    'Coinflip: 15 moedas ao vencedor. Sem apostas. '+
    'O Jogo da Velha limita a cinco vitórias premiadas a cada duas horas.\n'+
