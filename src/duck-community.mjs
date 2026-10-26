@@ -7,6 +7,7 @@ import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
 import {DuckBadgeShop} from './duck-badges.mjs';
 import {EXTRA_MINIGAMES} from './duck-extra-minigames.mjs';
 import {GUESS_GAMES} from './duck-guess-games.mjs';
+import {replayRow} from './duck-replay.mjs';
 
 const priv=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export function naturalTeaching(text){
@@ -67,15 +68,11 @@ export class DuckCommunity{
        'Nenhuma recompensa disponível. Use /afk iniciar.'));
    }
  }
- async game(interaction){
+ async game(interaction,forcedKind=null){
    const id=randomUUID().slice(0,12);
-   const kind=interaction.options.getString('tipo')||'aleatorio';
+   const kind=forcedKind||interaction.options?.getString?.('tipo')||'aleatorio';
    if(kind==='pedra-papel-tesoura')return this.rps.start(interaction);
    if(kind==='jogo-da-velha')return this.ttt.start(interaction);
-   if(kind==='quiz-streak'){
-     if(!this.extras?.startGame)return interaction.reply(priv('O Quiz Streak não está disponível agora.'));
-     return this.extras.startGame(interaction,{streakMode:true});
-   }
    const key=interaction.guildId+':'+interaction.channelId;
    if(this.games.has(key)&&Date.now()-this.games.get(key).time<30000)
      return interaction.reply(priv('Já existe um minigame ativo neste canal.'));
@@ -104,8 +101,32 @@ export class DuckCommunity{
      await message.edit({content:'🏁 Resultado: '+q.label+'\n✅ '+q.options[q.answer]+'\n🏆 Acertaram: '+
        (winners.length?winners.slice(0,20).map(uid=>'<@'+uid+'>').join(', '):'ninguém')+
        (credited?'\n'+winRewardLabel+' para '+credited+' vencedor(es).':''),
-       components:[],allowedMentions:{parse:[]}}).catch(()=>{});
+       components:[replayRow('mini',{ownerId:kind})],allowedMentions:{parse:[]}}).catch(()=>{});
    },30000);timer.unref?.();
+ }
+ async replay(interaction){
+  const [prefix,type,kind,opponent]=String(interaction.customId||'').split(':');
+  if(prefix!=='duckagain'||!interaction.guildId||!interaction.channelId)
+   return interaction.reply(priv('Use esse botão em um canal do servidor.'));
+  if(type==='mini'){
+   if(!/^[a-z0-9-]{1,65}$/.test(kind))return interaction.reply(priv('Minigame inválido.'));
+   return this.game(interaction,kind);
+  }
+  if(type==='rps')return this.rps.start(interaction);
+  if(type==='ttt'){
+   if(kind!==interaction.user.id)return interaction.reply(priv('Só quem iniciou essa partida pode pedir revanche.'));
+   return this.ttt.start(interaction);
+  }
+  if(type==='quiz')return this.extras?.startGame?.(interaction);
+  if(type==='championship')return this.extras?.startGame?.(interaction,{championship:true});
+  if(type==='coin'){
+   if(kind!==interaction.user.id)return interaction.reply(priv('Só quem enviou o desafio pode convidar novamente.'));
+   if(!/^[0-9]{1,25}$/.test(opponent))return interaction.reply(priv('Desafio inválido.'));
+   const member=await interaction.guild?.members?.fetch(opponent).catch(()=>null);
+   if(!member)return interaction.reply(priv('O outro jogador não está disponível no servidor.'));
+   return this.coin.challenge({...interaction,options:{getUser:()=>member.user||{id:opponent,bot:member.user?.bot||false}}});
+  }
+  return interaction.reply(priv('Esse jogo não está mais disponível.'));
  }
  async rpsButton(interaction){return this.rps.choose(interaction);}
  async tttButton(interaction){return this.ttt.choose(interaction);}
