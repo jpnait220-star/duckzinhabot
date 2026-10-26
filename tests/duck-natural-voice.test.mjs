@@ -37,9 +37,9 @@ test('Toda fala da call usa estilo curioso suave sem trocar timbre nem mudar tex
  assert.deepEqual(natural,{voice:DEFAULT_VOICE,mood:'curiosa'});
  assert.deepEqual(callVoiceStyle('pt-BR-FranciscaNeural'),
    {voice:'pt-BR-FranciscaNeural',mood:'curiosa'});
- assert.equal(edgeVoiceOptions(natural.voice,natural.mood).pitch,'+3Hz');
+ assert.equal(edgeVoiceOptions(natural.voice,natural.mood).pitch,'+19Hz');
  assert.equal(edgeVoiceOptions(natural.voice,natural.mood).rate,'+8%');
- assert.equal(googleVoicePreset(natural.voice,natural.mood).pitch,1.02);
+ assert.equal(googleVoicePreset(natural.voice,natural.mood).pitch,1.02*1.08);
  assert.equal(googleVoicePreset(natural.voice,natural.mood).speed,0.97*1.06);
  // Apenas a síntese de voz da call usa o preset fixo.
  // Os comandos do painel e o texto das respostas continuam independentes.
