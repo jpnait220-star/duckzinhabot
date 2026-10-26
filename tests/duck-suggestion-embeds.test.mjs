@@ -116,3 +116,25 @@ test('comando /sugerir publica embed no canal correto',async()=>{
  assert.equal(payload.components[0].components[0].data.label,'Apoiar');
  assert.equal(confirmation,'✅ Sua sugestão foi publicada!');
 });
+
+test('aprovar sugestão preserva apoiadores e encerra botão sem perder embed',async()=>{
+ const {store,voters}=makeStore();
+ voters.add(supporter);
+ voters.add(voter2);
+ const plus=new DuckCommunityPlus({store});
+ const edited=[],replied=[];
+ const message={edit:async payload=>{edited.push(payload);return message;}};
+ const channel={messages:{fetch:async()=>message}};
+ await plus.suggestionAdmin({
+  guildId:guild,memberPermissions:{has:()=>true},
+  options:{getInteger:()=>42,getSubcommand:()=> 'aprovar'},
+  guild:{channels:{fetch:async()=>channel}},
+  reply:async value=>{replied.push(value);}
+ });
+ assert.equal(edited.length,1);
+ assert.equal(edited[0].embeds[0].data.fields[1].value,'**2**');
+ assert.match(edited[0].embeds[0].data.description,/Aprovada/);
+ assert.equal(edited[0].components.length,0);
+ assert.match(edited[0].embeds[0].data.fields[2].value,new RegExp(supporter));
+ assert.match(replied[0].content,/avaliada/);
+});
