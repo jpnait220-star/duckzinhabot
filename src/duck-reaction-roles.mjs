@@ -15,7 +15,8 @@ export function reactionRoleCommands(){
   .addSubcommand(s=>role(emoji(id(s.setName('adicionar').setDescription('Adicionar emoji e cargo')))))
   .addSubcommand(s=>emoji(id(s.setName('remover').setDescription('Remover uma opção de cargo'))))
   .addSubcommand(s=>id(s.setName('apagar').setDescription('Excluir painel')))
-  .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas'))).toJSON()];
+  .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas')))
+  .addSubcommand(s=>s.setName('diagnostico').setDescription('Verificar permissões e banco antes de criar um painel')).toJSON()];
 }
 export function validReactionRole(role,botMember,guild){
  return Boolean(role&&botMember&&guild&&role.guild?.id===guild.id&&role.id!==guild.id&&
@@ -91,8 +92,38 @@ export class ReactionRolePanels{
   if(!me.permissions.has(PermissionFlagsBits.ManageRoles))throw Error('Preciso de Gerenciar cargos.');
   const p=channel.permissionsFor(me);
   if(!p?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,
-   PermissionFlagsBits.AddReactions,PermissionFlagsBits.ManageWebhooks]))
-   throw Error('Preciso de Ver canal, Ler histórico, Adicionar reações e Gerenciar webhooks.');
+   PermissionFlagsBits.AddReactions,PermissionFlagsBits.ManageWebhooks,PermissionFlagsBits.EmbedLinks]))
+   throw Error('Preciso de Ver canal, Ler histórico, Adicionar reações, Inserir links e Gerenciar webhooks. Execute /cargosreacao diagnostico no canal do painel.');
+ }
+ async diagnose(i,send){
+  const guild=i.guild,channel=i.channel;
+  const me=guild.members.me||await guild.members.fetchMe();
+  const requirements=[
+   ['Gerenciar cargos',me.permissions.has(PermissionFlagsBits.ManageRoles)],
+   ['Gerenciar webhooks (neste canal)',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ManageWebhooks))],
+   ['Ver canal',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ViewChannel))],
+   ['Ler histórico de mensagens',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ReadMessageHistory))],
+   ['Adicionar reações',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.AddReactions))],
+   ['Inserir links (embeds)',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.EmbedLinks))]
+  ];
+  let database='❌ Supabase não configurado na hospedagem';
+  if(this.store.persistent){
+   try{
+    await this.store.requireResult(this.store.db.from('duckzinha_reaction_roles')
+     .select('message_id').eq('guild_id',this.guildId).limit(1));
+    database='✅ Supabase e tabela duckzinha_reaction_roles acessíveis';
+   }catch(err){
+    database='❌ Supabase: '+String(err?.message||err).slice(0,180);
+   }
+  }
+  const missing=requirements.filter(x=>!x[1]).length;
+  return send('**🦆 Diagnóstico de cargos por reação**\n'+
+   requirements.map(([name,ok])=>(ok?'✅ ':'❌ ')+name).join('\n')+
+   '\n'+database+
+   '\n🔼 Cargo mais alto da Duckzinha: <@&'+me.roles.highest.id+'>'+
+   '\n\n'+(missing?'Corrija as permissões marcadas com ❌ nas configurações do servidor/canal.':
+    'Permissões desse canal OK. Verifique se o cargo desejado está abaixo da Duckzinha e não é administrativo.')+
+   '\nSe o painel for para outro canal, execute este diagnóstico naquele canal.');
  }
  async handleCommand(i){
   if(i.commandName!=='cargosreacao')return false;
@@ -101,8 +132,9 @@ export class ReactionRolePanels{
   await i.deferReply({flags:MessageFlags.Ephemeral});
   const send=text=>i.editReply({content:text,allowedMentions:{parse:[]}});
   try{
-   this.ensure();
    const sub=i.options.getSubcommand();
+   if(sub==='diagnostico')return this.diagnose(i,send);
+   this.ensure();
    if(sub==='criar'){
     const channel=i.options.getChannel('canal')||i.channel;
     if(!channel||channel.guildId!==this.guildId||
