@@ -1,0 +1,186 @@
+import {EmbedBuilder,SlashCommandBuilder,PermissionFlagsBits,ChannelType,MessageFlags,parseEmoji} from 'discord.js';
+
+const unsafe=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageWebhooks,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.BanMembers,PermissionFlagsBits.KickMembers,PermissionFlagsBits.ModerateMembers,PermissionFlagsBits.MentionEveryone,PermissionFlagsBits.ViewAuditLog,PermissionFlagsBits.ManageEvents,PermissionFlagsBits.ManageNicknames,PermissionFlagsBits.ManageThreads];
+const WEBHOOK_NAME='Duckzinha • Cargos';
+export function reactionRoleCommands(){
+ const id=s=>s.addStringOption(o=>o.setName('mensagem').setDescription('ID da mensagem do painel').setRequired(true).setMinLength(17).setMaxLength(22));
+ const emoji=s=>s.addStringOption(o=>o.setName('emoji').setDescription('Ex.: 🧩 ou <:nome:id>').setRequired(true).setMaxLength(80));
+ const role=s=>s.addRoleOption(o=>o.setName('cargo').setDescription('Cargo que será concedido').setRequired(true));
+ return [new SlashCommandBuilder().setName('cargosreacao').setDescription('Criar painéis de cargos por reação')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false)
+  .addSubcommand(s=>role(emoji(s.setName('criar').setDescription('Publicar painel com webhook')
+    .addStringOption(o=>o.setName('titulo').setDescription('Título').setRequired(true).setMaxLength(90))
+    .addStringOption(o=>o.setName('descricao').setDescription('Texto do painel').setRequired(true).setMaxLength(700))))
+    .addChannelOption(o=>o.setName('canal').setDescription('Canal, se diferente do atual').addChannelTypes(ChannelType.GuildText,ChannelType.GuildAnnouncement)))
+  .addSubcommand(s=>role(emoji(id(s.setName('adicionar').setDescription('Adicionar emoji e cargo')))))
+  .addSubcommand(s=>emoji(id(s.setName('remover').setDescription('Remover uma opção de cargo'))))
+  .addSubcommand(s=>id(s.setName('apagar').setDescription('Excluir painel')))
+  .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas'))).toJSON()];
+}
+export function validReactionRole(role,botMember,guild){
+ return Boolean(role&&botMember&&guild&&role.guild?.id===guild.id&&role.id!==guild.id&&
+  !role.managed&&!unsafe.some(flag=>role.permissions.has(flag))&&
+  role.comparePositionTo(botMember.roles.highest)<0);
+}
+export function emojiKey(value){
+ if(value&&typeof value==='object')return String(value.id||value.name||'');
+ const text=String(value||'').trim();
+ return parseEmoji(text)?.id||text;
+}
+export function validEmojiText(value){
+ const text=String(value||'').trim();
+ if(!text||text.length>80||/[\r\n@]/.test(text))return false;
+ const parsed=parseEmoji(text);
+ if(parsed?.id)return /^\d{17,22}$/.test(parsed.id);
+ return text.length<=32&&/\p{Extended_Pictographic}/u.test(text)&&
+  !/[A-Za-z0-9]/.test(text.replace(/\uFE0F/g,''));
+}
+export function panelEmbed(row){
+ const choices=row.emoji_roles.map(x=>x.emoji+' — <@&'+x.role_id+'>').join('\n');
+ return new EmbedBuilder().setColor(0xf5cc57).setTitle(row.title)
+  .setDescription(row.description+'\n\n'+choices+
+   '\n\n**Reaja para ganhar o cargo. Retire sua reação para remover o cargo.**')
+  .setFooter({text:'Duckzinha • Cargos da comunidade'});
+}
+export class ReactionRolePanels{
+ constructor({store,client,guildId,onError=()=>{}}){
+  this.store=store;this.client=client;this.guildId=guildId;this.onError=onError;this.cache=new Map();
+ }
+ ensure(){if(!this.store.persistent)throw Error('O Supabase precisa estar configurado para salvar o painel.');}
+ async get(id){
+  if(!/^\d{17,22}$/.test(String(id)))return null;
+  const hit=this.cache.get(String(id));
+  if(hit&&hit.until>Date.now())return hit.data;
+  if(!this.store.persistent)return null;
+  const data=await this.store.requireResult(this.store.db.from('duckzinha_reaction_roles')
+   .select('message_id,guild_id,channel_id,webhook_id,title,description,emoji_roles')
+   .eq('guild_id',this.guildId).eq('message_id',id).maybeSingle());
+  this.cache.set(String(id),{data,until:Date.now()+30000});
+  return data;
+ }
+ async save(data){
+  this.ensure();
+  await this.store.requireResult(this.store.db.from('duckzinha_reaction_roles')
+    .upsert(data,{onConflict:'message_id'}));
+  this.cache.set(String(data.message_id),{data,until:Date.now()+30000});
+ }
+ async del(id){
+  this.ensure();
+  await this.store.requireResult(this.store.db.from('duckzinha_reaction_roles')
+   .delete().eq('guild_id',this.guildId).eq('message_id',id));
+  this.cache.delete(String(id));
+ }
+ async webhook(channel,id=''){
+  const hooks=await channel.fetchWebhooks();
+  let hook=id?hooks.get(id):hooks.find(h=>h.owner?.id===this.client.user.id&&h.name===WEBHOOK_NAME&&h.token);
+  if(!hook&&!id)hook=await channel.createWebhook({name:WEBHOOK_NAME,reason:'Painel de cargos da comunidade'});
+  if(!hook?.token)throw Error('Preciso de Gerenciar webhooks nesse canal.');
+  return hook;
+ }
+ async emoji(guild,raw){
+  const text=String(raw||'').trim();
+  if(!validEmojiText(text))throw Error('Emoji inválido. Use 🧩 ou <:nome:id>.');
+  const p=parseEmoji(text);
+  if(p?.id&&!await guild.emojis.fetch(p.id).catch(()=>null))
+   throw Error('Esse emoji personalizado não está disponível.');
+  return text;
+ }
+ async checkRole(guild,channel,role){
+  const me=guild.members.me||await guild.members.fetchMe();
+  if(!validReactionRole(role,me,guild))throw Error('O cargo deve ficar abaixo da Duckzinha e não pode ter poderes de moderação.');
+  if(!me.permissions.has(PermissionFlagsBits.ManageRoles))throw Error('Preciso de Gerenciar cargos.');
+  const p=channel.permissionsFor(me);
+  if(!p?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,
+   PermissionFlagsBits.AddReactions,PermissionFlagsBits.ManageWebhooks]))
+   throw Error('Preciso de Ver canal, Ler histórico, Adicionar reações e Gerenciar webhooks.');
+ }
+ async handleCommand(i){
+  if(i.commandName!=='cargosreacao')return false;
+  if(i.guildId!==this.guildId||!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+   return i.reply({content:'Somente a equipe pode configurar o painel.',flags:MessageFlags.Ephemeral});
+  await i.deferReply({flags:MessageFlags.Ephemeral});
+  const send=text=>i.editReply({content:text,allowedMentions:{parse:[]}});
+  try{
+   this.ensure();
+   const sub=i.options.getSubcommand();
+   if(sub==='criar'){
+    const channel=i.options.getChannel('canal')||i.channel;
+    if(!channel||channel.guildId!==this.guildId||
+      ![ChannelType.GuildText,ChannelType.GuildAnnouncement].includes(channel.type))
+      throw Error('Selecione um canal de texto do servidor.');
+    const role=i.options.getRole('cargo');
+    await this.checkRole(i.guild,channel,role);
+    const e=await this.emoji(i.guild,i.options.getString('emoji'));
+    const title=i.options.getString('titulo').trim(),description=i.options.getString('descricao').trim();
+    if(!title||!description)throw Error('Título e descrição obrigatórios.');
+    const hook=await this.webhook(channel);
+    const data={guild_id:this.guildId,channel_id:channel.id,webhook_id:hook.id,title,description,
+      emoji_roles:[{emoji:e,role_id:role.id}]};
+    const posted=await hook.send({embeds:[panelEmbed(data)],allowedMentions:{parse:[]}});
+    try{
+     const msg=await channel.messages.fetch(posted.id);
+     await msg.react(e);
+     data.message_id=msg.id;await this.save(data);
+    }catch(err){await hook.deleteMessage(posted.id).catch(()=>{});throw err;}
+    return send('✅ Painel publicado em <#'+channel.id+'>!\nID: '+data.message_id+
+      '\nAdicione mais opções com /cargosreacao adicionar.');
+   }
+   const id=i.options.getString('mensagem'),row=await this.get(id);
+   if(!row)throw Error('Painel não encontrado. Confira o ID.');
+   const channel=await i.guild.channels.fetch(row.channel_id);
+   if(!channel)throw Error('Canal do painel não encontrado.');
+   if(sub==='ver')return send('**'+row.title+'**\n'+row.emoji_roles.map(x=>x.emoji+' → <@&'+x.role_id+'>').join('\n'));
+   if(sub==='apagar'){
+    await this.del(id);
+    try{(await this.webhook(channel,row.webhook_id)).deleteMessage(id).catch(err=>this.onError('apagar',err));}
+    catch(err){this.onError('webhook',err);}
+    return send('✅ Painel desativado, não atribui mais cargos.');
+   }
+   const e=await this.emoji(i.guild,i.options.getString('emoji')),key=emojiKey(e);
+   const options=[...row.emoji_roles];
+   if(sub==='adicionar'){
+    const role=i.options.getRole('cargo');
+    await this.checkRole(i.guild,channel,role);
+    if(options.length>=12)throw Error('Máximo de 12 opções por painel.');
+    if(options.some(x=>emojiKey(x.emoji)===key))throw Error('Emoji já cadastrado.');
+    options.push({emoji:e,role_id:role.id});
+   }else if(sub==='remover'){
+    if(options.length<2)throw Error('Use /cargosreacao apagar para remover a última opção.');
+    const at=options.findIndex(x=>emojiKey(x.emoji)===key);
+    if(at<0)throw Error('Emoji não encontrado.');
+    options.splice(at,1);
+   }
+   const updated={...row,emoji_roles:options};
+   const hook=await this.webhook(channel,row.webhook_id);
+   const msg=await channel.messages.fetch(id);
+   if(sub==='adicionar')await msg.react(e);
+   await hook.editMessage(id,{embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+   await this.save(updated);
+   if(sub==='remover'){
+    const reaction=msg.reactions.cache.find(x=>emojiKey(x.emoji)===key);
+    await reaction?.remove().catch(err=>this.onError('limpar reação',err));
+   }
+   return send('✅ Painel atualizado com '+options.length+' cargo(s).');
+  }catch(err){this.onError('comando',err);return send('⚠️ '+String(err.message||err).slice(0,350));}
+ }
+ async handleReaction(reaction,user,adding){
+  if(user?.bot||reaction.message?.guildId!==this.guildId)return;
+  try{
+   if(reaction.partial)reaction=await reaction.fetch();
+   const row=await this.get(reaction.message.id);
+   if(!row||row.channel_id!==reaction.message.channelId)return;
+   const selected=row.emoji_roles.find(x=>emojiKey(x.emoji)===emojiKey(reaction.emoji));
+   if(!selected)return;
+   const guild=reaction.message.guild||await this.client.guilds.fetch(this.guildId);
+   const member=await guild.members.fetch(user.id).catch(()=>null);
+   if(!member||member.user?.bot)return;
+   const role=await guild.roles.fetch(selected.role_id).catch(()=>null);
+   const me=guild.members.me||await guild.members.fetchMe();
+   if(!validReactionRole(role,me,guild)||!me.permissions.has(PermissionFlagsBits.ManageRoles))return;
+   if(adding&&!member.roles.cache.has(role.id))
+    await member.roles.add(role,'Selecionou cargo por reação na Duckzinha');
+   if(!adding&&member.roles.cache.has(role.id))
+    await member.roles.remove(role,'Removeu reação do painel Duckzinha');
+  }catch(err){this.onError(adding?'adicionar':'remover',err);}
+ }
+}
