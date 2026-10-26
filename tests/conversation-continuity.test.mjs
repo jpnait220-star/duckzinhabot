@@ -14,7 +14,7 @@ test('e o jogo retoma a pergunta anterior sem repetir Cyberpunk',()=>{
   assert.equal(followUpReference('e a história?',history).length>0,true);
 });
 test('nova pergunta específica não herda assunto automaticamente',()=>{
-  assert.equal(followUpReference('Quem é Neymar Jr?',history),'');
+  assert.match(followUpReference('Quem é Neymar Jr?',history),/assunto novo|assunto anterior|mudar claramente de assunto/);
   assert.equal(followUpReference('e o jogo?',[]),'');
 });
 test('a IA recebe histórico pessoal mesmo quando existe conversa coletiva',async()=>{
@@ -33,10 +33,12 @@ test('a IA recebe histórico pessoal mesmo quando existe conversa coletiva',asyn
     assert.match(answer,/Cyberpunk 2077/);
     assert.ok(payload.messages.some(m=>m.role==='user'&&m.content==='O que é Cyberpunk?'));
     assert.ok(payload.messages.some(m=>m.role==='assistant'&&m.content.includes('Cyberpunk é')));
-    assert.ok(payload.messages[0].content.includes('CONTINUIDADE DA CONVERSA'));
+    assert.ok(payload.messages[0].content.includes('CONTEXTO CONVERSACIONAL'));
     assert.ok(payload.messages[0].content.includes('conversa diferente'));
     assert.match(payload.messages.at(-1).content,/Mensagem atual de João: e o jogo\?/);
-    assert.match(payload.messages.at(-1).content,/continuação da pergunta.*O que é Cyberpunk\?/i);
+    assert.doesNotMatch(payload.messages.at(-1).content,/esta é uma continuação da pergunta/i);
+    assert.match(payload.messages[0].content,/O que é Cyberpunk/);
+    assert.match(payload.messages[0].content,/Cyberpunk 2077/);
   }finally{
     globalThis.fetch=previous;
   }
