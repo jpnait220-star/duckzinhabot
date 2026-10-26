@@ -1,6 +1,7 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
+import {replayRow} from './duck-replay.mjs';
 export const RPS_MOVES=[
  {name:'Pedra',emoji:'✊'},
  {name:'Papel',emoji:'✋'},
@@ -47,8 +48,8 @@ export class DuckRockPaperScissors{
       '👥 **'+result.length+'** participantes\n'+
       '🏆 **'+wins+'** vitórias contra a Duckzinha\n'+
       '🦆 **'+losses+'** vitórias da Duckzinha\n'+
-      '🤝 **'+ties+'** empates\n\nQuer revanche? Abra outro /minigame!',
-      components:[],allowedMentions:{parse:[]}}).catch(()=>{});
+      '🤝 **'+ties+'** empates\n\nQuer revanche? Clique em **Jogar novamente**!',
+      components:[replayRow('rps')],allowedMentions:{parse:[]}}).catch(()=>{});
    },30000);
    game.timer?.unref?.();
   }catch(error){this.games.delete(key);throw error;}
