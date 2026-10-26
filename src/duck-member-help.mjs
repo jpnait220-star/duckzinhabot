@@ -43,7 +43,7 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
   ['/lembrete listar','Mostra os próximos lembretes agendados.'],
   ['/lembrete cancelar','Cancela um lembrete pelo ID.'],
   ['/resumo','Resume as mensagens recentes do canal público atual.'],
-  ['/sugerir','Envia uma ideia pública para votação da comunidade.'],
+  ['/sugerir','Envia ideias para votação somente no canal de sugestões <#1564105832306708631>.'],
   ['/evento listar','Mostra os próximos eventos agendados.']
  ]}
 ]);
@@ -94,7 +94,7 @@ export function memberHelpEmbeds(embed,category='todas'){
    '🏷️ **Emblemas:** a equipe publica a loja; membros usam os botões para comprar.\n'+
    '🖱️ **Menu de mensagem:** clique com o botão direito em uma mensagem para '+
    'Explicar, Resumir, Traduzir ou Pesquisar.\n'+
-   '📩 Banimentos e avisos podem chegar por DM se a pessoa permitir mensagens privadas.'
+   '💛 Participe dos eventos e envie sugestões no canal dedicado.'
   );
  }
  return entries;
