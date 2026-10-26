@@ -200,7 +200,7 @@ export async function runNewCommand(interaction,{
       .setDescription('Feito no Duckzinha Studio 💛\nPersonalize o seu usando `/avatar`.')
       .setImage('attachment://duckzinha-avatar.png');
     if(name==='perfil'&&memberUser.id===interaction.user.id)
-      embed.addFields({name:'🎮 Quiz Streak',value:'🏆 Recorde: '+extras.score(m.id)+'\n🔥 Sequência atual: '+extras.streak(m.id),inline:true});
+      embed.addFields({name:'🎮 Quiz',value:'🏆 Melhor rodada: '+extras.score(m.id),inline:true});
     await interaction.editReply({embeds:[embed],files:[attachment],allowedMentions:{parse:[]}});
     return true;
   }
