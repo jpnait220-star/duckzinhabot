@@ -35,10 +35,10 @@ const rows=[
 ];
 export const PT_BR_VOICES=Object.freeze(rows.map(([name,id,edgeId,pitch,rate,description])=>
   Object.freeze({name,id,edgeId,pitch,rate,description})));
-export const DEFAULT_VOICE='pt-BR-FranciscaNeural';
+export const DEFAULT_VOICE='pt-BR-ThalitaMultilingualNeural';
 const voiceMap=new Map(PT_BR_VOICES.map(x=>[x.id,x]));
 export function validVoice(value){return voiceMap.has(value);}
-export function voiceLabel(value){return voiceMap.get(value)?.name||'Francisca • Natural';}
+export function voiceLabel(value){return voiceMap.get(value)?.name||'Thalita • Natural';}
 export function voiceChoices(){return PT_BR_VOICES.map(x=>({name:x.name,value:x.id}));}
 export function edgeSpeechReady(){return true;}
 
