@@ -8,7 +8,7 @@ import {MEMBER_HELP_COMMANDS,MEMBER_HELP_SECTIONS,memberHelpEmbeds} from '../src
 // must update the help. Admin-only commands must never appear in the help.
 const adminCommands=new Set([
  'configurar','ensinar','ensinamentos','boxpvpadmin','painel',
- 'falar','novidade','sugestao','modlog','diario'
+ 'falar','novidade','sugestao','modlog','diario','cargosreacao'
 ]);
 const restrictedSubs=new Map([
  ['duckzinha',new Set(['reset','testevoz','voice'])],
