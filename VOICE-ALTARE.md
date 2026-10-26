@@ -4,11 +4,11 @@ A Duckzinha usa agora **Edge TTS** diretamente para falar na call. O Edge já es
 
 ## Escolher a voz
 
-O padrão para instalações novas/sem voz salva é **Thalita • Natural**, voz feminina em português brasileiro.
+O padrão para instalações novas/sem voz salva é **Thalita • Conversa Natural**, voz feminina em português brasileiro.
 
 Se a escolha antiga ficou salva no Supabase, o comando abaixo é necessário para trocar a voz efetiva:
 
-1. No Discord, execute `/duckzinha voice` e selecione **Thalita • Natural** (somente administrador).
+1. No Discord, execute `/duckzinha voice` e selecione **Thalita • Conversa Natural** (somente administrador).
 2. Entre na call e execute `/duckzinha entrar`.
 3. Execute `/duckzinha testevoz` para ouvir uma amostra.
 4. Marque @Duckzinha no chat da call para ouvir as respostas normais.
@@ -24,3 +24,7 @@ O teste informa o motor de áudio (`edge`, `google` ou `google-styled`) e duraç
 - Se aparecer `[Duckzinha] Falha de voz`, consulte o erro completo do Edge/Google e o estado do player no console.
 
 As opções de voz continuam disponíveis no comando `/duckzinha voice`. As variações Fofinha, Animada e Suave ajustam tom/ritmo; não são modelos adicionais de IA.
+
+## Limites de naturalidade
+
+O estilo **Conversa Natural** usa afinação neutra, velocidade moderada e menos exagero emocional. Não é uma voz nova do serviço Edge: é um preset sobre Thalita Multilingual, com fallback do Google. Quando Edge estiver indisponível, o Google costuma soar mais sintético; um preset local não substitui um motor neural de maior qualidade. O teste de compatibilidade do Edge em outubro de 2026 retornou `Unexpected server response: 200` para seis vozes brasileiras. Não configurar modelos que não passam nesse teste como garantia de voz nova.
