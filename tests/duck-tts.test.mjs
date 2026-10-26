@@ -5,13 +5,14 @@ import {runCommand,commandPayloads} from '../src/commands.mjs';
 import {googleVoicePreset,googleVoiceFilter} from '../src/google-voice-style.mjs';
 import {expressiveVoice} from '../src/duck-extras.mjs';
 import {
-  DEFAULT_VOICE,PT_BR_VOICES,voiceChoices,voiceLabel,validVoice,
+  DEFAULT_VOICE,PT_BR_VOICES,SELECTABLE_VOICES,voiceChoices,voiceLabel,validVoice,
   edgeSpeechReady,edgeVoiceOptions,synthesizeDuckSpeech,googleSpeechFallback
 } from '../src/duck-tts.mjs';
 
-test('Vinte e cinco estilos de voz aparecem no /duckzinha voice nome',()=>{
+test('menu oferece apenas timbres Edge distintos e preserva 25 presets legados',()=>{
   assert.equal(PT_BR_VOICES.length,25);
-  assert.equal(voiceChoices().length,25);
+  assert.equal(voiceChoices().length,9);
+  assert.equal(SELECTABLE_VOICES.length,9);
   assert.ok(voiceChoices().every(x=>x.value.startsWith('pt-BR-')));
   assert.equal(DEFAULT_VOICE,'pt-BR-ThalitaConversaNeural');
   assert.equal(voiceLabel(DEFAULT_VOICE),'Thalita • Conversa Natural');
@@ -19,11 +20,13 @@ test('Vinte e cinco estilos de voz aparecem no /duckzinha voice nome',()=>{
   assert.equal(validVoice('pt-BR-LeticiaNeural'),false);
   const choices=commandPayloads().find(x=>x.name==='duckzinha')
     .options.find(x=>x.name==='voice').options[0].choices;
-  assert.equal(choices.length,25);
+  assert.equal(choices.length,9);
   assert.ok(choices.some(x=>x.value==='pt-BR-FranciscaNeural'));
   assert.ok(choices.some(x=>x.value==='pt-BR-AntonioNeural'));
   assert.ok(choices.some(x=>x.name.includes('Portugal')));
-  assert.ok(choices.some(x=>x.name.includes('Fofinha')));
+  assert.ok(!choices.some(x=>x.name.includes('Fofinha')));
+  const edgeIds=choices.map(x=>PT_BR_VOICES.find(v=>v.id===x.value).edgeId);
+  assert.equal(new Set(edgeIds).size,edgeIds.length);
   assert.ok(choices.every(x=>/^pt-BR-[A-Za-z]+Neural$/.test(x.value)));
 });
 
