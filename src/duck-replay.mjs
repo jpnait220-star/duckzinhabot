@@ -7,15 +7,15 @@ export function replayRow(type,{ownerId='',opponentId=''}={}){
  if(!allowed.has(type))throw new Error('Unknown minigame replay type');
  let id='duckagain:'+type;
  if(type==='mini'){
-   if(!/^[\\p{L}\\p{N}-]{1,65}$/u.test(ownerId))throw new Error('Invalid minigame type');
+   if(!/^[a-z0-9-]{1,65}$/.test(ownerId))throw new Error('Invalid minigame type');
    id+=':'+ownerId;
  }
  if(type==='ttt'){
-   if(!/^\\d{1,25}$/.test(ownerId))throw new Error('Invalid game owner');
+   if(!/^[0-9]{1,25}$/.test(ownerId))throw new Error('Invalid game owner');
    id+=':'+ownerId;
  }
  if(type==='coin'){
-   if(!/^\\d{1,25}$/.test(ownerId)||!/^\\d{1,25}$/.test(opponentId))
+   if(!/^[0-9]{1,25}$/.test(ownerId)||!/^[0-9]{1,25}$/.test(opponentId))
      throw new Error('Invalid coinflip players');
    id+=':'+ownerId+':'+opponentId;
  }
