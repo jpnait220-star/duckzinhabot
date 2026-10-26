@@ -41,20 +41,23 @@ export class DuckChatHistory {
  }
  async append(id,question,answer){
   const userId=String(id);
-  const history=await this.get(userId);
-  const items=[...history,
-   {role:'user',content:String(question||'').slice(0,800)},
-   {role:'assistant',content:String(answer||'').slice(0,850)}
-  ].slice(-this.limit);
-  this.cache.set(userId,{items,updated:this.now()});
-  // Writing one member's updates in order prevents a late write from
-  // overwriting the latest turn. Keep RAM intact on database errors.
-  const last=this.pending.get(userId)||Promise.resolve();
-  const task=last.catch(()=>{}).then(()=>this.save(userId,items.slice()));
+  // Serialize both read/append AND write so simultaneous commands cannot
+  // replace each other's latest message with a stale copy.
+  const previous=this.pending.get(userId)||Promise.resolve();
+  const task=previous.catch(()=>{}).then(async()=>{
+   const history=await this.get(userId);
+   const items=[...history,
+    {role:'user',content:String(question||'').slice(0,800)},
+    {role:'assistant',content:String(answer||'').slice(0,850)}
+   ].slice(-this.limit);
+   this.cache.set(userId,{items,updated:this.now()});
+   try{await this.save(userId,items.slice());}
+   catch(error){this.onError('save',userId,error);}
+   return items.slice();
+  });
   this.pending.set(userId,task);
-  try{await task;}catch(error){this.onError('save',userId,error);}
+  try{return await task;}
   finally{if(this.pending.get(userId)===task)this.pending.delete(userId);}
-  return items.slice();
  }
  clear(id){
   if(id!=null){const userId=String(id);this.cache.delete(userId);this.loading.delete(userId);}
