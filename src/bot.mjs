@@ -19,7 +19,7 @@ import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resol
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
 import {tiktokRelayRequest} from './duck-conversation-intents.mjs';
-import {isShortContextualTurn,canContinueChat} from './duck-contextual-chat.mjs';
+import {isShortContextualTurn,isBriefReaction,canContinueChat,reactionFallback} from './duck-contextual-chat.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
@@ -911,6 +911,10 @@ client.on(Events.MessageCreate,async message=>{
       }
       if(!answer)answer='Encontrei estas informações nas páginas consultadas: '+
         webFacts.results.slice(0,2).map(item=>item.title+': '+item.summary).join(' ');
+    }
+    if(!aiAnswered&&!searching&&isBriefReaction(question)){
+      answer=reactionFallback(question,{lastExchange:focusedExchange,
+        channelId:message.channelId})||answer;
     }
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
     if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
