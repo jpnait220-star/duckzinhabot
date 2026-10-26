@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isBriefReaction,isShortContextualTurn,canContinueChat,conversationalCue}
+import {isBriefReaction,isShortContextualTurn,canContinueChat,conversationalCue,reactionFallback}
  from '../src/duck-contextual-chat.mjs';
 import {askCloudflare,followUpReference,compactWorkersAIPayload}
  from '../src/brain.mjs';
@@ -80,4 +80,12 @@ test('continuations still support old questions and reaction references',()=>{
  assert.equal(followUpReference('fala do Minecraft e dê dicas de servidor',history),'');
  assert.match(compactWorkersAIPayload({model:'test',question:'ixi',history,
    lastExchange:exchange,channelId:exchange.channelId}).messages[0].content,/REAÇÃO AO DIÁLOGO/);
+});
+
+test('quando IA cair, o fallback continua sobre o último tema',()=>{
+ const x=reactionFallback('ixi',{lastExchange:exchange,channelId:exchange.channelId,now});
+ assert.match(x,/complicada/);
+ assert.doesNotMatch(x,/tudo bem\?|não consegui responder|problema com a IA/);
+ assert.equal(reactionFallback('ixi',{lastExchange:exchange,channelId:'outro',now}),null);
+ assert.equal(reactionFallback('oi',{lastExchange:exchange,channelId:exchange.channelId,now}),null);
 });
