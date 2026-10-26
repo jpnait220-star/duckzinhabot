@@ -47,3 +47,17 @@ export function conversationalCue({question='',history=[],lastExchange=null,
   (previousUser?'\nMensagem anterior da pessoa: "'+String(previousUser).replace(/\s+/g,' ').slice(0,250)+'".':'')+
   (previousBot?'\nResposta anterior da Duckzinha: "'+String(previousBot).replace(/\s+/g,' ').slice(0,350)+'".':'');
 }
+
+
+// Safe short fallback if the external AI is offline. Never invent a new topic,
+// ask for private details, or treat a contextual reaction as a greeting.
+export function reactionFallback(input,{lastExchange=null,channelId='',now=Date.now()}={}){
+ if(!isBriefReaction(input)||!lastExchange||lastExchange.channelId!==channelId||
+   now-lastExchange.at<0||now-lastExchange.at>10*60_000)return null;
+ const discussion=normalize((lastExchange.userText||'')+' '+(lastExchange.botText||''));
+ if(/\b(perd[ie]|sumiu|bug|erro|crash|quebrou|problema|falhou|triste)\b/.test(discussion))
+   return 'Vish, essa parte que a gente estava falando foi complicada mesmo 😕';
+ if(/\b(kkk|haha|piada|engracad|zoeira)\b/.test(discussion))
+   return 'KKKKK, pois é! Essa foi boa 😁';
+ return 'Eita, pois é! Olha só o que a gente estava conversando 😅';
+}
