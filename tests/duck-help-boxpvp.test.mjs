@@ -30,7 +30,7 @@ test('ajuda tem quatro embeds, todos abaixo do limite, sem comandos restritos',(
 test('o catálogo de membros cobre comandos registrados que não exigem moderação',()=>{
  const excluded=new Set([
   'configurar','ensinar','ensinamentos','painel','falar','novidade','modlog',
-  'sugestao','diario','boxpvpadmin'
+  'sugestao','diario','boxpvpadmin','cargosreacao'
  ]);
  const memberTop=new Set(helpCommands.map(x=>x.split(' ')[0].slice(1)));
  for(const name of slashNames){
