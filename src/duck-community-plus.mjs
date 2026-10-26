@@ -1,6 +1,7 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelType,MessageFlags,PermissionFlagsBits} from 'discord.js';
 import {parseTimeSpan,summarizePublicMessages} from './duck-smart.mjs';
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
+export const SUGGESTIONS_CHANNEL_ID='1564105832306708631';
 const clean=(s,n=400)=>String(s||'').trim().replace(/@everyone|@here/gi,'@grupo').slice(0,n);
 const admin=i=>Boolean(i.memberPermissions?.has(PermissionFlagsBits.Administrator));
 const ts=x=>'<t:'+Math.floor(Date.parse(x)/1000)+':F>';
@@ -93,6 +94,8 @@ export class DuckCommunityPlus{
   }catch{return interaction.editReply('Não consegui ler o histórico deste canal.');}
  }
  async suggest(interaction){
+  if(interaction.channelId!==SUGGESTIONS_CHANNEL_ID)
+   return interaction.reply(hidden('💡 Use /sugerir somente no canal <#'+SUGGESTIONS_CHANNEL_ID+'>.'));
   if(!visible(interaction.channel))return interaction.reply(hidden('Sugestões precisam ser publicadas num canal público.'));
   const idea=clean(interaction.options.getString('ideia',true));
   if(idea.length<8)return interaction.reply(hidden('Descreva melhor sua sugestão.'));
