@@ -1,0 +1,61 @@
+name: Testar inicialização Kokoro Altare
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [asasa]
+    paths:
+      - ".github/workflows/test-kokoro-altare.yml"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Autenticar GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Baixar imagem e verificar configuração
+        run: |
+          docker pull ghcr.io/jpnait220-star/duckzinha-kokoro-altare:latest
+          docker image inspect ghcr.io/jpnait220-star/duckzinha-kokoro-altare:latest \
+            --format 'ENTRYPOINT={{json .Config.Entrypoint}} CMD={{json .Config.Cmd}} USER={{json .Config.User}} WORKDIR={{json .Config.WorkingDir}}'
+      - name: Simular servidor Altare
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/altare-files
+          chmod 777 /tmp/altare-files
+          cid=$(docker run -d \
+            -e SERVER_PORT=25715 \
+            -e STARTUP='if [[ -d .git ]] && [[ "{{AUTO_UPDATE}}" == "1" ]]; then git pull; fi; if [[ ! -z "{{PY_PACKAGES}}" ]]; then pip install -U --prefix .local {{PY_PACKAGES}}; fi; if [[ -f /home/container/${REQUIREMENTS_FILE} ]]; then pip install -U --prefix .local -r ${REQUIREMENTS_FILE}; fi; /usr/local/bin/python /home/container/${PY_FILE}' \
+            -v /tmp/altare-files:/home/container \
+            -p 25715:25715 \
+            ghcr.io/jpnait220-star/duckzinha-kokoro-altare:latest)
+          trap 'docker logs "$cid" || true; docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          sleep 8
+          docker ps -a --filter id="$cid" --format 'Container state: {{.Status}}'
+          if [[ "$(docker inspect -f '{{.State.Running}}' "$cid")" != 'true' ]]; then
+            echo 'Image exits immediately; logs above are the cause.'
+            exit 1
+          fi
+          for i in $(seq 1 28); do
+            if curl -fsS --max-time 2 http://localhost:25715/health >/dev/null; then
+              echo 'Kokoro responded on 25715.'
+              exit 0
+            fi
+            if [[ "$(docker inspect -f '{{.State.Running}}' "$cid")" != 'true' ]]; then
+              echo 'Image exited during warmup.'
+              exit 1
+            fi
+            sleep 5
+          done
+          echo 'Startup still warm or health check unavailable; checking docs endpoint.'
+          curl -fsS --max-time 5 http://localhost:25715/docs >/dev/null
