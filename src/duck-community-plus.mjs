@@ -1,4 +1,4 @@
-import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelType,MessageFlags,PermissionFlagsBits} from 'discord.js';
+import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelType,EmbedBuilder,MessageFlags,PermissionFlagsBits} from 'discord.js';
 import {parseTimeSpan,summarizePublicMessages} from './duck-smart.mjs';
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 export const SUGGESTIONS_CHANNEL_ID='1564105832306708631';
@@ -27,6 +27,38 @@ export function suggestionButtons(id){
   new ButtonBuilder().setCustomId('duckidea:vote:'+id).setLabel('Apoiar')
    .setEmoji('💡').setStyle(ButtonStyle.Success))];
 }
+// Embed nativo do Discord (visual estilo webhook): barra lateral, campos e votos.
+export function suggestionEmbed({id,text,authorId,status='open',supporters=[],count=0,createdAt}={}){
+ const stages={
+  open:{label:'🟡 Em votação',color:0xF4C542},
+  approved:{label:'✅ Aprovada',color:0x57D6A0},
+  rejected:{label:'❌ Recusada',color:0xE57474},
+  cancelled:{label:'⚪ Encerrada',color:0x9299A5}
+ };
+ const stage=stages[status]||stages.open;
+ const validId=id!=null?String(id):'?';
+ const validAuthor=/^[0-9]{15,25}$/.test(String(authorId||''));
+ const names=[...new Set((supporters||[]).map(String).filter(x=>/^[0-9]{15,25}$/.test(x)))];
+ const shown=names.slice(0,20).map(x=>'<@'+x+'>').join(' • ');
+ const remaining=Math.max(0,(Number(count)||0)-names.slice(0,20).length);
+ const everyone=shown+(remaining?'\n**+ '+remaining+' outros apoiadores**':'');
+ const embed=new EmbedBuilder()
+  .setColor(stage.color)
+  .setTitle('💡 Sugestão #'+validId)
+  .setDescription('**📝 Ideia da comunidade**\n'+clean(text,400)+'\n\n'+stage.label)
+  .addFields(
+   {name:'👤 Enviada por',value:validAuthor?'<@'+authorId+'>':'Membro da comunidade',inline:true},
+   {name:'💛 Apoios',value:'**'+Math.max(0,Number(count)||0)+'**',inline:true},
+   {name:'🦆 Pessoas que apoiaram',value:everyone||'*Seja o primeiro a apoiar!*',inline:false}
+  )
+  .setFooter({text:status==='open'
+   ?'DuckzinCommunity • Clique em Apoiar para apoiar esta ideia'
+   :'DuckzinCommunity • Votação encerrada'});
+ const date=Date.parse(String(createdAt||''));
+ if(Number.isFinite(date))embed.setTimestamp(new Date(date));
+ return embed;
+}
+
 export function eventButtons(id){
  return [new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId('duckevent:join:'+id).setLabel('Vou participar')
@@ -93,6 +125,27 @@ export class DuckCommunityPlus{
     {now:this.now()}).slice(0,1900),allowedMentions:{parse:[]}});
   }catch{return interaction.editReply('Não consegui ler o histórico deste canal.');}
  }
+ async suggestionVotes(id){
+  if(!this.store?.persistent)throw Error('Supabase não configurado.');
+  // Um único SELECT retorna contagem exata e os 20 primeiros apoiadores,
+  // sem precisar carregar milhares de perfis para o Discord.
+  let timer;
+  try{
+   const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error('Consulta de apoiadores demorou demais')),8000);
+    timer.unref?.();
+   });
+   const result=await Promise.race([
+    this.table('duckzinha_suggestion_votes')
+     .select('user_id',{count:'exact'})
+     .eq('suggestion_id',id).order('created_at',{ascending:true}).limit(20),
+    timeout
+   ]);
+   if(result?.error)throw Error('Apoiadores: '+result.error.message);
+   return {count:result?.count??(result?.data||[]).length,
+    supporters:(result?.data||[]).map(x=>x.user_id)};
+  }finally{if(timer)clearTimeout(timer);}
+ }
  async suggest(interaction){
   if(interaction.channelId!==SUGGESTIONS_CHANNEL_ID)
    return interaction.reply(hidden('💡 Use /sugerir somente no canal <#'+SUGGESTIONS_CHANNEL_ID+'>.'));
@@ -105,8 +158,9 @@ export class DuckCommunityPlus{
     guild_id:interaction.guildId,author_id:interaction.user.id,channel_id:interaction.channelId,
     text:idea,status:'open'
    }).select('id').single());
-   const msg=await interaction.channel.send({content:'## 💡 Sugestão #'+data.id+'\n'+idea+
-    '\n\nEnviada por <@'+interaction.user.id+'> • Apoie com o botão!',
+   const msg=await interaction.channel.send({
+    embeds:[suggestionEmbed({id:data.id,text:idea,authorId:interaction.user.id,
+     count:0,supporters:[],createdAt:new Date(this.now()).toISOString()})],
     components:suggestionButtons(data.id),allowedMentions:{parse:[]}});
    await this.db(this.table('duckzinha_suggestions').update({message_id:msg.id})
     .eq('guild_id',interaction.guildId).eq('id',data.id));
@@ -120,27 +174,48 @@ export class DuckCommunityPlus{
   try{
    const row=await this.db(this.table('duckzinha_suggestions').update({status})
     .eq('id',id).eq('guild_id',interaction.guildId).eq('status','open')
-    .select('id,text,channel_id,message_id').maybeSingle());
+    .select('id,text,author_id,created_at,channel_id,message_id,status').maybeSingle());
    if(!row)return interaction.reply(hidden('Sugestão não encontrada ou já avaliada.'));
    const c=await interaction.guild.channels.fetch(row.channel_id).catch(()=>null);
    const m=await c?.messages?.fetch(row.message_id).catch(()=>null);
-   await m?.edit({content:'## '+(status==='approved'?'✅ Aprovada':'❌ Recusada')+
-    ' • Sugestão #'+id+'\n'+clean(row.text),components:[],allowedMentions:{parse:[]}}).catch(()=>{});
+   if(m){
+    const votes=await this.suggestionVotes(id);
+    await m.edit({content:'',embeds:[suggestionEmbed({id,text:row.text,authorId:row.author_id,
+     status,supporters:votes.supporters,count:votes.count,createdAt:row.created_at})],
+     components:[],allowedMentions:{parse:[]}}).catch(error=>
+      console.warn('[Duckzinha] Atualizar sugestão encerrada: '+String(error?.message||error)));
+   }
    return interaction.reply(hidden('✅ Sugestão #'+id+' avaliada.'));
   }catch{return interaction.reply(hidden('Falha ao avaliar sugestão.'));}
  }
  async suggestionButton(interaction){
   const id=Number(interaction.customId.split(':')[2]);
   if(!Number.isSafeInteger(id)||id<1)return interaction.reply(hidden('Sugestão inválida.'));
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
   try{
-   const item=await this.db(this.table('duckzinha_suggestions').select('status')
+   const item=await this.db(this.table('duckzinha_suggestions')
+    .select('status,author_id,text,created_at,channel_id,message_id')
     .eq('guild_id',interaction.guildId).eq('id',id).maybeSingle());
-   if(item?.status!=='open')return interaction.reply(hidden('Sugestão encerrada.'));
+   if(item?.status!=='open')return interaction.editReply('Essa votação já foi encerrada.');
    await this.db(this.table('duckzinha_suggestion_votes').upsert({
     suggestion_id:id,user_id:interaction.user.id
    },{onConflict:'suggestion_id,user_id',ignoreDuplicates:true}));
-   return interaction.reply(hidden('💡 Seu apoio foi registrado!'));
-  }catch{return interaction.reply(hidden('Não consegui registrar apoio.'));}
+   const votes=await this.suggestionVotes(id);
+   const embed=suggestionEmbed({id,text:item.text,authorId:item.author_id,
+    createdAt:item.created_at,count:votes.count,supporters:votes.supporters});
+   // Atualiza a publicação original, sem mandar mensagens extras no canal.
+   const message=interaction.message?.id===item.message_id?interaction.message:
+    await interaction.guild?.channels?.fetch(item.channel_id).then(c=>
+      c?.messages?.fetch(item.message_id)).catch(()=>null);
+   if(!message?.edit)return interaction.editReply(
+    '💛 Apoio salvo, mas não consegui encontrar a mensagem para atualizar a lista.');
+   await message.edit({content:'',embeds:[embed],components:suggestionButtons(id),
+    allowedMentions:{parse:[]}});
+   return interaction.editReply('💛 Seu apoio está registrado! A lista foi atualizada.');
+  }catch(error){
+   console.warn('[Duckzinha] Apoiar sugestão: '+String(error?.message||error));
+   return interaction.editReply('Não consegui atualizar os apoios agora. Tente novamente.');
+  }
  }
  async event(interaction){
   const sub=interaction.options.getSubcommand(),gid=interaction.guildId;
