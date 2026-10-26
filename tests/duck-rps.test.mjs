@@ -49,6 +49,7 @@ test('jogadas válidas aparecem no chat público; erros continuam privados',asyn
  await callback();
  assert.match(posted.content,/1.*vitórias contra a Duckzinha/);
  assert.match(posted.content,/1.*empates/);
+ assert.equal(posted.components[0].components[0].data.custom_id,'duckagain:rps');
  assert.equal(game.games.size,0);
  game.shutdown();
 });
