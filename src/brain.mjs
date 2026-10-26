@@ -64,9 +64,57 @@ export function followUpReference(question,history=[]) {
     previous+'". Interprete expressões como "e o jogo?", "e o filme?", "e ele?" ou "e a história?" relacionadas ao assunto anterior, mesmo que o nome não tenha sido repetido. Se antes falavam de "Cyberpunk" e agora a pessoa diz "e o jogo?", ela está perguntando sobre o jogo da franquia Cyberpunk, especialmente Cyberpunk 2077. Não mude de assunto sozinho. Se ainda estiver ambíguo, pergunte de forma simples.';
 }
 
+
+// Classify provider errors without logging prompts, tokens or raw responses.
+export function workersAIErrorInfo(body='',status=0){
+ let raw=null;
+ try{raw=JSON.parse(String(body||'').slice(0,12000));}catch{}
+ const issue=raw?.errors?.[0]||raw?.error||{};
+ const msg=String(typeof issue==='string'?issue:
+   issue?.message||raw?.message||raw?.result?.error||'').slice(0,1600).toLowerCase();
+ const code=Number(issue?.code??raw?.code);
+ const safeCode=Number.isInteger(code)&&code>=0&&code<=999999?String(code):'?';
+ const reason=
+  code===5007||/no such model|unknown model|invalid model|model.+not found/.test(msg)?'modelo-invalido':
+  /context|token.limit|max.model.len|maximum (input|context)|too long|prompt.*(long|large)/.test(msg)?'contexto-grande':
+  /invalid|unsupported|unexpected|unrecognized|not supported|parameter|schema|field|format/.test(msg)?'parametro-invalido':
+  /quota|allocation|limit.exceeded|rate.limit/.test(msg)?'limite':
+  /capacity|busy|unavailable|overload/.test(msg)?'capacidade':
+  status>=500?'servidor':'nao-identificado';
+ return {code:safeCode,reason};
+}
+async function cloudflareCompletion({accountId,token,payload}){
+ const response=await fetch('https://api.cloudflare.com/client/v4/accounts/'+
+  encodeURIComponent(accountId)+'/ai/v1/chat/completions',{
+   method:'POST',signal:AbortSignal.timeout(18000),
+   headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+   body:JSON.stringify(payload)
+ });
+ if(!response.ok){
+   let body='';
+   try{body=await response.text();}catch{}
+   const info=workersAIErrorInfo(body,response.status);
+   const failure=new Error('Workers AI HTTP '+response.status+
+    ' (modelo='+payload.model+', codigo='+info.code+', motivo='+info.reason+')');
+   failure.status=response.status;
+   failure.reason=info.reason;
+   throw failure;
+ }
+ return response.json();
+}
+export function compactWorkersAIPayload({model,question,history=[]}){
+ const safeHistory=history.slice(-4).filter(item=>
+   (item.role==='user'||item.role==='assistant')&&typeof item.content==='string')
+   .map(item=>({role:item.role,content:item.content.slice(0,350)}));
+ return {model,messages:[
+   {role:'system',content:PERSONALITY.slice(0,2600)},
+   ...safeHistory,
+   {role:'user',content:String(question||'').slice(0,700)}
+ ],max_completion_tokens:512,temperature:0.5,stream:false};
+}
+
 export async function askCloudflare({accountId,token,model=MODEL,question,history=[],knowledge='',name='',profileFacts='',familiarity='',customPersonality='',channelContext='',speaker='',research='',pastResearch='',affinity=''}) {
   if(!accountId||!token)return null;
-  const timeout=AbortSignal.timeout(18000);
   const context=(knowledge||'').slice(0,3700);
   const extra=customPersonality
     ?'\n\nESTILO CONFIGURADO PELOS ADMINISTRADORES (apenas personalidade, linguagem e comportamento permitido):\n'+String(customPersonality).slice(0,8000)
@@ -122,12 +170,25 @@ export async function askCloudflare({accountId,token,model=MODEL,question,histor
     ...(isGLM?{chat_template_kwargs:{enable_thinking:false,clear_thinking:true}}:{}),
     ...(isGemma4?{chat_template_kwargs:{enable_thinking:false}}:{})
   };
-  const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,{
-    method:'POST',signal:timeout,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify(payload)
-  });
-  if(!response.ok)throw Error('Workers AI retornou HTTP '+response.status);
-  const json=await response.json();
+  let json;
+  try{
+    json=await cloudflareCompletion({accountId,token,payload});
+  }catch(error){
+    // Try the same model with a smaller request if a 400 might be caused
+    // by context or optional parameters. Never retry invalid model/quota.
+    const retry400=error.status===400&&!['modelo-invalido','limite'].includes(error.reason);
+    const retryServer=[502,503,504].includes(error.status);
+    if(!retry400&&!retryServer)throw error;
+    try{
+      json=await cloudflareCompletion({
+        accountId,token,payload:compactWorkersAIPayload({model,question,history})
+      });
+      console.warn('[Duckzinha] Workers AI recuperou: '+error.message+
+        '; requisição reduzida funcionou.');
+    }catch(retryError){
+      throw new Error(error.message+'; tentativa reduzida: '+retryError.message);
+    }
+  }
   const choice=json?.choices?.[0];
   const raw=choice?.message?.content ?? json?.result?.response;
   const output=Array.isArray(raw)
