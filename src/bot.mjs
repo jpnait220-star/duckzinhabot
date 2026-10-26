@@ -19,6 +19,7 @@ import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resol
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
 import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
 import {tiktokRelayRequest} from './duck-conversation-intents.mjs';
+import {isShortContextualTurn,canContinueChat} from './duck-contextual-chat.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
 import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
@@ -166,6 +167,8 @@ async function speakDuckReply(guildId,channelId,messageText,question=''){
 
 const voiceVisits=new DuckVoiceVisits();
 const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
+// A pessoa pode retomar uma conversa curta sem nova menção, apenas no mesmo canal.
+const recentExchange=new Map();
 
 // Cada botão de fontes tem ID temporário próprio, visível em qualquer resposta pesquisada.
 function sourcesButton(results){
@@ -335,11 +338,13 @@ async function saveSharedExchange(message,reply){
   await commitSharedChange(list=>[...list,user,answer]);
 }
 async function clearSharedUser(userId){
+  recentExchange.delete(userId);
   for(let i=serverRecent.length-1;i>=0;i--)
     if(serverRecent[i].authorId===userId)serverRecent.splice(i,1);
   await commitSharedChange(items=>items.filter(m=>m.authorId!==userId));
 }
 async function clearSharedAll(){
+  recentExchange.clear();
   serverRecent.length=0;
   await commitSharedChange(()=>[]);
 }
@@ -398,7 +403,8 @@ async function addHistory(userId,question,answer,searchResults=[]){
     console.warn('[Duckzinha] Falha ao guardar histórico: '+err.message));
 }
 function clearSession(userId){
-  if(userId)session.delete(userId);else session.clear();
+  if(userId){session.delete(userId);recentExchange.delete(userId);}
+  else{session.clear();recentExchange.clear();}
 }
 async function removeOwnMessage(messageId,channelId){
   try{
@@ -529,7 +535,9 @@ client.once(Events.ClientReady,async me=>{
   void store.cleanupConversations().catch(e=>console.warn('[Duckzinha] Limpeza de histórico: '+e.message));
   const timer=setInterval(()=>{
     void cleanupExpired();
-    const now=Date.now();for(const [key,obj] of session)if(now-obj.updated>45*60_000)session.delete(key);
+    const now=Date.now();
+    for(const [key,obj] of session)if(now-obj.updated>45*60_000)session.delete(key);
+    for(const [key,obj] of recentExchange)if(now-obj.at>10*60_000)recentExchange.delete(key);
     pruneSourceCache();
   },60_000);timer.unref?.();
   // Discord normally reconnects on its own. Restart only if the gateway
@@ -618,6 +626,14 @@ client.on(Events.MessageCreate,async message=>{
   // Conserva as mensagens normais de canais públicos somente em RAM.
   const isPublic=addRecent(message);
   const rawQuestion=stripMentions(message.content,client.user.id);
+  const lastExchange=recentExchange.get(id);
+  const previousChannelMessageId=[...serverRecent].reverse().find(x=>
+    x.channelId===message.channelId&&x.id!==message.id)?.id||'';
+  const contextualReply=isPublic&&canContinueChat({
+    text:rawQuestion,channelId:message.channelId,
+    replyMessageId:message.reference?.messageId||'',lastExchange,
+    previousChannelMessageId
+  });
   // A resposta só é revelada pelo próprio jogo, após o fim da rodada.
   // Bloqueio anterior à IA, pesquisa e TTS; outras conversas continuam normais.
   if(mentioned&&isGameAnswerRequest(rawQuestion,activeQuestions())){
@@ -706,7 +722,7 @@ client.on(Events.MessageCreate,async message=>{
     }catch(err){console.warn('[Duckzinha] Ensino natural: '+err.message);}
     return;
   }
-  if(!mentioned&&!confirmation&&!explaining){
+  if(!mentioned&&!confirmation&&!explaining&&!contextualReply){
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
@@ -735,7 +751,11 @@ client.on(Events.MessageCreate,async message=>{
   const previous=busy.get(id);
   if(previous&&Date.now()-previous<60000)return;
   if(previous)console.warn('[Duckzinha] Liberando atendimento antigo preso há mais de 60s.');
-  if(!confirmation&&!wantsWebResearch(rawQuestion)&&Date.now()-(cooldown.get(id)||0)<7500)return;
+  // Uma reação rápida não deve sumir por causa do cooldown anti-spam.
+  const quickFollowUp=contextualReply||(mentioned&&isShortContextualTurn(rawQuestion));
+  const minimumDelay=quickFollowUp?1000:7500;
+  if(!confirmation&&!wantsWebResearch(rawQuestion)&&
+     Date.now()-(cooldown.get(id)||0)<minimumDelay)return;
   if(confirmation)pendingResearch.delete(id);
   const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
   // Também bloqueia perguntas salvas ao confirmar um pedido de pesquisa.
@@ -825,8 +845,13 @@ client.on(Events.MessageCreate,async message=>{
     const affinityScore=nextAffinity(social.score,toneChange);
     const pastResearch=previousResearchNotes(history);
     const extraContext=currentServerContext(message.id);
-    const mergedChannelContext=(channelContext.slice(-2500)+'\n'+
-      (extraContext?'Conversas públicas recentes:\n'+extraContext.slice(-2200):'')).trim().slice(-4900);
+    // Reações curtas priorizam este canal em vez de misturar assuntos de outros canais.
+    const mergedChannelContext=isShortContextualTurn(question)
+      ?channelContext.slice(-3400)
+      :(channelContext.slice(-2500)+'\n'+
+        (extraContext?'Conversas públicas recentes:\n'+extraContext.slice(-2200):'')).trim().slice(-4900);
+    const focusedExchange=lastExchange?.channelId===message.channelId&&
+      Date.now()-lastExchange.at<=10*60_000?lastExchange:null;
     const newName=pickName(question);
     if(newName&&newName!==member?.preferred_name)
       void store.rememberName(id,newName).catch(err=>console.warn('[Duckzinha] Salvar nome: '+err.message));
@@ -860,6 +885,7 @@ client.on(Events.MessageCreate,async message=>{
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,
           question,history,channelContext:mergedChannelContext,
+          lastExchange:focusedExchange,channelId:message.channelId,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
           customPersonality:personality+'\n'+moodInstruction(extras.mood(question))+'\n'+
              dynamicPersonality(question,{recent:mergedChannelContext,mood:extras.mood(question)}),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
@@ -913,6 +939,11 @@ client.on(Events.MessageCreate,async message=>{
     const sent=await message.reply({content:voiceText||answer.slice(0,1900),components,allowedMentions:{repliedUser:false,parse:[]}}).catch(err=>{console.warn('[Duckzinha] Falha na resposta: '+err.message);return null});
     if(!sent&&sources)researchSources.delete(sources.id);
     if(sent){
+      if(isPublic&&member?.enabled!==false){
+        recentExchange.set(id,{channelId:message.channelId,
+          botMessageId:sent.id,at:Date.now(),
+          userText:question.slice(0,700),botText:answer.slice(0,850)});
+      }
       if(offerSearch)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
       if(isAffinityEnabled)
         void store.incrementFamiliarity(id,{toneChange,score:affinityScore})
