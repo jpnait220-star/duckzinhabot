@@ -62,7 +62,9 @@ export const VOICE_MOOD_ADJUSTMENTS=Object.freeze({
   auto:{pitch:0,rate:0},
   animada:{pitch:18,rate:20},
   calma:{pitch:-15,rate:-19},
-  curiosa:{pitch:3,rate:10},
+  // ~8% a mais de afinação na fala curiosa da call (Edge aceita somente Hz).
+  // Referência aproximada de 200 Hz: +16 Hz sobre o ajuste anterior de +3 Hz.
+  curiosa:{pitch:19,rate:10},
   sonolenta:{pitch:-20,rate:-25}
 });
 export function edgeVoiceOptions(value,mood='auto'){
