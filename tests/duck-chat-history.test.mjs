@@ -112,3 +112,22 @@ test('Workers AI recebe histórico antigo sem cumprimentar depois de cinco minut
   assert.doesNotMatch(sent.messages[0].content,/FAMILIARIDADE NO SERVIDOR: novo por aqui/);
  }finally{globalThis.fetch=previous;}
 });
+
+test('mensagens concorrentes não se sobrepõem quando Supabase demora',async()=>{
+ const db=new Map();let loads=0;
+ const manager=new DuckChatHistory({
+  load:async id=>{loads++;await Promise.resolve();return db.get(id)||[];},
+  save:async(id,items)=>{await Promise.resolve();db.set(id,structuredClone(items));}
+ });
+ await Promise.all([
+  manager.append(user,'Primeira pergunta','Primeira resposta'),
+  manager.append(user,'Segunda pergunta','Segunda resposta')
+ ]);
+ const rows=await manager.get(user);
+ assert.equal(rows.length,4);
+ assert.deepEqual(rows.map(x=>x.content),[
+  'Primeira pergunta','Primeira resposta','Segunda pergunta','Segunda resposta'
+ ]);
+ assert.equal(db.get(user).length,4);
+ assert.equal(loads,1);
+});
