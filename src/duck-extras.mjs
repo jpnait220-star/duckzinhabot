@@ -56,6 +56,9 @@ const emotionMap={
 };
 export function expressiveVoice(current,mood,enabled=true){
   if(!enabled||mood==='auto')return current;
+  // Preservar o timbre conversacional: só ajustar o ritmo por emoção,
+  // sem substituir por variantes agudas/rápidas que soam artificiais.
+  if(current==='pt-BR-ThalitaConversaNeural')return current;
   // Também adapta variantes escolhidas no /duckzinha voice, não somente vozes naturais.
   const familyPrefix=[
     ['pt-BR-Francisca','pt-BR-FranciscaNeural'],
