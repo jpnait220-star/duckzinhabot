@@ -20,7 +20,7 @@ import {DuckBanNotifier} from './duck-ban-dm.mjs';
 import {DuckVoiceVisits,voiceMentionContext,voiceReadableText} from './voice-visit.mjs';
 import {publicMessageText,publicMessageSpeaker,isContextualResearchRequest,resolveResearchSubject} from './duck-channel-context.mjs';
 import {activeGameQuestions,isGameAnswerRequest,GAME_ANSWER_REFUSAL} from './duck-game-integrity.mjs';
-import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions} from './duck-tts.mjs';
+import {DEFAULT_VOICE,voiceLabel,synthesizeDuckSpeech,edgeVoiceOptions,callVoiceStyle} from './duck-tts.mjs';
 import {tiktokRelayRequest} from './duck-conversation-intents.mjs';
 import {isShortContextualTurn,canContinueChat,reactionFallback} from './duck-contextual-chat.mjs';
 import {DuckExtras,expressiveVoice,moodInstruction} from './duck-extras.mjs';
@@ -28,7 +28,7 @@ import {DuckStudio} from './duck-studio.mjs';
 import {runNewCommand,runMessageMenu} from './duck-features.mjs';
 import {DuckCommunity,naturalTeaching} from './duck-community.mjs';
 import {DuckCommunityPlus} from './duck-community-plus.mjs';
-import {dynamicPersonality,conversationVoiceMood,playfulCallReply,expressiveSpeech,parseNaturalReminder} from './duck-smart.mjs';
+import {dynamicPersonality,playfulCallReply,expressiveSpeech,parseNaturalReminder} from './duck-smart.mjs';
 import {askCloudflare,cannedAnswer,MODEL,pickName,safeResponse,stripMentions,formatChannelContext} from './brain.mjs';
 import {researchTopic} from './research.mjs';
 import {historyAnswer,previousResearchNotes} from './research-memory.mjs';
@@ -141,10 +141,9 @@ async function leaveDuckVoice(interaction){
 async function speakDuckReply(guildId,channelId,messageText,question=''){
   if(!voiceVisits.sessions.has(guildId))return;
   if(voiceVisits.sessions.get(guildId)?.textChannelId!==channelId)return;
-  const detectedTone=extras.settings.mood==='auto'
-    ?conversationVoiceMood(question,messageText):extras.mood(question||messageText);
-  const mood=extras.settings.emotionalVoice?detectedTone:'auto';
-  const voiceAtRequest=expressiveVoice(selectedVoice,mood,extras.settings.emotionalVoice);
+  // A fala na call é sempre curiosa, sem alterar humor/persona das mensagens
+  // escritas e sem forçar variantes "fofinhas" que afinam demais o timbre.
+  const {mood,voice:voiceAtRequest}=callVoiceStyle(selectedVoice);
   try{
     const audio=await synthesizeDuckSpeech({
       text:expressiveSpeech(messageText),voice:voiceAtRequest,mood
