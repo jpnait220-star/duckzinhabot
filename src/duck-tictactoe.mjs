@@ -1,6 +1,7 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {awardMinigameWin,winRewardLabel} from './duck-minigame-rewards.mjs';
+import {replayRow} from './duck-replay.mjs';
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 export function tictactoeOutcome(board){
@@ -65,9 +66,10 @@ export function tictactoeButtons(game){
   }
   rows.push(row);
  }
+ if(game.closed)rows.push(replayRow('ttt',{ownerId:game.userId}));
  return rows;
 }
-function scoreText(game,result=''){
+function scoreText(game,result=''){ 
  const status=game.closed
   ?(result==='X'?'🏆 **Você venceu a Duckzinha! GG!** 🦆':
     result==='O'?'🦆 **A Duckzinha venceu!** Hehehe!':
@@ -76,7 +78,7 @@ function scoreText(game,result=''){
  return '## ❌⭕ Jogo da Velha • Duckzinha\n'+
   '👤 **Jogador:** <@'+game.userId+'>\n'+
   '🎲 **Quem começou:** '+(game.firstPlayer==='O'?'Duckzinha ⭕':'Jogador ❌')+'\n'+status+'\n\n'+
-  (game.closed?'Jogue novamente usando /minigame tipo:Jogo da Velha.':
+  (game.closed?'Quer revanche? Clique em **Jogar novamente** abaixo.':
     'Clique em uma casa vazia. ⏳ 90 segundos por jogada.');
 }
 export class DuckTicTacToe{
