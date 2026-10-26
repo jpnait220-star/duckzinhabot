@@ -1,6 +1,6 @@
 import {randomInt,randomUUID} from 'node:crypto';
-import {ActionRowBuilder,ButtonBuilder,ButtonStyle,AttachmentBuilder,MessageFlags} from 'discord.js';
-import {coinflipImage} from './duck-coinflip-image.mjs';
+import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
+import {replayRow} from './duck-replay.mjs';
 
 export const COINFLIP_LIMIT=5;
 export const COINFLIP_WINDOW_MS=2*60*60*1000;
@@ -8,9 +8,8 @@ export const COINFLIP_REWARD=15;
 const hidden=content=>({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 
 export class DuckCoinflip {
- constructor({store,randomSide=()=>randomInt(2),now=Date.now,
-    renderImage=coinflipImage}={}){
-  this.store=store;this.randomSide=randomSide;this.now=now;this.renderImage=renderImage;
+ constructor({store,randomSide=()=>randomInt(2),now=Date.now}={}){
+  this.store=store;this.randomSide=randomSide;this.now=now;
   this.games=new Map();this.players=new Map();this.cooldowns=new Map();
  }
  stop(game){
@@ -60,7 +59,7 @@ export class DuckCoinflip {
     if(game.closed||game.stage!=='invite')return;
     this.stop(game);
     await game.message.edit({content:'⌛ **Desafio expirado!**\nO tempo para aceitar acabou. 🦆',
-      components:[],allowedMentions:{parse:[]}}).catch(()=>{});
+      components:[replayRow('coin',{ownerId:game.host,opponentId:game.guest})],allowedMentions:{parse:[]}}).catch(()=>{});
    },60000);
    timer.unref?.();game.timer=timer;
   }catch(err){this.stop(game);throw err;}
@@ -79,7 +78,7 @@ export class DuckCoinflip {
   if(action==='no'){
    this.stop(game);
    return interaction.update({content:'🦆 **Desafio recusado!**\nFica para a próxima!',
-     components:[],allowedMentions:{parse:[]}});
+     components:[replayRow('coin',{ownerId:game.host,opponentId:game.guest})],allowedMentions:{parse:[]}});
   }
   await interaction.update({
    content:'## 🪙 Duckzinha • Coinflip\n'+
@@ -95,7 +94,7 @@ export class DuckCoinflip {
      content:'⏳ **Limite de Coinflip!**\n'+
        'As 5 partidas por pessoa nas últimas 2 horas foram usadas por '+who+
        '. Tente novamente depois.',
-     components:[],allowedMentions:{parse:[]}
+     components:[replayRow('coin',{ownerId:game.host,opponentId:game.guest})],allowedMentions:{parse:[]}
     });
     return;
    }
@@ -106,14 +105,14 @@ export class DuckCoinflip {
    await game.message?.edit({
     content:'⚠️ **Coinflip indisponível**\n'+
      'Não consegui registrar a partida. Nenhuma moeda foi descontada.',
-    components:[],allowedMentions:{parse:[]}
+    components:[replayRow('coin',{ownerId:game.host,opponentId:game.guest})],allowedMentions:{parse:[]}
    }).catch(()=>{});
   }finally{
    this.stop(game);
   }
  }
  async run(game){
-  // Uma única imagem da moeda para toda a partida, sem vídeos nem contagens lentas.
+  // Resultado apenas em texto: sem imagem da moeda nem animações.
   const rounds=Array.from({length:3},()=>this.randomSide()===0?'cara':'coroa');
   const heads=rounds.filter(s=>s==='cara').length;
   const tails=3-heads;
@@ -124,9 +123,6 @@ export class DuckCoinflip {
   }catch(err){
    console.warn('[Duckzinha] Recompensa do Coinflip: '+String(err?.message||err));
   }
-  let image=null;
-  try{image=this.renderImage();}
-  catch(err){console.warn('[Duckzinha] Imagem do Coinflip: '+String(err?.message||err));}
   const roundsText=rounds.map((side,i)=>
    '**'+(i+1)+'ª rodada:** '+(side==='cara'?'🦆 Cara':'👑 Coroa')).join('\n');
   await game.message.edit({
@@ -141,11 +137,7 @@ export class DuckCoinflip {
       '🎁 **+'+COINFLIP_REWARD+' moedas de pato** para o vencedor!'):
      '⚠️ A recompensa não foi confirmada. A staff pode consultar o registro.')+
     '\n\n*Sem apostas ou desconto de moedas.*',
-   ...(image?{files:[new AttachmentBuilder(image,{
-    name:'duckzinha-cara-e-coroa.png',
-    description:'Uma imagem estática mostrando os dois lados da moeda da Duckzinha'
-   })]}:{}),
-   components:[],allowedMentions:{parse:[]}
+   components:[replayRow('coin',{ownerId:game.host,opponentId:game.guest})],allowedMentions:{parse:[]}
   });
  }
 }
