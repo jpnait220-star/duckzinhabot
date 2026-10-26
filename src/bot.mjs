@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
+import {DuckChatHistory} from './duck-chat-history.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
 import {affinitySignal,affinityStyle,nextAffinity} from './affinity.mjs';
 import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.mjs';
@@ -166,7 +167,13 @@ async function speakDuckReply(guildId,channelId,messageText,question=''){
 }
 
 const voiceVisits=new DuckVoiceVisits();
-const session=new Map(),busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
+const busy=new Map(),cooldown=new Map(),deleteTimers=new Map(),pendingResearch=new Map(),researchSources=new Map();
+const chatHistory=new DuckChatHistory({
+  load:id=>store.getConversation(id),
+  save:(id,items)=>store.saveConversation(id,items),
+  onError:(kind,_id,error)=>console.warn('[Duckzinha] Memória de conversa ('+
+    (kind==='save'?'salvar':'carregar')+'): '+String(error?.message||error))
+});
 // A pessoa pode retomar uma conversa curta sem nova menção, apenas no mesmo canal.
 const recentExchange=new Map();
 
@@ -364,13 +371,7 @@ try { localKnowledge=JSON.parse(await fs.readFile(new URL('../knowledge.json',im
 catch {console.warn('[Duckzinha] knowledge.json ausente; usando apenas as respostas internas.');}
 
 async function getHistory(userId){
-  const obj=session.get(userId);
-  if(obj&&Date.now()-obj.updated<45*60_000)return obj.items.slice(-12);
-  const items=await store.getConversation(userId).catch(err=>{
-    console.warn('[Duckzinha] Falha ao ler histórico: '+err.message);return [];
-  });
-  session.set(userId,{items,updated:Date.now()});
-  return items;
+  return chatHistory.get(userId);
 }
 async function getPublicRecentMessages(message,{limit=60}={}){
   if(!publicChannel(message)||!message.channel?.messages?.fetch)return [];
@@ -394,17 +395,12 @@ async function getChannelConversation(message){
 }
 
 async function addHistory(userId,question,answer,searchResults=[]){
-  const items=await getHistory(userId);
-  items.push({role:'user',content:question.slice(0,800)},
-    {role:'assistant',content:historyAnswer(answer,question,searchResults)});
-  const recent=items.slice(-12);
-  session.set(userId,{items:recent,updated:Date.now()});
-  await store.saveConversation(userId,recent).catch(err=>
-    console.warn('[Duckzinha] Falha ao guardar histórico: '+err.message));
+  await chatHistory.append(userId,question,
+    historyAnswer(answer,question,searchResults));
 }
 function clearSession(userId){
-  if(userId){session.delete(userId);recentExchange.delete(userId);}
-  else{session.clear();recentExchange.clear();}
+  chatHistory.clear(userId);
+  if(userId)recentExchange.delete(userId);else recentExchange.clear();
 }
 async function removeOwnMessage(messageId,channelId){
   try{
@@ -536,7 +532,7 @@ client.once(Events.ClientReady,async me=>{
   const timer=setInterval(()=>{
     void cleanupExpired();
     const now=Date.now();
-    for(const [key,obj] of session)if(now-obj.updated>45*60_000)session.delete(key);
+    chatHistory.prune();
     for(const [key,obj] of recentExchange)if(now-obj.at>10*60_000)recentExchange.delete(key);
     pruneSourceCache();
   },60_000);timer.unref?.();
@@ -890,7 +886,9 @@ client.on(Events.MessageCreate,async message=>{
           customPersonality:personality+'\n'+moodInstruction(extras.mood(question))+'\n'+
              dynamicPersonality(question,{recent:mergedChannelContext,mood:extras.mood(question)}),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
-          familiarity:member?.enabled===false?'novo por aqui':familiarityLabel(friendshipTurns),
+          familiarity:history.length||focusedExchange
+            ?'já conversaram antes; continue a conversa normalmente'
+            :member?.enabled===false?'sem histórico disponível':familiarityLabel(friendshipTurns),
           affinity:affinityStyle(affinityScore),
           pastResearch,
           research:webFacts?.status==='ok'?webResearchContext(webFacts.results):''});
