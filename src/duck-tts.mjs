@@ -1,8 +1,8 @@
 import {EdgeTTS,Constants} from '@andresaya/edge-tts';
 import {styleGoogleSpeechMp3} from './google-voice-style.mjs';
 
-// Cinco vozes-base do serviço Edge (três do Brasil, duas de Portugal),
-// com estilos de tom e velocidade, incluindo variações mais animadas.
+// Vozes-base do Edge e estilos legados de tom/ritmo (não novos timbres).
+// O menu mostra apenas vozes cujos IDs reais de síntese são distintos.
 // Esses estilos NÃO são novos timbres/modelos; reutilizam as vozes-base.
 // Os IDs virtuais pt-BR-*Neural são chaves internas de seleção compatíveis com
 // o formato existente no banco, NÃO nomes de modelos Edge; edgeId é o modelo real.
@@ -39,7 +39,18 @@ export const DEFAULT_VOICE='pt-BR-ThalitaConversaNeural';
 const voiceMap=new Map(PT_BR_VOICES.map(x=>[x.id,x]));
 export function validVoice(value){return voiceMap.has(value);}
 export function voiceLabel(value){return voiceMap.get(value)?.name||'Thalita • Conversa Natural';}
-export function voiceChoices(){return PT_BR_VOICES.map(x=>({name:x.name,value:x.id}));}
+// As variacoes legadas continuam aceitas no banco, mas o menu oferece
+// apenas vozes-base de IDs Edge distintos, nao presets de pitch repetidos.
+export const SELECTABLE_VOICES=Object.freeze([
+ 'pt-BR-ThalitaConversaNeural','pt-BR-FranciscaNeural',
+ 'pt-BR-BrendaNeural','pt-BR-GiovannaNeural',
+ 'pt-BR-LeilaNeural','pt-BR-ManuelaNeural',
+ 'pt-BR-RaquelPortugalNeural','pt-BR-AntonioNeural',
+ 'pt-BR-DuartePortugalNeural'
+]);
+export function voiceChoices(){
+ return SELECTABLE_VOICES.map(id=>({name:voiceMap.get(id).name,value:id}));
+}
 export function edgeSpeechReady(){return true;}
 
 export const VOICE_MOOD_ADJUSTMENTS=Object.freeze({
