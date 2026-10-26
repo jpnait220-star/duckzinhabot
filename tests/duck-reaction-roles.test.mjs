@@ -15,7 +15,7 @@ test('emojis padrão e customizados geram chaves',()=>{
 test('não pode atribuir cargo acima da bot ou com permissão perigosa',()=>{
  const guild={id:'123'};
  const bot={roles:{highest:{position:5}}};
- function role(position,perms=0){return {id:'456',guild,managed:false,
+ function role(position,perms=0n){return {id:'456',guild,managed:false,
   permissions:new PermissionsBitField(perms),comparePositionTo:()=>position-5};}
  assert.equal(validReactionRole(role(2),bot,guild),true);
  assert.equal(validReactionRole(role(7),bot,guild),false);
