@@ -65,7 +65,7 @@ test('seleção alterna pelo menos 12 perguntas de minigame antes de repetir',as
  assert.equal(community.recentMinigames.get(mock.guildId+':'+mock.channelId).length,12);
  community.shutdown();
 });
-test('comando /minigame inclui Quiz Streak e Jogo da Velha além dos modos anteriores',()=>{
+test('comando /minigame mantém Jogo da Velha e não oferece Quiz Streak',()=>{
  const options=newCommands().find(x=>x.name==='minigame').options[0].choices;
- assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'adivinhe-anime','adivinhe-bloco','adivinhe-mob','pedra-papel-tesoura','jogo-da-velha','quiz-streak']);
+ assert.deepEqual(options.map(x=>x.value),['aleatorio',...CATEGORIES,'adivinhe-anime','adivinhe-bloco','adivinhe-mob','pedra-papel-tesoura','jogo-da-velha']);
 });
