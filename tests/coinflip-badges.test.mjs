@@ -34,10 +34,9 @@ test('efeitos de moeda geram WAV PCM diferentes por lado e MP3 válido',async()=
  assert.equal(await coinMp3('cara'),a);
 });
 
-test('Coinflip envia uma imagem estática e três resultados sem vídeos nem demoras',async()=>{
+test('Coinflip envia três resultados em texto, sem imagens, e botão Jogar novamente',async()=>{
  const replies=[],updates=[],calls=[];
  const message={edit:async payload=>{updates.push(payload);return message;}};
- const fakePng=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]);
  const game=new DuckCoinflip({
   store:{persistent:true,startCoinflip:async(id,host,guest)=>{
     calls.push(['start',id,host,guest]);return {ok:true};
@@ -45,7 +44,7 @@ test('Coinflip envia uma imagem estática e três resultados sem vídeos nem dem
     calls.push(['finish',id,winner]);return {ok:true,credited:true,balance:115};
   }},
   randomSide:(()=>{let i=0;return ()=>[0,1,0][i++];})(),
-  renderImage:()=>fakePng
+  renderImage:()=>{throw Error('não gerar imagem')}
  });
  const interaction={
   user:{id:'111111111111111111'},guildId:'333333333333333333',
@@ -65,9 +64,10 @@ test('Coinflip envia uma imagem estática e três resultados sem vídeos nem dem
   reply:async()=>{throw Error('não deveria responder');}
  });
  assert.equal(replies.length,1);
- assert.equal(updates.filter(x=>x.files?.length).length,1);
- const result=updates.find(x=>x.files?.length);
- assert.ok(result.files[0].name.endsWith('.png'));
+ assert.equal(updates.some(x=>x.files?.length),false);
+ const result=updates.find(x=>x.content?.includes('PLACAR FINAL'));
+ assert.equal(result.components[0].components[0].data.custom_id,
+  'duckagain:coin:111111111111111111:222222222222222222');
  assert.match(result.content,/1ª rodada/);
  assert.match(result.content,/2ª rodada/);
  assert.match(result.content,/3ª rodada/);
@@ -97,7 +97,7 @@ test('desafio recusado não registra partida, e visitantes não podem aceitar',a
  assert.equal(game.games.size,0);
 });
 
-test('limite de partidas impede prêmio e não envia imagem',async()=>{
+test('limite de partidas impede prêmio e oferece revanche, sem imagem',async()=>{
  const changes=[],calls=[];
  const game=new DuckCoinflip({
   store:{persistent:true,startCoinflip:async()=>({ok:false,reason:'host_limit'}),
@@ -115,6 +115,7 @@ test('limite de partidas impede prêmio e não envia imagem',async()=>{
  await game.button({user:{id:'222222222222222222'},customId:'duckcoin:'+id+':yes',
   update:async()=>{}});
  assert.match(changes.at(-1).content,/Limite de Coinflip/);
+ assert.equal(changes.at(-1).components[0].components[0].data.label,'Jogar novamente');
  assert.equal(calls.length,0);
  assert.equal(game.players.size,0);
 });
