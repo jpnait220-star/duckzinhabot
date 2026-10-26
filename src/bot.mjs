@@ -1097,6 +1097,7 @@ async function handleReactionTest(interaction){
 client.on(Events.InteractionCreate,async interaction=>{
   if(interaction.isButton()){
     try{
+      if(interaction.customId.startsWith('duckagain:'))return await community.replay(interaction);
       if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
       if(interaction.customId.startsWith('duckpublic:')||interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
       if(interaction.customId.startsWith('duckcoin:'))return await community.coinButton(interaction);
