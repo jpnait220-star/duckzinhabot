@@ -5,6 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {DuckChatHistory} from './duck-chat-history.mjs';
+import {isSelfIdentityQuestion,findSelfNameInHistory,identityAnswer} from './duck-self-identity.mjs';
 import {familiarityLabel,imageReactionKind,maySendImageReaction,ticketGuide} from './community-social.mjs';
 import {affinitySignal,affinityStyle,nextAffinity} from './affinity.mjs';
 import {classifyReactionWithAI,canAnalyzeReactionText} from './reaction-intent.mjs';
@@ -176,6 +177,8 @@ const chatHistory=new DuckChatHistory({
 });
 // A pessoa pode retomar uma conversa curta sem nova menção, apenas no mesmo canal.
 const recentExchange=new Map();
+// Name voluntarily provided in this same Discord account; cache survives database latency.
+const nameCache=new Map();
 
 // Cada botão de fontes tem ID temporário próprio, visível em qualquer resposta pesquisada.
 function sourcesButton(results){
@@ -346,12 +349,14 @@ async function saveSharedExchange(message,reply){
 }
 async function clearSharedUser(userId){
   recentExchange.delete(userId);
+  nameCache.delete(userId);
   for(let i=serverRecent.length-1;i>=0;i--)
     if(serverRecent[i].authorId===userId)serverRecent.splice(i,1);
   await commitSharedChange(items=>items.filter(m=>m.authorId!==userId));
 }
 async function clearSharedAll(){
   recentExchange.clear();
+  nameCache.clear();
   serverRecent.length=0;
   await commitSharedChange(()=>[]);
 }
@@ -400,7 +405,8 @@ async function addHistory(userId,question,answer,searchResults=[]){
 }
 function clearSession(userId){
   chatHistory.clear(userId);
-  if(userId)recentExchange.delete(userId);else recentExchange.clear();
+  if(userId){recentExchange.delete(userId);nameCache.delete(userId);}
+  else{recentExchange.clear();nameCache.clear();}
 }
 async function removeOwnMessage(messageId,channelId){
   try{
@@ -849,10 +855,19 @@ client.on(Events.MessageCreate,async message=>{
         (extraContext?'Conversas públicas recentes:\n'+extraContext.slice(-2200):'')).trim().slice(-4900);
     const focusedExchange=lastExchange?.channelId===message.channelId&&
       Date.now()-lastExchange.at<=10*60_000?lastExchange:null;
+    // Recover explicit identity from this member's own messages, even when
+    // Supabase misses a save or the Duckzinha process restarts.
     const newName=pickName(question);
-    if(newName&&newName!==member?.preferred_name)
-      void store.rememberName(id,newName).catch(err=>console.warn('[Duckzinha] Salvar nome: '+err.message));
-    const latestName=newName||member?.preferred_name||'';
+    const identityAllowed=member?.enabled!==false;
+    if(newName&&identityAllowed){
+      nameCache.set(id,newName);
+      if(newName!==member?.preferred_name)
+        void store.rememberName(id,newName).catch(err=>
+          console.warn('[Duckzinha] Salvar nome: '+err.message));
+    }
+    const latestName=identityAllowed
+      ?newName||nameCache.get(id)||findSelfNameInHistory(history)||member?.preferred_name||''
+      :newName||'';
     let answer=null,aiAnswered=false;
     const searching=confirmation||wantsWebResearch(question);
     let searchQuery=researchTopic(question)||question;
@@ -917,8 +932,8 @@ client.on(Events.MessageCreate,async message=>{
         channelId:message.channelId})||answer;
     }
     answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
-    if(/\b(quem sou eu|lembra de mim|qual meu nome)\b/i.test(question))answer=latestName?'Clarooo! Você me contou que gosta de ser chamado de **'+latestName+'**! 🦆💛':'Aii, ainda não sei seu nome! 💛 Pode se apresentar quando me mencionar, se quiser!';
-    if(newName&&!/\b(quem sou|meu nome)\b/i.test(question))answer='Aaa, prazer, '+newName+'! 💛 '+answer;
+    if(isSelfIdentityQuestion(question))answer=identityAnswer(latestName);
+    if(newName&&!isSelfIdentityQuestion(question))answer='Entendi! Vou te chamar de '+newName+'. 💛 '+answer;
     if(voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId&&mentioned){
       const joke=playfulCallReply(question,Number(String(message.id).slice(-4)));
       if(joke){answer=joke;aiAnswered=true;}
