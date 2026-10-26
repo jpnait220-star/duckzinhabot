@@ -8,7 +8,7 @@ export function reactionRoleCommands(){
  const role=s=>s.addRoleOption(o=>o.setName('cargo').setDescription('Cargo que será concedido').setRequired(true));
  return [new SlashCommandBuilder().setName('cargosreacao').setDescription('Criar painéis de cargos por reação')
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).setDMPermission(false)
-  .addSubcommand(s=>role(emoji(s.setName('criar').setDescription('Publicar painel com webhook')
+  .addSubcommand(s=>role(emoji(s.setName('criar').setDescription('Publicar painel como a própria Duckzinha')
     .addStringOption(o=>o.setName('titulo').setDescription('Título').setRequired(true).setMaxLength(90))
     .addStringOption(o=>o.setName('descricao').setDescription('Texto do painel').setRequired(true).setMaxLength(700))))
     .addChannelOption(o=>o.setName('canal').setDescription('Canal, se diferente do atual').addChannelTypes(ChannelType.GuildText,ChannelType.GuildAnnouncement)))
@@ -16,6 +16,7 @@ export function reactionRoleCommands(){
   .addSubcommand(s=>emoji(id(s.setName('remover').setDescription('Remover uma opção de cargo'))))
   .addSubcommand(s=>id(s.setName('apagar').setDescription('Excluir painel')))
   .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas')))
+  .addSubcommand(s=>id(s.setName('migrar').setDescription('Trocar painel antigo de webhook por mensagem da Duckzinha')))
   .addSubcommand(s=>s.setName('diagnostico').setDescription('Verificar permissões e banco antes de criar um painel')).toJSON()];
 }
 export function validReactionRole(role,botMember,guild){
@@ -92,15 +93,15 @@ export class ReactionRolePanels{
   if(!me.permissions.has(PermissionFlagsBits.ManageRoles))throw Error('Preciso de Gerenciar cargos.');
   const p=channel.permissionsFor(me);
   if(!p?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory,
-   PermissionFlagsBits.AddReactions,PermissionFlagsBits.ManageWebhooks,PermissionFlagsBits.EmbedLinks]))
-   throw Error('Preciso de Ver canal, Ler histórico, Adicionar reações, Inserir links e Gerenciar webhooks. Execute /cargosreacao diagnostico no canal do painel.');
+   PermissionFlagsBits.AddReactions,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks]))
+   throw Error('Preciso de Ver canal, Ler histórico, Enviar mensagens, Adicionar reações e Inserir links. Execute /cargosreacao diagnostico no canal do painel.');
  }
  async diagnose(i,send){
   const guild=i.guild,channel=i.channel;
   const me=guild.members.me||await guild.members.fetchMe();
   const requirements=[
    ['Gerenciar cargos',me.permissions.has(PermissionFlagsBits.ManageRoles)],
-   ['Gerenciar webhooks (neste canal)',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ManageWebhooks))],
+   ['Enviar mensagens',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages))],
    ['Ver canal',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ViewChannel))],
    ['Ler histórico de mensagens',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.ReadMessageHistory))],
    ['Adicionar reações',Boolean(channel?.permissionsFor(me)?.has(PermissionFlagsBits.AddReactions))],
@@ -145,15 +146,15 @@ export class ReactionRolePanels{
     const e=await this.emoji(i.guild,i.options.getString('emoji'));
     const title=i.options.getString('titulo').trim(),description=i.options.getString('descricao').trim();
     if(!title||!description)throw Error('Título e descrição obrigatórios.');
-    const hook=await this.webhook(channel);
-    const data={guild_id:this.guildId,channel_id:channel.id,webhook_id:hook.id,title,description,
+    // Publicar como a conta real do bot: Discord usa nome, avatar e identidade
+    // da Duckzinha automaticamente, sem webhook e sem env nova.
+    const data={guild_id:this.guildId,channel_id:channel.id,webhook_id:'',title,description,
       emoji_roles:[{emoji:e,role_id:role.id}]};
-    const posted=await hook.send({embeds:[panelEmbed(data)],allowedMentions:{parse:[]}});
+    const posted=await channel.send({embeds:[panelEmbed(data)],allowedMentions:{parse:[]}});
     try{
-     const msg=await channel.messages.fetch(posted.id);
-     await msg.react(e);
-     data.message_id=msg.id;await this.save(data);
-    }catch(err){await hook.deleteMessage(posted.id).catch(()=>{});throw err;}
+     await posted.react(e);
+     data.message_id=posted.id;await this.save(data);
+    }catch(err){await posted.delete().catch(()=>{});throw err;}
     return send('✅ Painel publicado em <#'+channel.id+'>!\nID: '+data.message_id+
       '\nAdicione mais opções com /cargosreacao adicionar.');
    }
@@ -162,11 +163,64 @@ export class ReactionRolePanels{
    const channel=await i.guild.channels.fetch(row.channel_id);
    if(!channel)throw Error('Canal do painel não encontrado.');
    if(sub==='ver')return send('**'+row.title+'**\n'+row.emoji_roles.map(x=>x.emoji+' → <@&'+x.role_id+'>').join('\n'));
+   if(sub==='migrar'){
+    if(!row.webhook_id)return send('✅ Esse painel já é uma mensagem da própria Duckzinha, com o avatar dela.');
+    const me=i.guild.members.me||await i.guild.members.fetchMe();
+    const p=channel.permissionsFor(me);
+    if(!p?.has([PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.ReadMessageHistory,PermissionFlagsBits.AddReactions,PermissionFlagsBits.EmbedLinks]))
+      throw Error('Preciso de Ver canal, Enviar mensagens, Ler histórico, Adicionar reações e Inserir links nesse canal.');
+    if(!me.permissions.has(PermissionFlagsBits.ManageRoles))
+      throw Error('Preciso de Gerenciar cargos para migrar o painel.');
+    for(const choice of row.emoji_roles){
+      const role=await i.guild.roles.fetch(choice.role_id).catch(()=>null);
+      if(!validReactionRole(role,me,i.guild))
+        throw Error('O cargo '+choice.role_id+' está acima da Duckzinha ou tem poderes de moderação. Ajuste-o antes de migrar.');
+    }
+    // Autor de mensagem webhook é imutável: precisamos criar outra postagem.
+    const newMessage=await channel.send({embeds:[panelEmbed(row)],allowedMentions:{parse:[]}});
+    const migrated={...row,message_id:newMessage.id,webhook_id:''};
+    try{
+      for(const choice of row.emoji_roles)await newMessage.react(choice.emoji);
+      await this.save(migrated);
+    }catch(err){
+      await newMessage.delete().catch(()=>{});
+      throw err;
+    }
+    // Desativar primeiro o painel antigo, só então apagar sua mensagem.
+    try{await this.del(row.message_id);}
+    catch(err){
+      // O novo painel fica válido e o antigo também; avisar sem esconder falha.
+      this.onError('migrar-desativar-antigo',err);
+      return send('⚠️ Publiquei o painel novo em <#'+channel.id+'> (ID: '+newMessage.id+
+        '), mas NÃO consegui desativar o painel antigo. Execute /cargosreacao apagar com o ID '+row.message_id+'.');
+    }
+    let oldRemoved=false;
+    try{
+      const hook=await this.webhook(channel,row.webhook_id);
+      await hook.deleteMessage(row.message_id);
+      oldRemoved=true;
+    }catch(err){this.onError('migrar-apagar-webhook',err);}
+    return send('✅ Painel migrado! Agora é uma mensagem da própria Duckzinha, com a foto dela.'+
+      '\nNovo ID: '+newMessage.id+
+      '\nOs membros precisam reagir na mensagem nova para manter a seleção sincronizada.'+
+      (oldRemoved?'\nA mensagem do webhook antigo foi apagada.':
+        '\n⚠️ A mensagem antiga ainda pode aparecer no canal: apague-a manualmente; o painel antigo já foi desativado.'));
+   }
    if(sub==='apagar'){
     await this.del(id);
-    try{(await this.webhook(channel,row.webhook_id)).deleteMessage(id).catch(err=>this.onError('apagar',err));}
-    catch(err){this.onError('webhook',err);}
-    return send('✅ Painel desativado, não atribui mais cargos.');
+    let removed=false;
+    try{
+      if(row.webhook_id){
+        await (await this.webhook(channel,row.webhook_id)).deleteMessage(id);
+      }else{
+        const msg=await channel.messages.fetch(id);
+        if(msg.author.id!==this.client.user.id)throw Error('A mensagem não pertence à Duckzinha.');
+        await msg.delete();
+      }
+      removed=true;
+    }catch(err){this.onError('apagar-painel',err);}
+    return send('✅ Painel desativado.'+(removed?' Mensagem apagada.':' Apague a mensagem manualmente, se ainda estiver visível.'));
    }
    const e=await this.emoji(i.guild,i.options.getString('emoji')),key=emojiKey(e);
    const options=[...row.emoji_roles];
@@ -183,10 +237,16 @@ export class ReactionRolePanels{
     options.splice(at,1);
    }
    const updated={...row,emoji_roles:options};
-   const hook=await this.webhook(channel,row.webhook_id);
    const msg=await channel.messages.fetch(id);
    if(sub==='adicionar')await msg.react(e);
-   await hook.editMessage(id,{embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+   if(row.webhook_id){
+     // Compatibilidade com painéis legados, até serem migrados.
+     const hook=await this.webhook(channel,row.webhook_id);
+     await hook.editMessage(id,{embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+   }else{
+     if(msg.author.id!==this.client.user.id)throw Error('A mensagem não pertence à Duckzinha.');
+     await msg.edit({embeds:[panelEmbed(updated)],allowedMentions:{parse:[]}});
+   }
    await this.save(updated);
    if(sub==='remover'){
     const reaction=msg.reactions.cache.find(x=>emojiKey(x.emoji)===key);
