@@ -61,7 +61,7 @@ test('Discord aceita todos os quatro embeds do /ajuda sem exceder limites',()=>{
  }
  const summary=cards.map(x=>x.data.description).join('\n');
  for(const keyword of [
-  'Quiz Streak','Jogo da Velha','Pedra-Papel-Tesoura',
+  'Jogar novamente','Jogo da Velha','Pedra-Papel-Tesoura',
   '/lembrete criar','/duckzinha entrar','/afk','/emblema loja',
   '20 moedas','5 moedas','/resumo','/sugerir','/evento listar'
  ])assert.ok(summary.includes(keyword),'Ajuda omitiu '+keyword);
