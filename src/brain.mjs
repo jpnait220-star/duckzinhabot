@@ -209,7 +209,7 @@ async function askCloudflarePrimary({accountId,token,model=MODEL,question,histor
 
 // Groq é apenas provedor de reserva. A memória e o perfil continuam no Supabase.
 export async function askCloudflare(options={}) {
-  const {groqKey='',groqModel='llama-3.3-70b-versatile'}=options;
+  const {groqKey='',groqModel='openai/gpt-oss-120b'}=options;
   let primaryError=null;
   if(options.accountId && options.token){
     try { return await askCloudflarePrimary(options); }
@@ -237,11 +237,13 @@ export async function askCloudflare(options={}) {
     const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',signal:AbortSignal.timeout(18000),
       headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
-      body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:480,stream:false})
+      body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,\n        ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
     });
     if(!response.ok){
-      console.warn('[Duckzinha] Groq reserva falhou (HTTP '+response.status+').');
-      throw new Error('Groq HTTP '+response.status);
+      let diagnostic='';
+      try{const body=await response.json(); diagnostic=String(body?.error?.code||body?.error?.type||body?.error?.message||'').slice(0,160);}catch{}
+      console.warn('[Duckzinha] Groq reserva falhou (HTTP '+response.status+', '+diagnostic+').');
+      throw new Error('Groq HTTP '+response.status+' '+diagnostic);
     }
     const data=await response.json();
     const answer=safeResponse(data?.choices?.[0]?.message?.content);
