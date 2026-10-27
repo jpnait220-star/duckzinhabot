@@ -48,7 +48,7 @@ const CF_ACCOUNT=process.env.CF_ACCOUNT_ID?.trim()||'';
 const CF_TOKEN=process.env.CF_API_TOKEN?.trim()||'';
 const CF_MODEL=process.env.CF_MODEL?.trim()||MODEL;
 const GROQ_KEY=process.env.GROQ_API_KEY?.trim()||'';
-const REQUESTED_GROQ_MODEL=process.env.GROQ_MODEL?.trim()||'openai/gpt-oss-120b';
+const REQUESTED_GROQ_MODEL=process.env.GROQ_MODEL?.trim()||'qwen/qwen3.8-27b';
 // Llama 3.3 70B foi retirado dos planos gratuitos do Groq em agosto/2026.
 const GROQ_MODEL=['llama-3.3-70b-versatile','llama-3.1-8b-instant'].includes(REQUESTED_GROQ_MODEL)
   ?'openai/gpt-oss-120b':REQUESTED_GROQ_MODEL;
