@@ -213,7 +213,7 @@ let groqNextAllowedAt=0;
 const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // Groq é apenas provedor de reserva. A memória e o perfil continuam no Supabase.
 export async function askCloudflare(options={}) {
-  const {groqKey='',groqModel='openai/gpt-oss-120b'}=options;
+  const {groqKey='',groqModel='qwen/qwen3.8-27b'}=options;
   let primaryError=null;
   if(options.accountId && options.token){
     try { return await askCloudflarePrimary(options); }
@@ -245,7 +245,7 @@ export async function askCloudflare(options={}) {
       method:'POST',signal:AbortSignal.timeout(18000),
       headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,
-        ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
+        ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:groqModel==='qwen/qwen3.8-27b'?{reasoning_effort:'none'}:{})})
     });
     if(response.status===429){
       // Respeita o Retry-After quando o limite é curto; não repete em caso de cota diária.
@@ -256,7 +256,7 @@ export async function askCloudflare(options={}) {
           method:'POST',signal:AbortSignal.timeout(18000),
           headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
           body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,
-            ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
+            ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:groqModel==='qwen/qwen3.8-27b'?{reasoning_effort:'none'}:{})})
         });
       }
     }
