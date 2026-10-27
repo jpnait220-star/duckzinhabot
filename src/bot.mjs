@@ -1253,6 +1253,36 @@ client.on(Events.InteractionCreate,async interaction=>{
   }
   if(!interaction.isChatInputCommand())return;
   try{
+    if(interaction.commandName==='testaria'){
+      if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)){
+        return interaction.reply({content:'Somente administradores podem testar a IA.',flags:MessageFlags.Ephemeral});
+      }
+      await interaction.deferReply({flags:MessageFlags.Ephemeral});
+      if(!CF_ACCOUNT||!CF_TOKEN)return interaction.editReply('Cloudflare não configurado (CF_ACCOUNT_ID e CF_API_TOKEN).');
+      const started=Date.now();
+      try{
+        const response=await fetch('https://api.cloudflare.com/client/v4/accounts/'+encodeURIComponent(CF_ACCOUNT)+'/ai/v1/chat/completions',{
+          method:'POST',signal:AbortSignal.timeout(18000),
+          headers:{Authorization:'Bearer '+CF_TOKEN,'Content-Type':'application/json'},
+          body:JSON.stringify({model:CF_MODEL,messages:[
+            {role:'system',content:'Responda apenas em português brasileiro, de forma breve.'},
+            {role:'user',content:'Teste de conexão. Responda com uma frase curta confirmando que está funcionando.'}
+          ],max_completion_tokens:180,temperature:0.3,stream:false})
+        });
+        if(!response.ok){
+          let description='';
+          try{const body=await response.json();description=String(body?.errors?.[0]?.message||body?.error?.message||'').slice(0,240)}catch{}
+          console.warn('[Duckzinha] /testaria Cloudflare HTTP '+response.status+' '+description);
+          return interaction.editReply('Cloudflare falhou: HTTP '+response.status+' • Modelo: '+CF_MODEL+' • '+description);
+        }
+        const data=await response.json();
+        const raw=data?.choices?.[0]?.message?.content??data?.result?.response??'';
+        const result=typeof raw==='string'?raw:Array.isArray(raw)?raw.map(x=>x?.text||'').join(''):'';
+        return interaction.editReply('Cloudflare respondeu em '+(Date.now()-started)+' ms.\nModelo: '+CF_MODEL+'\nResposta: '+(safeResponse(result)||'(sem texto)'));
+      }catch(error){
+        return interaction.editReply('Falha na conexão direta com Cloudflare: '+String(error?.message||error).slice(0,200));
+      }
+    }
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
     if(interaction.commandName==='profile')return await handleProfileCommand(interaction,{guildId:GUILD_ID});
     if(interaction.commandName==='cargosreacao')return await reactionRolePanels.handleCommand(interaction);
