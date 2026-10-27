@@ -3,6 +3,7 @@ import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
 import {newCommands} from './duck-features.mjs';
 import {reactionRoleCommands} from './duck-reaction-roles.mjs';
+import {profileCommand} from './duck-share-profile.mjs';
 import {contextCommands} from './duck-message-menu.mjs';
 import {memberHelpEmbeds,MEMBER_HELP_CATEGORIES} from './duck-member-help.mjs';
 import {showBoxPvp,manageBoxPvp} from './duck-boxpvp-directory.mjs';
@@ -82,7 +83,7 @@ export function commandPayloads(){
     .addSubcommand(s=>s.setName('remover').setDescription('Remover um IP do catálogo')
       .addIntegerOption(o=>o.setName('id').setDescription('ID exibido ao cadastrar').setRequired(true)))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false).toJSON());
-  list.push(...reactionRoleCommands(),...newCommands(),...contextCommands());
+  list.push(profileCommand(),...reactionRoleCommands(),...newCommands(),...contextCommands());
   return list;
 }
 
