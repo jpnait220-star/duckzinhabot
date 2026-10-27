@@ -986,7 +986,9 @@ client.on(Events.MessageCreate,async message=>{
       voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId;
     // Oferecer pesquisa somente quando a resposta é incerta (inclusive no
     // modo básico, sem IA), ou quando não houve resposta e o assunto é factual.
-    const shouldOffer=!searching&&(uncertainty(answer)||
+    const contextualShort=Boolean(channelContext?.trim())&&
+      isShortContextualTurn(question)&&!wantsWebResearch(question);
+    const shouldOffer=!searching&&!contextualShort&&(uncertainty(answer)||
       (!aiAnswered&&Boolean(researchTopic(question))));
     if(shouldOffer)answer=isVoiceChat
       ?'Aii, não sei ao certo o que é isso! 🦆💛 Quer que eu pesquise? Clique em **Pesquisar**.'
