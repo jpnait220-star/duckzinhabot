@@ -210,6 +210,7 @@ async function askCloudflarePrimary({accountId,token,model=MODEL,question,histor
 // Organiza requisições simultâneas para não estourar o limite por segundo do Groq.
 let groqQueue=Promise.resolve();
 let groqNextAllowedAt=0;
+let groqRateLimitUntil=0;
 const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // Groq é apenas provedor de reserva. A memória e o perfil continuam no Supabase.
 export async function askCloudflare(options={}) {
@@ -239,7 +240,7 @@ export async function askCloudflare(options={}) {
       .map(m=>({role:m.role,content:m.content.slice(0,850)})),
     {role:'user',content:'Mensagem atual de '+text(options.speaker||'Membro',36)+': '+text(options.question,900)}];
   const sendGroq=async()=>{
-    await groqSleep(Math.max(0,groqNextAllowedAt-Date.now()));
+    await groqSleep(Math.max(0,groqNextAllowedAt-Date.now(),groqRateLimitUntil-Date.now()));
     groqNextAllowedAt=Date.now()+1100;
     let response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',signal:AbortSignal.timeout(18000),
@@ -249,7 +250,8 @@ export async function askCloudflare(options={}) {
     });
     if(response.status===429){
       // Respeita o Retry-After quando o limite é curto; não repete em caso de cota diária.
-      const retry=Number(response.headers.get('retry-after'));
+      const retryValue=response.headers.get('retry-after');
+      const retry=retryValue===null?NaN:Number(retryValue);
       if(Number.isFinite(retry)&&retry>=0&&retry<=8){
         await groqSleep(Math.max(1000,retry*1000));
         response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
@@ -259,6 +261,12 @@ export async function askCloudflare(options={}) {
             ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:groqModel==='qwen/qwen3.8-27b'?{reasoning_effort:'none'}:{})})
         });
       }
+    }
+    if(response.status===429){
+      const retryValue=response.headers.get('retry-after');
+      const retrySeconds=retryValue===null?NaN:Number(retryValue);
+      if(Number.isFinite(retrySeconds)&&retrySeconds>0&&retrySeconds<=60)
+        groqRateLimitUntil=Math.max(groqRateLimitUntil,Date.now()+retrySeconds*1000);
     }
     if(!response.ok){
       let diagnostic='';
