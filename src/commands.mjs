@@ -30,6 +30,9 @@ export function commandPayloads(){
       .setRequired(false).addChoices(...MEMBER_HELP_CATEGORIES));
     return builder.toJSON();
   });
+  list.push(new SlashCommandBuilder().setName('testaria')
+    .setDescription('Testar diretamente o Cloudflare Workers AI, sem Groq (admin)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('testarreacao')
     .setDescription('Testar o emoji da Duckzinha na sua última mensagem')
     .addStringOption(o=>o.setName('tipo').setDescription('Qual reação verificar?')
