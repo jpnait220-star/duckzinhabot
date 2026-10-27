@@ -5,6 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Client,GatewayIntentBits,Events,ActivityType,PermissionFlagsBits,ChannelType,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,Partials} from 'discord.js';
 import {DuckStore} from './store.mjs';
 import {ReactionRolePanels} from './duck-reaction-roles.mjs';
+import {PROFILE_COPY_BUTTON_ID,handleProfileCommand,handleProfileCopy} from './duck-share-profile.mjs';
 import {DuckChatHistory} from './duck-chat-history.mjs';
 import {isSelfIdentityQuestion,findSelfNameInHistory,identityAnswer} from './duck-self-identity.mjs';
 import {familiarityLabel,imageReactionKind,complimentToDuck,maySendImageReaction,ticketGuide} from './community-social.mjs';
@@ -1179,6 +1180,8 @@ async function handleReactionTest(interaction){
 client.on(Events.InteractionCreate,async interaction=>{
   if(interaction.isButton()){
     try{
+      if(interaction.customId===PROFILE_COPY_BUTTON_ID)
+        return await handleProfileCopy(interaction,{guildId:GUILD_ID,botId:client.user.id});
       if(interaction.customId.startsWith('duckagain:'))return await community.replay(interaction);
       if(interaction.customId.startsWith('duckpanel:'))return await extras.panelButton(interaction);
       if(interaction.customId.startsWith('duckpublic:')||interaction.customId.startsWith('duckgame:'))return await extras.gameButton(interaction);
@@ -1226,6 +1229,7 @@ client.on(Events.InteractionCreate,async interaction=>{
   if(!interaction.isChatInputCommand())return;
   try{
     if(interaction.commandName==='testarreacao')return await handleReactionTest(interaction);
+    if(interaction.commandName==='profile')return await handleProfileCommand(interaction,{guildId:GUILD_ID});
     if(interaction.commandName==='cargosreacao')return await reactionRolePanels.handleCommand(interaction);
     if(await runNewCommand(interaction,{store,extras,studio,community,communityPlus,selectedVoice:()=>selectedVoice,findReactionFile}))return;
     await runCommand(interaction,{store,site:SITE,panelId:PANEL_ID,localKnowledge,client,clearSession,invalidatePersonality,onVoiceChanged:voice=>{selectedVoice=voice},onVoiceTest:testDuckVoice,onVoiceJoin:joinDuckVoice,onVoiceLeave:leaveDuckVoice,edgeVoiceReady:true});
