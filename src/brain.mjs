@@ -216,6 +216,61 @@ const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function askCloudflare(options={}) {
   const {groqKey='',groqModel='qwen/qwen3.8-27b'}=options;
   let primaryError=null;
+  // Mistral e SambaNova compartilham exatamente o mesmo contexto persistente da Duckzinha.
+  const extraProviders=[
+    {name:'Mistral',key:options.mistralKey,model:options.mistralModel||'mistral-small-latest',
+      endpoint:'https://api.mistral.ai/v1/chat/completions'},
+    {name:'SambaNova',key:options.sambanovaKey,model:options.sambanovaModel||'Meta-Llama-3.3-70B-Instruct',
+      endpoint:'https://api.sambanova.ai/v1/chat/completions'}
+  ];
+  for(const provider of extraProviders){
+    if(!provider.key)continue;
+    const cut=(value,max)=>String(value||'').slice(0,max);
+    const context=[
+      PERSONALITY,
+      'PERSONALIDADE CONFIGURADA: '+cut(options.customPersonality,2600),
+      'ENSINAMENTOS DA COMUNIDADE: '+cut(options.knowledge,1600),
+      'NOME ESCOLHIDO: '+cut(options.name,100),
+      'MEMÓRIAS E PREFERÊNCIAS: '+cut(options.profileFacts,900),
+      'FAMILIARIDADE: '+cut(options.familiarity,200),
+      'ESTILO: '+cut(options.affinity,400),
+      'CONVERSA COLETIVA RECENTE: '+cut(options.channelContext,3900),
+      'PESQUISAS ANTERIORES: '+cut(options.pastResearch,1100),
+      'PESQUISA ATUAL: '+cut(options.research,1700),
+      'Entenda a continuidade do assunto entre membros diferentes no mesmo canal; não invente fatos.',
+      conversationalCue({question:options.question||'',history:options.history||[],
+        lastExchange:options.lastExchange,channelId:options.channelId})
+    ].join('\n\n');
+    const messages=[{role:'system',content:context},
+      ...(options.history||[]).slice(-8).filter(m=>
+        ['user','assistant'].includes(m?.role)&&typeof m.content==='string')
+        .map(m=>({role:m.role,content:m.content.slice(0,850)})),
+      {role:'user',content:'Mensagem atual de '+cut(options.speaker||'Membro',36)+': '+cut(options.question,900)}];
+    try{
+      const response=await fetch(provider.endpoint,{
+        method:'POST',signal:AbortSignal.timeout(18000),
+        headers:{Authorization:'Bearer '+provider.key,'Content-Type':'application/json'},
+        body:JSON.stringify({model:provider.model,messages,temperature:0.6,
+          max_tokens:650,stream:false})
+      });
+      if(!response.ok){
+        let diagnostic='';
+        try{const data=await response.json();diagnostic=String(data?.error?.code||
+          data?.error?.type||data?.error?.message||'').slice(0,100)}catch{}
+        throw new Error('HTTP '+response.status+(diagnostic?' ('+diagnostic+')':''));
+      }
+      const data=await response.json();
+      const raw=data?.choices?.[0]?.message?.content;
+      const answer=safeResponse(Array.isArray(raw)?
+        raw.map(part=>typeof part==='string'?part:part?.text||'').join(''):raw);
+      if(!answer)throw new Error('resposta sem texto');
+      console.log('[Duckzinha] IA respondida por '+provider.name+' ('+provider.model+').');
+      return answer;
+    }catch(error){
+      primaryError=error;
+      console.warn('[Duckzinha] '+provider.name+' indisponível: '+error.message+'; tentando reserva.');
+    }
+  }
   // Cerebras é prioritária quando configurada. Usa o mesmo contexto, histórico e perfil.
   if(options.cerebrasKey){
     const cut=(value,max)=>String(value||'').slice(0,max);
