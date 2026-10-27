@@ -1,7 +1,7 @@
 // Conversation cache + sequential persistence for each Discord member.
 // Does not collect arbitrary public chat messages; it only stores exchanges
 // explicitly directed to Duckzinha. The adapter manages database TTL/privacy.
-export const HISTORY_WINDOW=20; // 10 recent question/answer exchanges
+export const HISTORY_WINDOW=12; // 6 recent exchanges; matches Supabase history length constraint
 export const HISTORY_CACHE_MS=6*60*60_000;
 
 export class DuckChatHistory {
