@@ -216,6 +216,50 @@ const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function askCloudflare(options={}) {
   const {groqKey='',groqModel='qwen/qwen3.8-27b'}=options;
   let primaryError=null;
+  // Cerebras é prioritária quando configurada. Usa o mesmo contexto, histórico e perfil.
+  if(options.cerebrasKey){
+    const cut=(value,max)=>String(value||'').slice(0,max);
+    const system=[
+      PERSONALITY,
+      'PERSONALIDADE CONFIGURADA: '+cut(options.customPersonality,2600),
+      'CONHECIMENTOS ENSINADOS: '+cut(options.knowledge,1600),
+      'NOME PREFERIDO: '+cut(options.name,100),
+      'MEMÓRIAS E PREFERÊNCIAS: '+cut(options.profileFacts,900),
+      'FAMILIARIDADE: '+cut(options.familiarity,200),
+      'ESTILO DE TRATAMENTO: '+cut(options.affinity,400),
+      'CONVERSA COLETIVA DO CANAL: '+cut(options.channelContext,3900),
+      'PESQUISAS ANTERIORES: '+cut(options.pastResearch,1100),
+      'PESQUISA ATUAL: '+cut(options.research,1700),
+      'Entenda quem está falando no canal. Mensagens curtas podem continuar o assunto de outra pessoa. Não confunda histórico pessoal com conversa coletiva.',
+      conversationalCue({question:options.question||'',history:options.history||[],lastExchange:options.lastExchange,channelId:options.channelId})
+    ].join('\n\n');
+    const messages=[{role:'system',content:system},
+      ...(options.history||[]).slice(-8)
+        .filter(m=>['user','assistant'].includes(m?.role)&&typeof m.content==='string')
+        .map(m=>({role:m.role,content:m.content.slice(0,850)})),
+      {role:'user',content:'Mensagem atual de '+cut(options.speaker||'Membro',36)+': '+cut(options.question,900)}];
+    try{
+      const model=options.cerebrasModel||'gpt-oss-120b';
+      const response=await fetch('https://api.cerebras.ai/v1/chat/completions',{
+        method:'POST',signal:AbortSignal.timeout(18000),
+        headers:{Authorization:'Bearer '+options.cerebrasKey,'Content-Type':'application/json'},
+        body:JSON.stringify({model,messages,temperature:0.6,max_completion_tokens:700,stream:false})
+      });
+      if(!response.ok){
+        let reason='';
+        try{const data=await response.json();reason=String(data?.error?.code||data?.error?.type||'').slice(0,70)}catch{}
+        throw new Error('Cerebras HTTP '+response.status+(reason?' ('+reason+')':''));
+      }
+      const result=await response.json();
+      const answer=safeResponse(result?.choices?.[0]?.message?.content);
+      if(!answer)throw new Error('Cerebras retornou resposta sem texto');
+      console.log('[Duckzinha] IA respondida pela Cerebras ('+model+').');
+      return answer;
+    }catch(error){
+      primaryError=error;
+      console.warn('[Duckzinha] Cerebras indisponível: '+error.message+'; tentando reservas.');
+    }
+  }
   if(options.accountId && options.token){
     try { return await askCloudflarePrimary(options); }
     catch(error){primaryError=error;}
