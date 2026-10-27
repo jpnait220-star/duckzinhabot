@@ -237,7 +237,8 @@ export async function askCloudflare(options={}) {
     const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',signal:AbortSignal.timeout(18000),
       headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
-      body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,\n        ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
+      body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,
+        ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
     });
     if(!response.ok){
       let diagnostic='';
