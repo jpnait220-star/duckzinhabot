@@ -547,9 +547,16 @@ client.once(Events.ClientReady,async me=>{
   me.user.setActivity('🦆💛 | /ajuda • mencione a Duckzinha',{type:ActivityType.Custom});
   try{
     const guild=await me.guilds.fetch(GUILD_ID);
-    await guild.commands.set(commandPayloads());
-    console.log('[Duckzinha] Comandos cadastrados no servidor '+guild.name+'.');
-  }catch(e){console.error('[Duckzinha] Erro ao cadastrar comandos: '+e.message)}
+    const definitions=commandPayloads();
+    console.log('[Duckzinha] Registrando '+definitions.length+
+      ' comandos no servidor '+guild.name+'; /profile no código: '+
+      definitions.some(command=>command.name==='profile')+'.');
+    const registered=await guild.commands.set(definitions);
+    const profile=registered.find(command=>command.name==='profile');
+    console.log('[Duckzinha] Comandos registrados: '+registered.size+
+      ' • /profile: '+(profile?'REGISTRADO (ID '+profile.id+')':'NÃO REGISTRADO')+'.');
+    if(!profile)console.error('[Duckzinha] Atenção: Discord não retornou /profile após registrar comandos.');
+  }catch(e){console.error('[Duckzinha] Erro ao cadastrar comandos: ',e)}
   console.log('[Duckzinha] IA: '+(CF_ACCOUNT&&CF_TOKEN?CF_MODEL:'modo básico (sem chave de IA)')+'. Memória persistente: '+(store.persistent?'ativada':'não configurada')+'.');
   console.log('[Duckzinha] Boas-vindas: '+(WELCOME_CHANNEL_ID?'ativadas':'desativadas (configure WELCOME_CHANNEL_ID)')+
     '. Tickets: '+(TICKET_CATEGORY_ID?'categoria configurada':'reconhecimento por nome privado ticket-/atendimento-')+'.');
