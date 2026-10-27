@@ -3,7 +3,7 @@ import {pickSelfName} from './duck-self-identity.mjs';
 import {isShortContextualTurn,conversationalCue} from './duck-contextual-chat.mjs';
 export const MODEL = '@cf/google/gemma-4-26b-a4b-it';
 const quotaCooldown = new Map();
-const QUOTA_RECHECK_MS = 30 * 60_000;
+const QUOTA_RECHECK_MS = 10 * 60_000; // verifica Cloudflare apenas na próxima fala, após pausa
 
 export const PERSONALITY = `Você é Duckzinha 🦆💛, ajudante virtual oficial da DuckzinCommunity, no Discord.
 Seu jeito: simpática, feminina, delicada, educada, descontraída e às vezes tímida; respostas naturais e diretas em português brasileiro, com palavras simples.
@@ -207,6 +207,10 @@ async function askCloudflarePrimary({accountId,token,model=MODEL,question,histor
 }
 
 
+// Organiza requisições simultâneas para não estourar o limite por segundo do Groq.
+let groqQueue=Promise.resolve();
+let groqNextAllowedAt=0;
+const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // Groq é apenas provedor de reserva. A memória e o perfil continuam no Supabase.
 export async function askCloudflare(options={}) {
   const {groqKey='',groqModel='openai/gpt-oss-120b'}=options;
@@ -233,13 +237,28 @@ export async function askCloudflare(options={}) {
     ...(options.history||[]).slice(-8).filter(m=>['user','assistant'].includes(m?.role)&&typeof m.content==='string')
       .map(m=>({role:m.role,content:m.content.slice(0,850)})),
     {role:'user',content:'Mensagem atual de '+text(options.speaker||'Membro',36)+': '+text(options.question,900)}];
-  try{
-    const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+  const sendGroq=async()=>{
+    await groqSleep(Math.max(0,groqNextAllowedAt-Date.now()));
+    groqNextAllowedAt=Date.now()+1100;
+    let response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',signal:AbortSignal.timeout(18000),
       headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,
         ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
     });
+    if(response.status===429){
+      // Respeita o Retry-After quando o limite é curto; não repete em caso de cota diária.
+      const retry=Number(response.headers.get('retry-after'));
+      if(Number.isFinite(retry)&&retry>=0&&retry<=8){
+        await groqSleep(Math.max(1000,retry*1000));
+        response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',signal:AbortSignal.timeout(18000),
+          headers:{Authorization:'Bearer '+groqKey,'Content-Type':'application/json'},
+          body:JSON.stringify({model:groqModel,messages,temperature:0.6,max_completion_tokens:1024,stream:false,
+            ...(groqModel.startsWith('openai/gpt-oss-')?{reasoning_effort:'low'}:{})})
+        });
+      }
+    }
     if(!response.ok){
       let diagnostic='';
       try{const body=await response.json(); diagnostic=String(body?.error?.code||body?.error?.type||body?.error?.message||'').slice(0,160);}catch{}
@@ -251,7 +270,9 @@ export async function askCloudflare(options={}) {
     if(!answer)throw new Error('Groq respondeu sem texto');
     console.log('[Duckzinha] IA respondida pelo Groq de reserva ('+groqModel+').');
     return answer;
-  }catch(error){
-    throw new Error((primaryError?primaryError.message+'; ':'')+'Groq reserva: '+error.message);
-  }
+  };
+  const task=groqQueue.catch(()=>{}).then(sendGroq);
+  groqQueue=task.catch(()=>{});
+  try{return await task;}
+  catch(error){throw new Error((primaryError?primaryError.message+'; ':'')+'Groq reserva: '+error.message);}
 }
