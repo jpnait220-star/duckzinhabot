@@ -791,7 +791,18 @@ client.on(Events.MessageCreate,async message=>{
   if(!confirmation&&!wantsWebResearch(rawQuestion)&&
      Date.now()-(cooldown.get(id)||0)<minimumDelay)return;
   if(confirmation)pendingResearch.delete(id);
-  const question=confirmation?pending.question:stripMentions(message.content,client.user.id);
+  // Conserva o nome visível dos membros mencionados para que a IA entenda quem é quem.
+  // Apenas a menção à própria Duckzinha é retirada da pergunta.
+  const namedQuestion=String(message.content||'').replace(/<@!?(\\d+)>/g,(token,userId)=>{
+    if(userId===client.user.id)return ' ';
+    const member=message.mentions.members?.get(userId);
+    const user=message.mentions.users?.get(userId);
+    const name=String(member?.displayName||user?.globalName||user?.username||'membro')
+      .replace(/[\\r\\n\\t]/g,' ').slice(0,45);
+    return '@'+name;
+  }).replace(/<@&\\d+>|<#\\d+>|@everyone|@here/g,' ')
+    .replace(/\\s+/g,' ').trim().slice(0,900);
+  const question=confirmation?pending.question:namedQuestion;
   // Também bloqueia perguntas salvas ao confirmar um pedido de pesquisa.
   if(isGameAnswerRequest(question,activeQuestions())){
     await message.reply({content:GAME_ANSWER_REFUSAL,
