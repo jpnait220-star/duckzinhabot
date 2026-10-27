@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {PermissionsBitField} from 'discord.js';
+import {PermissionsBitField,ApplicationCommandOptionType} from 'discord.js';
+import {commandPayloads} from '../src/commands.mjs';
 import {ReactionRolePanels,reactionRoleCommands,validReactionRole,emojiKey,validEmojiText,panelEmbed} from '../src/duck-reaction-roles.mjs';
 test('comando tem criação, edição, visualização e exclusão',()=>{
  const command=reactionRoleCommands()[0];
@@ -108,4 +109,32 @@ test('Editar descrição mantém mensagem, reações, emojis e cargos',async()=>
  assert.equal(saved.description,'Nova descrição');
  assert.equal(saved.message_id,before.message_id);
  assert.match(answer.content,/preservados/);
+});
+
+test('Todos os comandos do Discord listam opções obrigatórias antes das opcionais',()=>{
+ // Valida o payload completo que guild.commands.set enviará ao Discord.
+ // Isso detecta erros 50035 APPLICATION_COMMAND_OPTIONS_REQUIRED_INVALID.
+ const verify=(options,path)=>{
+   let optionalSeen=false;
+   for(const option of options||[]){
+     if(option.type===ApplicationCommandOptionType.Subcommand||
+       option.type===ApplicationCommandOptionType.SubcommandGroup){
+       verify(option.options||[],path+' '+option.name);
+       continue;
+     }
+     if(option.required===true)
+       assert.equal(optionalSeen,false,
+         path+': opção obrigatória '+option.name+' aparece depois de opção opcional');
+     else optionalSeen=true;
+   }
+ };
+ for(const command of commandPayloads()){
+   verify(command.options||[],'/'+command.name);
+ }
+ const edit=commandPayloads().find(c=>c.name==='cargosreacao')
+   .options.find(x=>x.name==='editar');
+ assert.deepEqual(edit.options.map(x=>x.name),['mensagem','titulo','descricao']);
+ assert.equal(edit.options[0].required,true);
+ assert.equal(edit.options[1].required,false);
+ assert.equal(edit.options[2].required,false);
 });
