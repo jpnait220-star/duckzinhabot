@@ -18,6 +18,7 @@ export const MEMBER_HELP_SECTIONS=Object.freeze([
   ['/avatar','Abre o Studio para personalizar seu pato e salvar visuais.'],
   ['/ver pessoa','Mostra o avatar seu ou de outro membro.'],
   ['/perfil','Mostra avatar e recorde de quiz.'],
+  ['/profile','Publica um código DZ3 com botão de copiar (somente cargo autorizado).'],
   ['/card','Gera um cartão do membro com avatar e moedas.'],
   ['/inventario','Consulta os cinco visuais cosméticos salvos.'],
   ['/amizade','Consulta a familiaridade das suas conversas públicas com ela.'],
