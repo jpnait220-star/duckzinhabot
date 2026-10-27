@@ -16,9 +16,10 @@ export function reactionRoleCommands(){
   .addSubcommand(s=>emoji(id(s.setName('remover').setDescription('Remover uma opção de cargo'))))
   .addSubcommand(s=>id(s.setName('apagar').setDescription('Excluir painel')))
   .addSubcommand(s=>id(s.setName('ver').setDescription('Ver opções cadastradas')))
-  .addSubcommand(s=>id(s.setName('editar').setDescription('Editar título ou descrição do painel')
+  // Discord exige opções obrigatórias antes de opções opcionais.
+  .addSubcommand(s=>id(s.setName('editar').setDescription('Editar título ou descrição do painel'))
     .addStringOption(o=>o.setName('titulo').setDescription('Novo título (opcional)').setMaxLength(90))
-    .addStringOption(o=>o.setName('descricao').setDescription('Nova descrição (opcional)').setMaxLength(700))))
+    .addStringOption(o=>o.setName('descricao').setDescription('Nova descrição (opcional)').setMaxLength(700)))
   .addSubcommand(s=>id(s.setName('migrar').setDescription('Trocar painel antigo de webhook por mensagem da Duckzinha')))
   .addSubcommand(s=>s.setName('diagnostico').setDescription('Verificar permissões e banco antes de criar um painel')).toJSON()];
 }
