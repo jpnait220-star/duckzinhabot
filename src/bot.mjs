@@ -411,7 +411,7 @@ catch {console.warn('[Duckzinha] knowledge.json ausente; usando apenas as respos
 async function getHistory(userId){
   return chatHistory.get(userId);
 }
-async function getPublicRecentMessages(message,{limit=60}={}){
+async function getPublicRecentMessages(message,{limit=20}={}){
   if(!publicChannel(message)||!message.channel?.messages?.fetch)return [];
   let timer;
   try{
@@ -901,12 +901,9 @@ client.on(Events.MessageCreate,async message=>{
     const friendshipTurns=social.turns;
     const affinityScore=nextAffinity(social.score,toneChange);
     const pastResearch=previousResearchNotes(history);
-    const extraContext=currentServerContext(message.id);
-    // Reações curtas priorizam este canal em vez de misturar assuntos de outros canais.
-    const mergedChannelContext=isShortContextualTurn(question)
-      ?channelContext.slice(-3400)
-      :(channelContext.slice(-2500)+'\n'+
-        (extraContext?'Conversas públicas recentes:\n'+extraContext.slice(-2200):'')).trim().slice(-4900);
+    // Sempre forneça ao modelo as 20 mensagens anteriores deste canal em ordem.
+    // Não substitua o contexto local por mensagens de outros canais.
+    const mergedChannelContext=channelContext;
     const focusedExchange=lastExchange?.channelId===message.channelId&&
       Date.now()-lastExchange.at<=10*60_000?lastExchange:null;
     // Recover explicit identity from this member's own messages, even when
