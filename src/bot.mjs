@@ -1261,6 +1261,20 @@ client.on(Events.InteractionCreate,async interaction=>{
   }
   if(!interaction.isChatInputCommand())return;
   try{
+    if(interaction.commandName==='esquecer'){
+      const count=interaction.options.getInteger('quantidade',true);
+      await interaction.deferReply({flags:MessageFlags.Ephemeral});
+      try{
+        const removed=await chatHistory.forgetRecent(interaction.user.id,count);
+        recentExchange.delete(interaction.user.id);
+        return interaction.editReply(removed
+          ?'Esqueci '+removed+' mensagem(ns) recente(s) do seu histórico pessoal. Seus apelidos, ensinamentos e outras memórias continuam salvos.'
+          :'Não havia mensagens recentes no seu histórico pessoal para esquecer.');
+      }catch(error){
+        console.warn('[Duckzinha] /esquecer: '+error.message);
+        return interaction.editReply('Não consegui atualizar seu histórico agora. Nada foi confirmado como apagado.');
+      }
+    }
     if(interaction.commandName==='testaria'){
       if(!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)){
         return interaction.reply({content:'Somente administradores podem testar a IA.',flags:MessageFlags.Ephemeral});
