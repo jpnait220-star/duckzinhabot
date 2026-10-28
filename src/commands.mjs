@@ -30,6 +30,12 @@ export function commandPayloads(){
       .setRequired(false).addChoices(...MEMBER_HELP_CATEGORIES));
     return builder.toJSON();
   });
+  list.push(new SlashCommandBuilder().setName('esquecer')
+    .setDescription('Esquecer somente mensagens recentes do seu histórico, sem apagar ensinamentos')
+    .addIntegerOption(o=>o.setName('quantidade')
+      .setDescription('Número de mensagens recentes para esquecer (1 a 12)')
+      .setMinValue(1).setMaxValue(12).setRequired(true))
+    .setDMPermission(false).toJSON());
   list.push(new SlashCommandBuilder().setName('testaria')
     .setDescription('Testar diretamente o Cloudflare Workers AI, sem Groq (admin)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator).setDMPermission(false).toJSON());
