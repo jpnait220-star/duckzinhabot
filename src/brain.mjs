@@ -216,6 +216,55 @@ const groqSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function askCloudflare(options={}) {
   const {groqKey='',groqModel='qwen/qwen3.8-27b'}=options;
   let primaryError=null;
+  // DeepSeek oficial como IA principal: as mesmas memórias são enviadas a todos os provedores.
+  if(options.deepseekKey){
+    const cut=(value,max)=>String(value||'').slice(0,max);
+    const prompt=[
+      PERSONALITY,
+      'PERSONALIDADE CONFIGURADA: '+cut(options.customPersonality,2600),
+      'CONHECIMENTO DA COMUNIDADE: '+cut(options.knowledge,1600),
+      'NOME ESCOLHIDO: '+cut(options.name,100),
+      'MEMÓRIAS E PREFERÊNCIAS: '+cut(options.profileFacts,900),
+      'FAMILIARIDADE: '+cut(options.familiarity,200),
+      'ESTILO: '+cut(options.affinity,400),
+      'CONVERSA COLETIVA RECENTE: '+cut(options.channelContext,3900),
+      'PESQUISAS ANTERIORES: '+cut(options.pastResearch,1100),
+      'PESQUISA ATUAL: '+cut(options.research,1700),
+      'Acompanhe mudanças de assunto e continuações entre membros do canal. Não confunda membros diferentes nem invente fatos.',
+      conversationalCue({question:options.question||'',history:options.history||[],
+        lastExchange:options.lastExchange,channelId:options.channelId})
+    ].join('\n\n');
+    const messages=[{role:'system',content:prompt},
+      ...(options.history||[]).slice(-8).filter(m=>
+        ['user','assistant'].includes(m?.role)&&typeof m.content==='string')
+        .map(m=>({role:m.role,content:m.content.slice(0,850)})),
+      {role:'user',content:'Mensagem atual de '+cut(options.speaker||'Membro',36)+': '+cut(options.question,900)}];
+    try{
+      const model=options.deepseekModel||'deepseek-flash';
+      const response=await fetch('https://api.deepseek.com/chat/completions',{
+        method:'POST',signal:AbortSignal.timeout(25000),
+        headers:{Authorization:'Bearer '+options.deepseekKey,'Content-Type':'application/json'},
+        body:JSON.stringify({model,messages,temperature:0.6,max_tokens:700,
+          reasoning_effort:'none',stream:false})
+      });
+      if(!response.ok){
+        let diagnostic='';
+        try{const body=await response.json();diagnostic=String(body?.error?.code||
+          body?.error?.type||body?.error?.message||'').slice(0,120)}catch{}
+        throw new Error('DeepSeek HTTP '+response.status+(diagnostic?' ('+diagnostic+')':''));
+      }
+      const result=await response.json();
+      const raw=result?.choices?.[0]?.message?.content;
+      const answer=safeResponse(Array.isArray(raw)?
+        raw.map(part=>typeof part==='string'?part:part?.text||'').join(''):raw);
+      if(!answer)throw new Error('DeepSeek retornou resposta vazia');
+      console.log('[Duckzinha] IA respondida pelo DeepSeek ('+model+').');
+      return answer;
+    }catch(error){
+      primaryError=error;
+      console.warn('[Duckzinha] DeepSeek indisponível: '+error.message+'; tentando reservas.');
+    }
+  }
   // Mistral e SambaNova compartilham exatamente o mesmo contexto persistente da Duckzinha.
   const extraProviders=[
     {name:'Mistral',key:options.mistralKey,model:options.mistralModel||'mistral-small-latest',
