@@ -59,6 +59,22 @@ export class DuckChatHistory {
   try{return await task;}
   finally{if(this.pending.get(userId)===task)this.pending.delete(userId);}
  }
+ async forgetRecent(id,count){
+  const userId=String(id);
+  const previous=this.pending.get(userId)||Promise.resolve();
+  const task=previous.catch(()=>{}).then(async()=>{
+   const original=await this.get(userId);
+   const removed=Math.min(count,original.length);
+   const remaining=original.slice(0,original.length-removed);
+   // Persist first: if saving fails, do not claim messages were forgotten.
+   await this.save(userId,remaining);
+   this.cache.set(userId,{items:remaining,updated:this.now()});
+   return removed;
+  });
+  this.pending.set(userId,task);
+  try{return await task;}
+  finally{if(this.pending.get(userId)===task)this.pending.delete(userId);}
+ }
  clear(id){
   if(id!=null){const userId=String(id);this.cache.delete(userId);this.loading.delete(userId);}
   else{this.cache.clear();this.loading.clear();}
