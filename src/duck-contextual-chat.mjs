@@ -47,6 +47,10 @@ export function conversationalCue({question='',history=[],lastExchange=null,
   'uma brincadeira ou um assunto novo. Não dependa de uma lista de palavras: '+
   'interjeições, gírias desconhecidas, risadas, erros de digitação e frases sem '+
   'pergunta podem ser comentários sobre a fala imediatamente anterior. '+
+  'Se alguém insiste, diz que está mandando, ou reclama que você não entendeu, '+
+  'releia o pedido anterior da pessoa e o que você respondeu: pode ser '+
+  'uma correção ou continuação da mesma tarefa, não um assunto novo. '+
+  'Não insulte nem dê broncas ao usuário por insistir. '+
   'Quando fizer sentido, responda à conversa que já está acontecendo, como num chat '+
   'natural, sem cumprimentar de novo, sem fingir que não houve conversa e sem '+
   'perguntar genericamente "tá tudo bem?" ou "o que aconteceu?". '+
