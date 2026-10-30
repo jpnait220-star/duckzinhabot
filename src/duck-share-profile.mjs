@@ -10,17 +10,17 @@ export const MAX_PROFILE_LENGTH=3500;
 
 export function profileCommand(){
   return new SlashCommandBuilder().setName('profile')
-    .setDescription('Compartilhar um código de perfil DZ3 com botão de cópia')
+    .setDescription('Publicar uma mensagem de perfil com botão para copiar')
     .setDMPermission(false)
-    .addStringOption(o=>o.setName('codigo')
-      .setDescription('Cole seu perfil completo, começando por DZ3:e:')
-      .setRequired(true).setMinLength(10).setMaxLength(MAX_PROFILE_LENGTH))
+    .addStringOption(o=>o.setName('mensagem')
+      .setDescription('Digite a mensagem do seu perfil')
+      .setRequired(true).setMinLength(1).setMaxLength(MAX_PROFILE_LENGTH))
     .toJSON();
 }
 
+// Aceita qualquer mensagem não vazia; não exige mais o formato DZ3.
 export function validProfileCode(value){
-  return typeof value==='string'&&value.length>=10&&
-    value.length<=MAX_PROFILE_LENGTH&&/^DZ3:e:[A-Za-z0-9_-]+$/.test(value);
+  return typeof value==='string'&&value.trim().length>0&&value.length<=MAX_PROFILE_LENGTH;
 }
 
 export function canPostProfile(member){
@@ -32,12 +32,8 @@ export function canPostProfile(member){
 export function profileEmbed({userId,code}){
   return new EmbedBuilder()
     .setColor(0xf5cc57)
-    .setTitle('🦆・PROFILE DZ3')
-    .setDescription(
-      'Perfil compartilhado por <@'+userId+'>.\n\n'+
-      '**Código DZ3** (toque para revelar):\n'+
-      '||'+code+'||\n\n'+
-      '📋 Clique em **Copiar Profile** para abrir o código pronto para copiar.')
+    .setTitle('🦆・PROFILE')
+    .setDescription('Perfil compartilhado por <@'+userId+'>.\n\n**Mensagem:**\n'+code)
     .setFooter({text:'Duckzinha • Perfis da comunidade'});
 }
 
@@ -50,8 +46,15 @@ export function profileCopyRow(){
 
 export function extractProfileCode(message){
   const desc=message?.embeds?.[0]?.description||'';
-  const match=/(?:^|\n)\|\|(DZ3:e:[A-Za-z0-9_-]+)\|\|(?:\n|$)/.exec(desc);
-  return match&&validProfileCode(match[1])?match[1]:null;
+  const marker='**Mensagem:**\n';
+  const start=desc.indexOf(marker);
+  if(start!==-1){
+    const value=desc.slice(start+marker.length);
+    return validProfileCode(value)?value:null;
+  }
+  // Compatibilidade com perfis DZ3 publicados antes desta alteração.
+  const oldMatch=/(?:^|\n)\|\|(DZ3:e:[A-Za-z0-9_-]+)\|\|(?:\n|$)/.exec(desc);
+  return oldMatch?oldMatch[1]:null;
 }
 
 export async function handleProfileCommand(interaction,{guildId}={}){
@@ -66,13 +69,9 @@ export async function handleProfileCommand(interaction,{guildId}={}){
       allowedMentions:{parse:[]},flags:MessageFlags.Ephemeral
     });
 
-  const code=String(interaction.options.getString('codigo',true)||'').trim();
-  const tick=String.fromCharCode(96);
+  const code=String(interaction.options.getString('mensagem',true)||'').trim();
   if(!validProfileCode(code))
-    return interaction.reply({
-      content:'⚠️ Código de perfil inválido. Cole um código DZ3 completo (começando em '+tick+'DZ3:e:'+tick+'), sem espaços ou linhas extras.',
-      flags:MessageFlags.Ephemeral
-    });
+    return interaction.reply({content:'Escreva uma mensagem para publicar no seu perfil.',flags:MessageFlags.Ephemeral});
   return interaction.reply({
     embeds:[profileEmbed({userId:interaction.user.id,code})],
     components:[profileCopyRow()],
@@ -93,16 +92,16 @@ export async function handleProfileCopy(interaction,{guildId,botId}={}){
     flags:MessageFlags.Ephemeral
   });
   // Um bloco de código oferece a ação "Copiar" da própria interface do Discord.
-  if(code.length<=1850){
+  if(code.length<=1850&&!code.includes(String.fromCharCode(96).repeat(3))){
     const fence=String.fromCharCode(96).repeat(3);
     return interaction.reply({
-      content:'📋 **Copie o Profile DZ3 abaixo:**\n'+fence+'text\n'+code+'\n'+fence,
+      content:'📋 **Copie a mensagem do perfil abaixo:**\n'+fence+'text\n'+code+'\n'+fence,
       flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}
     });
   }
-  // Para códigos maiores, um TXT evita ultrapassar os 2000 caracteres do Discord.
+  // Para mensagens maiores, um TXT evita ultrapassar os 2000 caracteres do Discord.
   return interaction.reply({
-    content:'📋 Seu código está no arquivo **Profile-DZ3.txt**. Abra para copiar.',
+    content:'📋 A mensagem está no arquivo **Profile.txt**. Abra para copiar.',
     files:[new AttachmentBuilder(Buffer.from(code,'utf8'),{name:'Profile-DZ3.txt'})],
     flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}
   });
