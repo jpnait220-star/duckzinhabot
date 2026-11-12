@@ -1,6 +1,6 @@
 // Pesquisa enciclopédica gratuita. Não acessa links fornecidos por usuários.
 const WIKIPEDIA_API='https://pt.wikipedia.org/w/api.php';
-const CLIENT_AGENT='DuckzinhaDiscordBot/1.0 (https://duckzincommunity.vercel.app)';
+const CLIENT_AGENT='DuckzinhaDiscordBot/1.0 (https://duckcommunity.go.altare.global)';
 const cache=new Map();
 let lastRequest=0;
 let inFlight=Promise.resolve();

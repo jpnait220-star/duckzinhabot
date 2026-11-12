@@ -51,3 +51,9 @@ test('Mensagens banais não ativam automaticamente ações',()=>{
     assert.equal(requestedAction(text),null,text);
   }
 });
+
+test('Website e projetos não mantêm a Vercel mesmo com WEBSITE_URL antigo na host',()=>{
+ const previous=process.env.WEBSITE_URL;process.env.WEBSITE_URL='https://duckzincommunity.vercel.app';
+ try{for(const kind of ['website','projetos']){const description=publicInfoPayload(kind).embeds[0].data.description;assert.match(description,/https:\/\/duckcommunity\.go\.altare\.global/);assert.doesNotMatch(description,/vercel\.app/);}}
+ finally{if(previous===undefined)delete process.env.WEBSITE_URL;else process.env.WEBSITE_URL=previous;}
+});

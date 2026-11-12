@@ -1,3 +1,4 @@
+import {resolveWebsiteUrl} from './website-url.mjs';
 import 'dotenv/config';
 import fs from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -42,7 +43,7 @@ if(!TOKEN||!GUILD_ID||!CLIENT_ID){
   console.error('Faltam DISCORD_TOKEN, DISCORD_CLIENT_ID ou DISCORD_GUILD_ID. Configure as variáveis na FadeHost (não publique as chaves).');
   process.exit(1);
 }
-const SITE=process.env.WEBSITE_URL?.startsWith('https://')?process.env.WEBSITE_URL:'https://duckzincommunity.vercel.app';
+const SITE=resolveWebsiteUrl();
 const PANEL_ID=/^\d{17,22}$/.test(process.env.SUPPORT_PANEL_CHANNEL_ID||'')?process.env.SUPPORT_PANEL_CHANNEL_ID:'';
 const CF_ACCOUNT=process.env.CF_ACCOUNT_ID?.trim()||'';
 const CF_TOKEN=process.env.CF_API_TOKEN?.trim()||'';

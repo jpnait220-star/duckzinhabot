@@ -1,3 +1,4 @@
+import {resolveWebsiteUrl,communityWebsiteLink} from './website-url.mjs';
 import {publicMessageText,publicMessageSpeaker} from './duck-channel-context.mjs';
 import {pickSelfName} from './duck-self-identity.mjs';
 import {isShortContextualTurn,conversationalCue} from './duck-contextual-chat.mjs';
@@ -43,7 +44,7 @@ export function safeResponse(s) {
     .replace(/<think>[\s\S]*?<\/think>/gi,'').replaceAll(/@everyone|@here/gi,'@\u200beveryone')
     .replaceAll(/<@!?\d+>/g,'[membro]').replaceAll(/<@&\d+>/g,'[cargo]')
     .replaceAll(/(?:https?:\/\/)[^\s)<>]+/gi,url=>{
-      try { return new URL(url).hostname==='duckzincommunity.vercel.app'?url:'[link removido]'; } catch {return '[link removido]';}
+      return communityWebsiteLink(url)||'[link removido]';
     }).trim();
   return text.slice(0,1600)||null;
 }
@@ -53,7 +54,7 @@ export function cannedAnswer(input, extraKnowledge={}) {
   if(/\b(ia|inteligencia artificial|voce e (um )?bot|voce e real|humana)\b/.test(s))return 'Sou a Duckzinha, assistente virtual da comunidade! 🦆💛 Quando a IA está ligada, consigo conversar de um jeitinho mais natural ✨';
   if(/\b(boxpvp|box pvp|box)\b/.test(s))return (find(['boxpvp'])||'BoxPvP é um modo de Minecraft com minas, kits fortes e muito PvP!')+' 🎮 W demais!';
   if(/\b(w|gg)\b/.test(s))return 'GG, patinho! W demais KKKKK 💛🎮';
-  if(/\b(site|website|pagina|download|versao)\b/.test(s))return 'Nosso cantinho é https://duckzincommunity.vercel.app 💛 Lá você encontra os projetos, downloads e versões!';
+  if(/\b(site|website|pagina|download|versao)\b/.test(s))return `Nosso cantinho é ${resolveWebsiteUrl()} 💛 Lá você encontra os projetos, downloads e versões!`;
   if(/\b(ticket|ajuda|erro|bug|problema|falha|nao funciona|suporte)\b/.test(s))return 'Aii, que chato! 🥺💛 Abre um ticket no painel de suporte e aguarda um atendente da equipe, tá? Eu posso te orientar no básico, mas eles conseguem analisar melhor!';
   if(/\b(oi|ola|eai|opa|bom dia|boa tarde|boa noite)\b/.test(s))return 'Oieee! 🦆💛 Tudo bem? Você joga mais BoxPvP ou curte criar mods também?';
   return 'Minha IA não conseguiu responder agora. Pode tentar de novo daqui a pouquinho?';

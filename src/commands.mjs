@@ -1,3 +1,4 @@
+import {resolveWebsiteUrl} from './website-url.mjs';
 import {EmbedBuilder,MessageFlags,PermissionFlagsBits,SlashCommandBuilder} from 'discord.js';
 import {ticketGuide} from './community-social.mjs';
 import {voiceChoices,voiceLabel,validVoice} from './duck-tts.mjs';
@@ -98,7 +99,7 @@ export function commandPayloads(){
 
 export const embed=(title,description)=>new EmbedBuilder().setColor(gold).setTitle(title).setDescription(description).setFooter({text:'Duckzinha • DuckzinCommunity 🦆💛'});
 // As respostas dos comandos slash também funcionam por pedidos explícitos.
-export function publicInfoPayload(kind,{site}={}){
+export function publicInfoPayload(kind,{site=resolveWebsiteUrl()}={}){
   if(kind==='website')return {embeds:[embed('🌐 Conheça o DuckzinCommunity',
     'Oiêê! 💛 Nosso site reúne os projetos da comunidade num lugar só!\n\n'+
     '🧩 **Mods:** criações e novidades do Minecraft.\n'+

@@ -36,3 +36,11 @@ test('Contexto coletivo acompanha as falas de pessoas diferentes, em ordem',()=>
  assert.ok(context.indexOf('João:')<context.indexOf('Duck:'));
  assert.doesNotMatch(context,/mensagem muito antiga/);
 });
+
+test('Respostas de site usam Altare e links antigos da IA são migrados sem liberar outros sites',()=>{
+ assert.match(cannedAnswer('qual website?'),/https:\/\/duckcommunity\.go\.altare\.global/);
+ assert.match(safeResponse('Site https://duckcommunity.go.altare.global/#suporte'),/duckcommunity\.go\.altare\.global/);
+ const migrated=safeResponse('Site https://duckzincommunity.vercel.app/#suporte');
+ assert.match(migrated,/https:\/\/duckcommunity\.go\.altare\.global\/#suporte/);
+ assert.doesNotMatch(migrated,/vercel|link removido/);
+});

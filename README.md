@@ -1,5 +1,7 @@
 # 🦆 Duckzinha — Assistente do DuckzinCommunity (versão 1)
 
+**Site atual:** https://duckcommunity.go.altare.global — veja [como aplicar a atualização do domínio](ATUALIZAR-DOMINIO.md).
+
 Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele **apenas publica avisos em novos tickets** (quando configurado) e não altera tickets, não consulta canais privados de suporte para gerar respostas de IA, não se passa por humano e não exige chave de IA para iniciar.
 
 ## O que já faz
