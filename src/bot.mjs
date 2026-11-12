@@ -1,3 +1,5 @@
+import {DuckAutoChat,silentAutoReply,AUTO_CHAT_INSTRUCTION} from './duck-auto-chat.mjs';
+import {readPublicChannel,replyFromChannel} from './duck-chat-context.mjs';
 import {resolveWebsiteUrl} from './website-url.mjs';
 import 'dotenv/config';
 import fs from 'node:fs/promises';
@@ -330,6 +332,11 @@ async function maybeReactWithDuckEmoji(message,content=message.content){
   finally{replyingWithImage=false;}
 }
 
+const autoChat=new DuckAutoChat({
+ enabled:!['0','false','off','nao'].includes(String(process.env.AUTO_CHAT_ENABLED||'true').toLowerCase()),
+ channelIds:String(process.env.AUTO_CHAT_CHANNEL_IDS||'').split(/[;,\s]+/).filter(Boolean),
+ intervalMs:(Number(process.env.AUTO_CHAT_INTERVAL_SECONDS)||20)*1000
+});
 const serverRecent=[]; // Conversa recente dos canais públicos, só em RAM.
 let sharedTurns=[],sharedReady=Promise.resolve(),sharedWrite=Promise.resolve();
 const CHAT_AGE=48*60*60_000;
@@ -341,7 +348,9 @@ function publicChannel(message){
     c.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel));
 }
 function makeTurn(message){
- return {id:message.id,authorId:message.author.id,
+ return {id:message.id,authorId:message.author.id,guildId:message.guildId,
+   username:message.author.username,globalName:message.author.globalName,
+   displayName:message.member?.displayName,bot:Boolean(message.author.bot),
    speaker:publicMessageSpeaker(message,client.user?.id),
    channelId:message.channelId,channel:String(message.channel?.name||'geral').slice(0,36),
    text:publicMessageText(message,{max:320}),
@@ -412,22 +421,9 @@ catch {console.warn('[Duckzinha] knowledge.json ausente; usando apenas as respos
 async function getHistory(userId){
   return chatHistory.get(userId);
 }
-async function getPublicRecentMessages(message,{limit=20}={}){
-  if(!publicChannel(message)||!message.channel?.messages?.fetch)return [];
-  let timer;
-  try{
-    const timeout=new Promise((_,reject)=>{
-      timer=setTimeout(()=>reject(Error('tempo limite da leitura do canal')),5000);
-      timer.unref?.();
-    });
-    const records=await Promise.race([
-      message.channel.messages.fetch({limit,before:message.id}),timeout
-    ]);
-    return [...records.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
-  }catch(err){
-    console.warn('[Duckzinha] Histórico público indisponível: '+String(err?.message||err));
-    return [];
-  }finally{if(timer)clearTimeout(timer);}
+async function getPublicRecentMessages(message,{limit=50}={}){
+ return readPublicChannel(message,{allowed:publicChannel(message),turns:serverRecent,limit,
+  onIssue:issue=>console.warn('[Duckzinha] '+issue)});
 }
 async function getChannelConversation(message){
   return formatChannelContext(await getPublicRecentMessages(message),client.user?.id);
@@ -768,7 +764,9 @@ client.on(Events.MessageCreate,async message=>{
     }catch(err){console.warn('[Duckzinha] Ensino natural: '+err.message);}
     return;
   }
-  if(!mentioned&&!confirmation&&!explaining&&!contextualReply){
+  const automaticTurn=!mentioned&&!confirmation&&!explaining&&!contextualReply&&
+    autoChat.canStart(message,{allowed:isPublic});
+  if(!mentioned&&!confirmation&&!explaining&&!contextualReply&&!automaticTurn){
     if(candidate){
       try{
         const saved=await persistCandidate(message,candidate);
@@ -870,19 +868,23 @@ client.on(Events.MessageCreate,async message=>{
       return;
     }
   }
+  const autoReservation=automaticTurn?autoChat.reserve(message,{allowed:isPublic}):null;
+  if(automaticTurn&&!autoReservation)return;
   const requestStarted=Date.now();
   busy.set(id,requestStarted);cooldown.set(id,requestStarted);
   const memoryTask=candidate?persistCandidate(message,candidate)
     .catch(err=>{console.warn('[Duckzinha] Salvar memória: '+err.message);return false;}):Promise.resolve(false);
-  console.log('[Duckzinha] Menção recebida; iniciando resposta.');
+  console.log('[Duckzinha] '+(automaticTurn?'Participação espontânea':'Mensagem dirigida')+'; iniciando resposta.');
   try{
     // Independent lookups run concurrently; Supabase reads have an 8s deadline.
-    const [member,facts,personality,channelContext]=await Promise.all([
+    const [member,facts,personality,channelMessages]=await Promise.all([
       store.getMember(id).catch(err=>{console.warn('[Duckzinha] Nome: '+err.message);return null}),
       communityKnowledge(),
       getPersonality(),
-      getChannelConversation(message)
+      getPublicRecentMessages(message)
     ]);
+    if(automaticTurn&&member?.enabled===false)return;
+    const channelContext=formatChannelContext(channelMessages,client.user?.id);
     // Use tanto o histórico desta pessoa quanto as falas públicas recentes.
     // O contexto do canal NÃO substitui a conversa anterior do usuário.
     const history=await getHistory(id);
@@ -902,7 +904,7 @@ client.on(Events.MessageCreate,async message=>{
     const friendshipTurns=social.turns;
     const affinityScore=nextAffinity(social.score,toneChange);
     const pastResearch=previousResearchNotes(history);
-    // Sempre forneça ao modelo as 20 mensagens anteriores deste canal em ordem.
+    // Sempre forneça ao modelo as mensagens anteriores disponíveis deste canal em ordem.
     // Não substitua o contexto local por mensagens de outros canais.
     const mergedChannelContext=channelContext;
     const focusedExchange=lastExchange?.channelId===message.channelId&&
@@ -920,8 +922,10 @@ client.on(Events.MessageCreate,async message=>{
     const latestName=identityAllowed
       ?newName||nameCache.get(id)||findSelfNameInHistory(history)||member?.preferred_name||''
       :newName||'';
-    let answer=null,aiAnswered=false;
-    const searching=confirmation||wantsWebResearch(question);
+    const channelAnswer=isPublic?replyFromChannel(message.content,channelMessages,{
+      botId:client.user.id,requesterId:id,referenceId:message.reference?.messageId||''}):null;
+    let answer=channelAnswer,aiAnswered=false;
+    const searching=!automaticTurn&&!channelAnswer&&(confirmation||wantsWebResearch(question));
     let searchQuery=researchTopic(question)||question;
     if(searching&&!confirmation&&isContextualResearchRequest(question)){
       const recent=await getPublicRecentMessages(message);
@@ -945,13 +949,13 @@ client.on(Events.MessageCreate,async message=>{
       }catch(err){searchError=err;console.warn('[Duckzinha] Pesquisa web: '+err.message);}
     }
     const modelReady=Boolean(DEEPSEEK_KEY||MISTRAL_KEY||SAMBANOVA_KEY||CEREBRAS_KEY||(CF_ACCOUNT&&CF_TOKEN)||GROQ_KEY);
-    if(modelReady&&(!searching||webFacts?.status==='ok')){
+    if(!channelAnswer&&modelReady&&(!searching||webFacts?.status==='ok')){
       try{
         answer=await askCloudflare({accountId:CF_ACCOUNT,token:CF_TOKEN,model:CF_MODEL,groqKey:GROQ_KEY,groqModel:GROQ_MODEL,cerebrasKey:CEREBRAS_KEY,cerebrasModel:CEREBRAS_MODEL,mistralKey:MISTRAL_KEY,mistralModel:MISTRAL_MODEL,sambanovaKey:SAMBANOVA_KEY,sambanovaModel:SAMBANOVA_MODEL,deepseekKey:DEEPSEEK_KEY,deepseekModel:DEEPSEEK_MODEL,
           question,history,channelContext:mergedChannelContext,
           lastExchange:focusedExchange,channelId:message.channelId,
           speaker:message.member?.displayName||message.author.globalName||message.author.username,
-          customPersonality:personality+'\n'+moodInstruction(extras.mood(question))+'\n'+
+          customPersonality:(automaticTurn?AUTO_CHAT_INSTRUCTION+'\n':'')+personality+'\n'+moodInstruction(extras.mood(question))+'\n'+
              dynamicPersonality(question,{recent:mergedChannelContext,mood:extras.mood(question)}),knowledge:Object.entries(facts).map(([k,v])=>k+': '+v).join('\n'),name:latestName,
           profileFacts:profileFacts.map(item=>item.fact_value).join('\n'),
           familiarity:history.length||focusedExchange
@@ -979,14 +983,16 @@ client.on(Events.MessageCreate,async message=>{
       if(!answer)answer='Encontrei estas informações nas páginas consultadas: '+
         webFacts.results.slice(0,2).map(item=>item.title+': '+item.summary).join(' ');
     }
-    if(!aiAnswered&&!searching&&isShortContextualTurn(question)){
+    // Spontaneous participation is optional, including when providers fail.
+    if(automaticTurn&&!channelAnswer&&(!answer||silentAutoReply(answer)||uncertainty(answer)))return;
+    if(!answer&&!aiAnswered&&!searching&&isShortContextualTurn(question)){
       answer=reactionFallback(question,{lastExchange:focusedExchange,
         channelId:message.channelId})||answer;
     }
-    answer=safeResponse(answer||cannedAnswer(question,facts))||'Pode explicar um pouquinho melhor?';
+    answer=safeResponse(answer||cannedAnswer(question,facts,{aiReady:modelReady,hasChannelContext:Boolean(channelContext?.trim())}))||'Pode explicar um pouquinho melhor?';
     if(isSelfIdentityQuestion(question))answer=identityAnswer(latestName);
     if(newName&&!isSelfIdentityQuestion(question))answer='Entendi! Vou te chamar de '+newName+'. 💛 '+answer;
-    if(voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId&&mentioned){
+    if(!channelAnswer&&voiceVisits.sessions.get(message.guildId)?.textChannelId===message.channelId&&mentioned){
       const joke=playfulCallReply(question,Number(String(message.id).slice(-4)));
       if(joke){answer=joke;aiAnswered=true;}
     }
@@ -997,7 +1003,7 @@ client.on(Events.MessageCreate,async message=>{
     // modo básico, sem IA), ou quando não houve resposta e o assunto é factual.
     const contextualShort=Boolean(channelContext?.trim())&&
       isShortContextualTurn(question)&&!wantsWebResearch(question);
-    const shouldOffer=!searching&&!contextualShort&&(uncertainty(answer)||
+    const shouldOffer=!channelAnswer&&!searching&&!contextualShort&&(uncertainty(answer)||
       (!aiAnswered&&Boolean(researchTopic(question))));
     if(shouldOffer)answer=isVoiceChat
       ?'Aii, não sei ao certo o que é isso! 🦆💛 Quer que eu pesquise? Clique em **Pesquisar**.'
@@ -1018,7 +1024,7 @@ client.on(Events.MessageCreate,async message=>{
           userText:question.slice(0,700),botText:answer.slice(0,850)});
       }
       if(offerSearch)pendingResearch.set(id,{question,channelId:message.channelId,promptId:sent.id,at:Date.now(),mode:'choice'});
-      if(isAffinityEnabled)
+      if(isAffinityEnabled&&!automaticTurn)
         void store.incrementFamiliarity(id,{toneChange,score:affinityScore})
           .catch(err=>console.warn('[Duckzinha] Familiaridade: '+err.message));
       // Never wait for background database writes before releasing the user.
@@ -1026,16 +1032,18 @@ client.on(Events.MessageCreate,async message=>{
         void addHistory(id,question,answer,webFacts?.status==='ok'?webFacts.results:[])
           .catch(err=>console.warn('[Duckzinha] Histórico: '+err.message));
       void schedule(sent).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
-      if(isPublic&&member?.enabled!==false)void community.awardTalk(id,message.id);
+      if(isPublic&&!automaticTurn&&member?.enabled!==false)void community.awardTalk(id,message.id);
       if(voiceText)void speakDuckReply(message.guildId,message.channelId,voiceText,question);
       console.log('[Duckzinha] Resposta enviada ao Discord.');
     }
   }catch(error){
     console.error('[Duckzinha] Erro ao conversar: '+error.message);
+    if(automaticTurn)return;
     const msg=await message.reply({content:'Aii, tive um probleminha aqui 🥺💛 Pode tentar de novo? Se for urgente, abre um ticket pra equipe.',allowedMentions:{repliedUser:false,parse:[]}}).catch(()=>null);
     if(msg)void schedule(msg).catch(err=>console.warn('[Duckzinha] Limpeza agendada: '+err.message));
   }finally{
     if(busy.get(id)===requestStarted)busy.delete(id);
+    autoChat.release(autoReservation);
   }
 });
 

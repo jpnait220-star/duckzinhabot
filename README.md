@@ -2,11 +2,13 @@
 
 **Site atual:** https://duckcommunity.go.altare.global — veja [como aplicar a atualização do domínio](ATUALIZAR-DOMINIO.md).
 
+**Atualização de conversa:** acompanha mensagens públicas e pode conversar sem menção. Veja [ATUALIZAR-CHAT.md](ATUALIZAR-CHAT.md).
+
 Bot **separado** do Duckzin Bridge. Escrito em Node.js 22 + discord.js 14. Ele **apenas publica avisos em novos tickets** (quando configurado) e não altera tickets, não consulta canais privados de suporte para gerar respostas de IA, não se passa por humano e não exige chave de IA para iniciar.
 
 ## O que já faz
 
-- Responde normalmente quando **mencionada diretamente** `@Duckzinha` no servidor. Exceção: confirma pedidos explícitos de memória feitos em canais públicos; não responde a DMs.
+- Acompanha o chat público e pode participar **sem menção**, com limites de frequência. Menções diretas `@Duckzinha` continuam funcionando. Exceção: confirma pedidos explícitos de memória feitos em canais públicos; não responde a DMs.
 - Personalidade simpática, educada, simples, com emojis, GG/W/KKKK quando combinar.
 - `/ajuda`, `/website`, `/ticket`, `/explicarproblema`, `/projetos`, `/boxpvp`, `/faq`, `/sobre`, `/ping`.
 - `/testarreacao tipo:ola` — diagnóstico privado do emoji, das permissões e teste real na sua última mensagem pública (envie um `oi` antes).

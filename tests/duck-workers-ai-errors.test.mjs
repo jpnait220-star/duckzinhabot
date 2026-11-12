@@ -38,7 +38,8 @@ test('HTTP 400 com campo inválido tenta a mesma IA com payload reduzido',async(
   assert.equal(calls[0].model,calls[1].model);
   assert.ok(JSON.stringify(calls[1]).length<JSON.stringify(calls[0]).length);
   assert.equal('chat_template_kwargs' in calls[1],false);
-  assert.equal(calls[1].messages.at(-1).content,'e o minecraft?');
+  assert.equal(calls[1].messages.at(-1).content,'Mensagem atual de Membro: e o minecraft?');
+  assert.ok(calls[1].messages[0].content.includes('y'.repeat(100)),'reduced request must retain channel conversation');
   assert.ok(calls[1].messages.some(m=>m.content.includes('Estávamos falando')));
  }finally{globalThis.fetch=previous;}
 });
@@ -70,5 +71,21 @@ test('segunda falha HTTP 400 mostra os dois motivos sem loop',async()=>{
    /tentativa reduzida: Workers AI HTTP 400.*parametro-invalido/
   );
   assert.equal(count,2);
+ }finally{globalThis.fetch=prev;}
+});
+
+test('uma falha temporária de rede tenta uma vez mantendo contexto, autor e pesquisa',async()=>{
+ const prev=globalThis.fetch,calls=[];
+ try{globalThis.fetch=async(_url,opts)=>{const sent=JSON.parse(opts.body);calls.push(sent);if(calls.length===1)throw new TypeError('fetch failed');return okResponse();};
+ const result=await askCloudflare({accountId:'network-case',token:'test',model,question:'e ele?',speaker:'Duckzin',channelContext:'prime_mat: AINDA BEM',research:'fonte confirmada',profileFacts:'gosta de Minecraft'});
+ assert.match(result,/Entendi/);assert.equal(calls.length,2);assert.match(calls[1].messages[0].content,/prime_mat: AINDA BEM/);assert.match(calls[1].messages[0].content,/fonte confirmada/);assert.match(calls[1].messages.at(-1).content,/Mensagem atual de Duckzin: e ele/);
+ }finally{globalThis.fetch=prev;}
+});
+test('503 recebe só uma nova tentativa; erro de autenticação não é repetido',async()=>{
+ const prev=globalThis.fetch;let calls=0;
+ try{globalThis.fetch=async()=>{calls++;return badResponse(503,{error:{message:'Service unavailable'}});};
+ await assert.rejects(askCloudflare({accountId:'server-case',token:'test',model,question:'oi'}),/tentativa reduzida/);assert.equal(calls,2);
+ calls=0;globalThis.fetch=async()=>{calls++;return badResponse(401,{error:{message:'Unauthorized'}});};
+ await assert.rejects(askCloudflare({accountId:'auth-case',token:'test',model,question:'oi'}),/HTTP 401/);assert.equal(calls,1);
  }finally{globalThis.fetch=prev;}
 });

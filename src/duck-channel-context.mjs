@@ -19,11 +19,14 @@ export function publicMessageText(message,{max=420}={}){
   .replace(/<#\d+>/g,'#canal').replace(/@everyone|@here/gi,'@grupo')
   .replace(/https?:\/\/\S+/gi,'[link]').slice(0,max).trim();
 }
+const normalName=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 export function publicMessageSpeaker(message,botId=''){
  const user=message?.author;
  const name=space(message?.member?.displayName||user?.globalName||user?.username||'Membro')
   .replace(/[@\r\n]/g,'').slice(0,36);
- return name+(user?.id===botId?' (Duckzinha)':user?.bot?' (outro bot)':'');
+ const username=space(user?.username).replace(/[@\r\n]/g,'').slice(0,32);
+ const identity=username&&normalName(username)!==normalName(name)?' [usuario: '+username+']':'';
+ return name+identity+(user?.id===botId?' (Duckzinha)':user?.bot?' (outro bot)':'');
 }
 const normalize=s=>space(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 export function isContextualResearchRequest(question){

@@ -26,7 +26,7 @@ test('após 5 minutos o histórico continua disponível com a última resposta',
  assert.equal(HISTORY_CACHE_MS,6*60*60_000);
 });
 
-test('conversa sobrevive à reinicialização e mantém até dez trocas no banco',async()=>{
+test('conversa sobrevive à reinicialização e respeita o limite do banco',async()=>{
  const db=new Map();
  let time=1_750_000_000_000;
  const config={now:()=>time,load:async id=>db.get(id)||[],
@@ -41,7 +41,7 @@ test('conversa sobrevive à reinicialização e mantém até dez trocas no banco
  const turns=await history.get(user);
  assert.equal(turns.length,HISTORY_WINDOW);
  assert.equal(turns.at(-1).content,'Resposta 12');
- assert.equal(turns[0].content,'Assunto 3');
+ assert.equal(turns[0].content,'Assunto '+(13-HISTORY_WINDOW/2));
 });
 
 test('falha temporária no Supabase não apaga cache e não fixa vazio por 45 minutos',async()=>{
